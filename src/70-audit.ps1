@@ -586,13 +586,13 @@ function New-RapportHTML {
     [void]$corps.Append("<table>")
     foreach ($a in Get-CatalogueAudit) {
         $r = $null; try { $r = & $a.Test } catch { $r = $null }
-        if ($a.Cat -ne $cat) { $cat = $a.Cat; [void]$corps.Append("<tr class='cat'><td colspan='2'>$(& $esc $cat)</td></tr>") }
+        if ($a.Cat -ne $cat) { $cat = $a.Cat; [void]$corps.Append("<tr class='cat'><td colspan='2'>$(& $esc (Get-CatAudit $cat))</td></tr>") }
         switch ($r) {
             $true { $cls = 'oui'; $lbl = 'Actif'; $oui++ }
             $false { $cls = 'non'; $lbl = 'Au défaut'; $non++ }
             default { $cls = 'ind'; $lbl = 'N/A'; $ind++ }
         }
-        [void]$corps.Append("<tr><td>$(& $esc $a.Nom)</td><td class='$cls'>$lbl</td></tr>")
+        [void]$corps.Append("<tr><td>$(& $esc (Get-NomAudit $a.Nom))</td><td class='$cls'>$lbl</td></tr>")
     }
     [void]$corps.Append("</table>")
 
@@ -727,16 +727,16 @@ function Menu-Audit {
         if ($a.Cat -ne $categorie) {
             $categorie = $a.Cat
             Write-Host ""
-            Write-Host "  $($categorie.ToUpper())" -ForegroundColor White
+            Write-Host "  $((Get-CatAudit $categorie).ToUpper())" -ForegroundColor White
         }
         # Un test qui plante ne doit pas arrêter l'audit : il devient « indéterminé ».
         $r = $null
         try { $r = & $a.Test } catch { $r = $null }
 
         switch ($r) {
-            $true { Write-Host ("    [OUI] {0}" -f $a.Nom) -ForegroundColor Green; $applique++ }
-            $false { Write-Host ("    [ - ] {0}" -f $a.Nom) -ForegroundColor DarkGray; $absent++ }
-            default { Write-Host ("    [ ? ] {0}  (non applicable ou indéterminable ici)" -f $a.Nom) -ForegroundColor Yellow; $indetermine++ }
+            $true { Write-Host ("    [OUI] {0}" -f (Get-NomAudit $a.Nom)) -ForegroundColor Green; $applique++ }
+            $false { Write-Host ("    [ - ] {0}" -f (Get-NomAudit $a.Nom)) -ForegroundColor DarkGray; $absent++ }
+            default { Write-Host ("    [ ? ] {0}  (non applicable ou indéterminable ici)" -f (Get-NomAudit $a.Nom)) -ForegroundColor Yellow; $indetermine++ }
         }
     }
 
