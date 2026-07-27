@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MadTweak — L'optimisation maîtrisée de Windows 10 / 11</title>
+<meta name="description" content="Utilitaire PowerShell d'optimisation, de confidentialité et de maintenance pour Windows 10 et 11. 127 tweaks réversibles, audit complet, annulation exacte. En français, libre et gratuit.">
+<link rel="icon" href="../assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --rog-red:#ff003c; --rog-red-glow:rgba(255,0,60,.5);
+  --bg-dark:#050505; --card-bg:rgba(20,20,20,.7);
+  --border-red:rgba(255,0,60,.3);
+  --text-main:#fff; --text-dim:#a0a0a0; --cyan:#00e5ff; --green:#00ff88;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg-dark);color:var(--text-main);font-family:'Rajdhani',sans-serif;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;z-index:-1;
+  background:radial-gradient(circle at 50% 0%,rgba(255,0,60,.15),transparent 60%)}
+a{color:inherit}
+nav{position:sticky;top:0;z-index:100;display:flex;justify-content:space-between;align-items:center;
+  padding:1.2rem 5%;background:rgba(5,5,5,.85);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border-red);flex-wrap:wrap;gap:1rem}
+.logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:1.3rem;text-decoration:none;letter-spacing:1px}
+.logo span{color:var(--rog-red)}
+.nav-links{display:flex;gap:1.8rem;flex-wrap:wrap}
+.nav-links a{text-decoration:none;color:var(--text-dim);font-weight:600;transition:color .2s}
+.nav-links a:hover{color:var(--rog-red)}
+.hero{text-align:center;padding:5rem 5% 4rem}
+.version-badge{display:inline-block;border:1px solid var(--rog-red);color:var(--rog-red);
+  padding:.4rem 1.2rem;border-radius:20px;font-family:'Share Tech Mono',monospace;
+  font-size:.8rem;letter-spacing:2px;margin-bottom:2rem}
+.hero img{width:150px;margin-bottom:1.5rem;filter:drop-shadow(0 0 30px var(--rog-red-glow))}
+h1{font-family:'Orbitron',sans-serif;font-size:clamp(2.5rem,8vw,5rem);font-weight:900;line-height:1.05;
+  text-shadow:0 0 40px var(--rog-red-glow)}
+h1 span{color:var(--rog-red)}
+.subtitle{max-width:760px;margin:1.8rem auto 0;color:var(--text-dim);font-size:1.2rem;line-height:1.7}
+.subtitle b{color:var(--text-main)}
+.terminal-box{max-width:720px;margin:3rem auto 0;background:#0a0a0a;border:1px solid var(--border-red);
+  border-radius:10px;overflow:hidden;text-align:left;box-shadow:0 0 50px rgba(255,0,60,.15)}
+.terminal-header{display:flex;align-items:center;gap:8px;padding:.7rem 1rem;background:#151515;
+  border-bottom:1px solid var(--border-red)}
+.dot{width:12px;height:12px;border-radius:50%}
+.dot.red{background:#ff5f56}.dot.yellow{background:#ffbd2e}.dot.green{background:#27c93f}
+.terminal-title{font-size:.75rem;color:#777;margin-left:12px;font-family:'Share Tech Mono',monospace}
+.terminal-body{padding:1.4rem 1rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
+  font-family:'Share Tech Mono',monospace}
+.prompt{color:var(--rog-red);font-weight:700}
+.command{color:var(--green);flex:1;min-width:240px;word-break:break-all;font-size:.95rem}
+.copy-btn{background:var(--rog-red);color:#fff;border:none;padding:.6rem 1.3rem;border-radius:5px;
+  cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;letter-spacing:1px;transition:.2s}
+.copy-btn:hover{background:#ff1a52;box-shadow:0 0 20px var(--rog-red-glow)}
+.cta{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-top:2.5rem}
+.cta a{text-decoration:none;padding:1rem 2.2rem;border-radius:5px;font-weight:700;letter-spacing:1px;
+  font-size:1.05rem;transition:.2s}
+.cta .primary{background:var(--rog-red);color:#fff}
+.cta .primary:hover{background:#ff1a52;box-shadow:0 0 25px var(--rog-red-glow)}
+.cta .ghost{border:1px solid var(--rog-red);color:var(--rog-red)}
+.cta .ghost:hover{background:rgba(255,0,60,.1)}
+section{padding:4.5rem 5%;border-top:1px solid var(--border-red)}
+h2{font-family:'Orbitron',sans-serif;font-size:clamp(1.6rem,4vw,2.4rem);text-align:center;margin-bottom:1rem}
+.section-intro{text-align:center;color:var(--text-dim);max-width:760px;margin:0 auto 3rem;font-size:1.1rem;line-height:1.6}
+.features{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.5rem;max-width:1200px;margin:0 auto}
+.card{background:var(--card-bg);border:1px solid var(--border-red);border-radius:10px;padding:1.8rem;
+  transition:.25s}
+.card:hover{transform:translateY(-5px);border-color:var(--rog-red);box-shadow:0 10px 40px rgba(255,0,60,.2)}
+.card h3{font-family:'Orbitron',sans-serif;font-size:1.1rem;margin-bottom:.8rem;display:flex;align-items:center;gap:.6rem}
+.card p{color:var(--text-dim);line-height:1.65}
+.card b{color:var(--text-main)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1.2rem;max-width:880px;margin:0 auto}
+.stat{text-align:center;padding:1.5rem;background:var(--card-bg);border:1px solid var(--border-red);border-radius:10px}
+.stat .n{font-family:'Orbitron',sans-serif;font-size:2.4rem;font-weight:900;color:var(--rog-red);display:block}
+.stat .l{color:var(--text-dim);font-size:.95rem;letter-spacing:1px}
+.principe{max-width:900px;margin:0 auto;display:grid;gap:1.2rem}
+.principe div{background:var(--card-bg);border-left:3px solid var(--rog-red);padding:1.2rem 1.5rem;border-radius:0 8px 8px 0}
+.principe strong{color:var(--rog-red)}
+.principe p{color:var(--text-dim);margin-top:.4rem;line-height:1.6}
+.duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;max-width:1000px;margin:0 auto}
+.duo .os{background:var(--card-bg);border:1px solid var(--border-red);border-radius:10px;padding:2rem;text-align:center}
+.duo .os.actif{border-color:var(--rog-red);box-shadow:0 0 40px rgba(255,0,60,.15)}
+.duo .os h3{font-family:'Orbitron',sans-serif;font-size:1.3rem;margin-bottom:.6rem}
+.duo .os .sys{color:var(--cyan);font-family:'Share Tech Mono',monospace;font-size:.9rem;margin-bottom:1rem}
+.duo .os p{color:var(--text-dim);line-height:1.6;margin-bottom:1.2rem}
+.duo .os a{color:var(--rog-red);text-decoration:none;font-weight:700;letter-spacing:1px}
+.duo .os a:hover{text-decoration:underline}
+footer{text-align:center;padding:3rem 5%;border-top:1px solid var(--border-red);color:#5a5a62}
+footer a{color:var(--rog-red);text-decoration:none}
+.avert{max-width:760px;margin:2rem auto 0;padding:1rem 1.4rem;border:1px solid rgba(255,189,46,.4);
+  border-radius:8px;background:rgba(255,189,46,.07);color:var(--text-dim);font-size:.95rem;line-height:1.6}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="#" class="logo">MAD<span>TWEAK</span></a>
+  <div class="nav-links">
+    <a href="#telecharger">Télécharger</a>
+    <a href="#fonctions">Fonctions</a>
+    <a href="#principes">Principes</a>
+    <a href="#duo">Sur Linux ?</a>
+    <a href="https://github.com/LordMadTrix/madtweak" target="_blank" rel="noopener">Source</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="version-badge">VERSION 1.0 — WINDOWS 10 &amp; 11</div>
+  <div><img src="../assets/logo.png" alt="Logo MadTweak"></div>
+  <h1>MADTWEAK<br><span>WINDOWS EDITION</span></h1>
+  <p class="subtitle">
+    L'optimisation <b>maîtrisée</b> de Windows. 127 tweaks réversibles, un audit complet de la machine,
+    et surtout une <b>annulation réelle</b> : chaque valeur touchée est sauvegardée avant d'être écrite.
+    En français, libre, et <b>sans placebo</b>.
+  </p>
+
+  <div class="terminal-box" id="telecharger">
+    <div class="terminal-header">
+      <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+      <span class="terminal-title">Windows PowerShell (administrateur)</span>
+    </div>
+    <div class="terminal-body">
+      <span class="prompt">PS&gt;</span>
+      <code class="command" id="cmd">powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\MadTweak.ps1</code>
+      <button class="copy-btn" onclick="copierCommande()" id="btn-copie">Copier</button>
+    </div>
+  </div>
+
+  <div class="cta">
+    <a class="primary" href="https://github.com/LordMadTrix/madtweak/releases/latest" target="_blank" rel="noopener">TÉLÉCHARGER MADTWEAK.PS1</a>
+    <a class="ghost" href="https://github.com/LordMadTrix/madtweak" target="_blank" rel="noopener">VOIR LE CODE SOURCE</a>
+  </div>
+
+  <div class="avert">
+    <b>Un seul fichier, autonome.</b> Windows peut afficher un avertissement SmartScreen : le script n'est pas
+    signé numériquement. Tout le code est public et lisible sur GitHub — et le mode <b>Simulation</b> permet de
+    voir exactement ce qui changerait avant d'écrire quoi que ce soit.
+  </div>
+</section>
+
+<section>
+  <h2>EN CHIFFRES</h2>
+  <p class="section-intro">
+    Un seul fichier PowerShell, <b>aucune dépendance</b> : ni installateur, ni runtime, ni service en arrière-plan.
+  </p>
+  <div class="stats">
+    <div class="stat"><span class="n">127</span><span class="l">tweaks réversibles</span></div>
+    <div class="stat"><span class="n">104</span><span class="l">tests d'audit</span></div>
+    <div class="stat"><span class="n">5</span><span class="l">profils prêts</span></div>
+    <div class="stat"><span class="n">6</span><span class="l">thèmes d'interface</span></div>
+  </div>
+</section>
+
+<section id="fonctions">
+  <h2>CE QU'IL FAIT</h2>
+  <p class="section-intro">
+    Tout passe par une interface graphique thémable — ou 15 menus console si tu préfères le clavier.
+  </p>
+  <div class="features">
+    <div class="card">
+      <h3><span>🛡️</span> Confidentialité</h3>
+      <p>Télémétrie, pubs, Copilot, Recall, bloatwares du Store. <b>5 profils</b> pour appliquer un lot cohérent d'un coup, ou case par case.</p>
+    </div>
+    <div class="card">
+      <h3><span>↩️</span> Annulation réelle</h3>
+      <p>Chaque valeur est <b>sauvegardée avant d'être écrite</b>. Restauration exacte, totale ou tweak par tweak. Et un mode Simulation pour tout voir sans rien écrire.</p>
+    </div>
+    <div class="card">
+      <h3><span>📊</span> Score de santé</h3>
+      <p>Une note <b>/100</b> calculée depuis 104 tests réels, avec le détail par catégorie. Les réglages inapplicables à ta machine sont exclus du barème.</p>
+    </div>
+    <div class="card">
+      <h3><span>🚀</span> Analyse du démarrage</h3>
+      <p>La durée réelle mesurée par Windows, et le <b>coût en secondes</b> de chaque programme lancé au boot. La même source que le Gestionnaire des tâches.</p>
+    </div>
+    <div class="card">
+      <h3><span>💾</span> Analyse du disque</h3>
+      <p>Chaque poste récupérable est <b>pesé avant</b> tout nettoyage : temporaires, caches, Windows.old, hibernation. On mesure, on ne devine pas.</p>
+    </div>
+    <div class="card">
+      <h3><span>🩺</span> Diagnostic des plantages</h3>
+      <p>Croise les arrêts inattendus et écrans bleus récents avec les réglages d'alimentation actifs, et <b>désigne les suspects</b>.</p>
+    </div>
+    <div class="card">
+      <h3><span>🔄</span> Détection de dérive</h3>
+      <p>Une mise à jour Windows a réactivé la télémétrie ? MadTweak <b>repère ce qui est revenu en arrière</b> et le remet en un clic.</p>
+    </div>
+    <div class="card">
+      <h3><span>🎨</span> Personnalisation</h3>
+      <p>6 thèmes d'interface, accent Windows, et des fonds d'écran <b>« MadTrix » générés par code</b> à la couleur choisie.</p>
+    </div>
+    <div class="card">
+      <h3><span>🔴</span> Bonus ASUS ROG</h3>
+      <p>Clavier RGB piloté <b>en HID direct</b>, sans logiciel tiers. Capteurs GPU et ventilateurs en direct, luminosité écran et clavier.</p>
+    </div>
+  </div>
+</section>
+
+<section id="principes">
+  <h2>CE QUI LE REND SÛR</h2>
+  <p class="section-intro">
+    Un utilitaire d'optimisation qui casse une machine n'a rien optimisé. Ces règles sont dans le code, pas dans une promesse.
+  </p>
+  <div class="principe">
+    <div>
+      <strong>Un tweak refuse de nuire.</strong>
+      <p>Plutôt qu'appliquer un réglage néfaste sur <em>cette</em> machine-ci, il lève une erreur explicative : SysMain sur disque mécanique, plan Performances ultimes sur portable, veille S3 forcée sur une plateforme à veille moderne — un cas réel qui provoquait des plantages en sortie d'hibernation.</p>
+    </div>
+    <div>
+      <strong>Rien ne se déclare « appliqué » si ça a échoué.</strong>
+      <p>Un tweak qui ne peut pas agir affiche <em>[ÉCHEC]</em> avec sa raison. Il n'y a pas de succès silencieux.</p>
+    </div>
+    <div>
+      <strong>On mesure au lieu de supposer.</strong>
+      <p>Type du disque système, présence d'un NPU, édition de Windows, taille des caches, cartes réseau : tout est lu à l'exécution, jamais deviné.</p>
+    </div>
+    <div>
+      <strong>Pas de placebo.</strong>
+      <p>Les tweaks populaires mais inertes ou nuisibles sont exclus volontairement, motif documenté à l'appui : LargeSystemCache, vidage de la standby list, désactivation d'IPv6…</p>
+    </div>
+    <div>
+      <strong>Expliqué, en français.</strong>
+      <p>Chaque réglage affiche en permanence ce qu'il fait <em>et ce qu'il coûte</em>. Un réglage qu'on ne comprend pas est un réglage qu'on applique mal.</p>
+    </div>
+  </div>
+</section>
+
+<section id="duo">
+  <h2>DEUX SYSTÈMES, DEUX OUTILS</h2>
+  <p class="section-intro">
+    Même philosophie, même identité ROG. Bash ne tourne pas sous Windows et PowerShell ne pilote pas KDE :
+    les deux projets partagent l'identité, pas les fichiers.
+  </p>
+  <div class="duo">
+    <div class="os actif">
+      <h3>🪟 MadTweak</h3>
+      <div class="sys">Windows 10 / 11</div>
+      <p><b>Ajuste et nettoie</b> un système existant. 127 tweaks réversibles, audit complet, annulation exacte.</p>
+      <span style="color:var(--text-dim)">Vous y êtes</span>
+    </div>
+    <div class="os">
+      <h3>🐧 MadOS ROG Edition</h3>
+      <div class="sys">Kubuntu 24.04 LTS</div>
+      <p><b>Installe et transforme</b> un système neuf en station de jeu : noyau XanMod, pilotes GPU, asusctl, KDE thématisé.</p>
+      <a href="https://github.com/LordMadTrix/MadOS_ROG_Edition" target="_blank" rel="noopener">DÉCOUVRIR MADOS →</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p><strong>MadTweak</strong> — Licence MIT, libre et open source.</p>
+  <p style="margin-top:.6rem">Fait avec ❤️ par <a href="https://github.com/LordMadTrix" target="_blank" rel="noopener">LordMadTrix</a></p>
+</footer>
+
+<script>
+function copierCommande(){
+  var t = document.getElementById('cmd').innerText;
+  var b = document.getElementById('btn-copie');
+  var ok = function(){ b.innerText = 'Copié !'; setTimeout(function(){ b.innerText = 'Copier'; }, 1800); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(ok, secours);
+  } else { secours(); }
+  function secours(){
+    var z = document.createElement('textarea');
+    z.value = t; document.body.appendChild(z); z.select();
+    try { document.execCommand('copy'); ok(); } catch(e){ b.innerText = 'Ctrl+C'; }
+    document.body.removeChild(z);
+  }
+}
+</script>
+</body>
+</html>
