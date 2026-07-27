@@ -22,14 +22,15 @@
 
 ---
 
-> ### 🇫🇷 Heads-up: the tool itself is in French
+> ### 🌍 Fully bilingual
 >
-> MadTweak's interface, menus and explanations are currently **French only** — that was
-> a deliberate choice, since French-speaking users are poorly served by this kind of tool.
-> An English translation is planned (see [Roadmap](#-roadmap)).
+> MadTweak follows your Windows display language automatically — interface, menus, and
+> all 150 tweak titles and explanations. Force it with `-Langue en` or `-Langue fr`, or
+> pick a language from the header of the window.
 >
-> Everything else here — how it works, what it does, why it's safe — applies regardless
-> of language, and the code is fully documented in this README.
+> The project is written in French first: French speakers are poorly served by this kind
+> of tool, and that stays its identity. English was added to make it usable elsewhere,
+> not to replace it.
 
 ---
 
@@ -141,7 +142,7 @@ The shipped file is **built**, not hand-edited.
 ```
 Lancer.bat             double-click: UAC elevation + PowerShell 5.1
 build.ps1              the tool: src/ → dist/
-src/                   23 source modules — order comes from the name (00-, 10-, 20-…)
+src/                   25 source modules — order comes from the name (00-, 10-, 20-…)
 dist/MadTweak.ps1      the PRODUCT — generated, do not edit
 ```
 
@@ -164,7 +165,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 - [x] French interface, 150 tweaks, audit, exact undo
 - [x] Health score, startup / disk / crash analysis
 - [x] Continuous integration
-- [ ] **English interface** — language mechanism, then the ~770 strings
+- [x] **English interface** — language mechanism, then all 150 tweaks translated
 - [ ] Code signing certificate (removes the SmartScreen warning)
 
 ---

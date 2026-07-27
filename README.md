@@ -92,7 +92,13 @@ Sinon, à la main dans un terminal admin :
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\dist\MadTweak.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\dist\MadTweak.ps1 -Console
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\dist\MadTweak.ps1 -Langue en
 ```
+
+> **Bilingue.** L'outil suit la langue d'affichage de Windows — interface, menus, et les
+> 150 titres et explications de tweaks. `-Langue fr|en` force le choix, et un sélecteur
+> dans l'en-tête de la fenêtre le change à la volée. Le projet est écrit en français
+> d'abord : c'est son identité. L'anglais s'ajoute pour être utilisable ailleurs.
 
 ## Interface graphique ou console ?
 
@@ -284,7 +290,7 @@ Le fichier livré est **construit**, pas édité à la main.
 Lancer.bat             double-clic : élévation UAC + powershell.exe 5.1
 build.ps1              l'outil : src/ → dist/
 README.md
-src/                   23 modules SOURCES — l'ordre vient du nom (00-, 10-, 20-…)
+src/                   25 modules SOURCES — l'ordre vient du nom (00-, 10-, 20-…)
 dist/MadTweak.ps1  le PRODUIT — généré, ne pas éditer
 ```
 
