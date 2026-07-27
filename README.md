@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.3
+  # 🔴 MadTweak v1.3.1
 
   **L'optimisation maîtrisée de votre Windows 10 / 11**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.3-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.3.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **Français** · [English](README.en.md)
@@ -83,7 +83,7 @@ MadTweak a un grand frère pour l'autre moitié du dual-boot : **[MadOS ROG Edit
 |---|---|
 | **Cible** | Windows 10 (22H2, build 19045) **et** Windows 11 (22H2 → 25H2, builds 22621 → 26200) — édition et build détectés à l'exécution. Les tweaks propres à Windows 11 (menu *Windows 11 24H2+*) se désactivent d'eux-mêmes sur Windows 10. |
 | **Requis** | Droits administrateur (`#Requires -RunAsAdministrator`) |
-| **Contenu** | Interface graphique thémable · 15 menus console · 150 tweaks · 5 profils · 104 tests d'audit |
+| **Contenu** | Interface graphique thémable · 16 menus console · 150 tweaks · 5 profils · 104 tests d'audit |
 | **Personnalisation** | 6 thèmes d'interface · 7 accents Windows ROG · fonds d'écran « MadTrix » générés à la couleur du thème · clavier RGB ASUS synchronisé sur l'accent |
 
 ## Utilisation depuis les sources
@@ -245,6 +245,12 @@ session. Le résultat : une machine propre et réglée, sans être resté devant
 Tu télécharges l'ISO officielle toi-même, ce fichier vient simplement se poser à côté.
 Même logique que les fonds d'écran : on **génère**, on n'embarque pas. Le fichier produit
 est du texte, relisible et vérifiable avant usage.
+
+La langue, le clavier et le fuseau ne sont pas devinés : l'option **« Identique à ce PC »**
+relit la configuration réelle de la machine courante, et la liste des fuseaux est celle que
+Windows connaît vraiment (141 sur une machine ordinaire), fuseau courant en tête. Une
+disposition clavier recopiée de travers ne se découvre qu'une fois devant la machine
+installée, en tapant son mot de passe sur un clavier qui n'est pas le bon.
 
 Trois choses à savoir avant de s'en servir :
 

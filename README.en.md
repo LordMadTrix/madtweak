@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.3
+  # 🔴 MadTweak v1.3.1
 
   **Windows 10 / 11 optimisation you stay in control of**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.3-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.3.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **English** · [Français](README.md)
@@ -135,6 +135,12 @@ clean, configured machine without sitting in front of the screen.
 **No Windows image is shipped** — the Microsoft licence forbids redistributing it. You
 download the official ISO yourself; this file simply sits next to it. Same rule as the
 wallpapers: **generate, don't bundle**. What comes out is plain text you can read first.
+
+Language, keyboard and time zone are not guessed: the **"Same as this PC"** option reads
+the current machine's actual configuration, and the time zone list is the one Windows
+really knows (141 on an ordinary machine), current zone first. A keyboard layout copied
+wrong is only discovered once you are sitting in front of the installed machine, typing
+your password on the wrong layout.
 
 Three things to know before using it:
 

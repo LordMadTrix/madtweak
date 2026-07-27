@@ -34,26 +34,58 @@
 # ------------------------------------------------------------------------------
 
 function Get-FuseauxCourants {
-    # Les identifiants de fuseau attendus par Windows Setup ne sont pas des noms
-    # IANA : on propose les plus courants plutôt que d'exposer les 140 de la machine.
-    return [ordered]@{
-        "Europe de l'Ouest (Paris, Bruxelles)" = "Romance Standard Time"
-        "Europe centrale (Berlin, Madrid)"     = "W. Europe Standard Time"
-        "Royaume-Uni (Londres)"                = "GMT Standard Time"
-        "Canada (Montreal)"                    = "Eastern Standard Time"
-        "Suisse (Zurich)"                      = "W. Europe Standard Time"
+    # Les identifiants attendus par Windows Setup sont ceux de .NET (« Romance
+    # Standard Time »), pas des noms IANA. Plutôt que de recopier à la main une
+    # poignée de fuseaux — avec le risque d'en écrire un qui n'existe pas — on
+    # énumère ceux que la machine connaît réellement. Le fuseau courant vient en
+    # tête : dans l'immense majorité des cas, on réinstalle là où on se trouve.
+    $liste = [ordered]@{}
+    try {
+        $courant = [System.TimeZoneInfo]::Local
+        $liste["$($courant.DisplayName)  (ce PC)"] = $courant.Id
+        foreach ($tz in ([System.TimeZoneInfo]::GetSystemTimeZones() | Sort-Object DisplayName)) {
+            if ($tz.Id -ne $courant.Id) { $liste[$tz.DisplayName] = $tz.Id }
+        }
     }
+    catch {
+        # Repli minimal si l'énumération échoue : mieux vaut un choix que rien.
+        $liste["Europe de l'Ouest (Paris, Bruxelles)"] = "Romance Standard Time"
+        $liste["Royaume-Uni (Londres)"] = "GMT Standard Time"
+    }
+    return $liste
+}
+
+function Get-LangueCePC {
+    # Relit la configuration régionale RÉELLE de la machine courante. C'est la seule
+    # source qui ne se trompe pas de disposition clavier : un identifiant recopié de
+    # travers (080c contre 040c) donne un AZERTY belge là où on voulait un français,
+    # et cela ne se découvre qu'une fois devant la machine installée.
+    try {
+        $ui = (Get-UICulture).Name
+        $loc = (Get-WinSystemLocale).Name
+        $clavier = $null
+        try {
+            $premiere = @(Get-WinUserLanguageList)[0]
+            if ($premiere.InputMethodTips.Count -gt 0) { $clavier = $premiere.InputMethodTips[0] }
+        }
+        catch { }
+        if (-not $clavier) { return $null }
+        return @{ UI = $ui; Locale = $loc; Clavier = $clavier }
+    }
+    catch { return $null }
 }
 
 function Get-LanguesInstallation {
-    return [ordered]@{
-        "Francais (Belgique)" = @{ UI = "fr-FR"; Locale = "fr-BE"; Clavier = "080c:0000080c" }
-        "Francais (France)"   = @{ UI = "fr-FR"; Locale = "fr-FR"; Clavier = "040c:0000040c" }
-        "Francais (Suisse)"   = @{ UI = "fr-FR"; Locale = "fr-CH"; Clavier = "100c:0000100c" }
-        "Francais (Canada)"   = @{ UI = "fr-CA"; Locale = "fr-CA"; Clavier = "0c0c:00001009" }
-        "English (US)"        = @{ UI = "en-US"; Locale = "en-US"; Clavier = "0409:00000409" }
-        "English (UK)"        = @{ UI = "en-GB"; Locale = "en-GB"; Clavier = "0809:00000809" }
-    }
+    $liste = [ordered]@{}
+    $cePc = Get-LangueCePC
+    if ($cePc) { $liste["Identique a ce PC ($($cePc.Locale), clavier $($cePc.Clavier))"] = $cePc }
+    $liste["Francais (Belgique)"] = @{ UI = "fr-FR"; Locale = "fr-BE"; Clavier = "080c:0000080c" }
+    $liste["Francais (France)"] = @{ UI = "fr-FR"; Locale = "fr-FR"; Clavier = "040c:0000040c" }
+    $liste["Francais (Suisse)"] = @{ UI = "fr-FR"; Locale = "fr-CH"; Clavier = "100c:0000100c" }
+    $liste["Francais (Canada)"] = @{ UI = "fr-CA"; Locale = "fr-CA"; Clavier = "0c0c:00001009" }
+    $liste["English (US)"] = @{ UI = "en-US"; Locale = "en-US"; Clavier = "0409:00000409" }
+    $liste["English (UK)"] = @{ UI = "en-GB"; Locale = "en-GB"; Clavier = "0809:00000809" }
+    return $liste
 }
 
 function ConvertTo-MotDePasseUnattend {
@@ -104,6 +136,22 @@ function New-AutounattendXml {
     $esc = {
         param($t)
         "$t" -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
+    }
+
+    # Un compte local AVEC mot de passe déclenche trois questions de sécurité pendant
+    # l'OOBE — trois écrans de plus dans une installation censée n'en poser aucun.
+    # La stratégie NoLocalPasswordResetQuestions les supprime… sous Windows 10.
+    # Sous Windows 11, plusieurs rapports décrivent une erreur OOBELOCAL qui bloque
+    # l'installation. On ne la pose donc QUE sous Windows 10 : gagner trois écrans ne
+    # vaut pas le risque de planter une installation qu'on ne verra pas échouer.
+    $blocQuestions = ""
+    if ($MotDePasse -and $Version -eq '10') {
+        $blocQuestions = @"
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>3</Order>
+                    <Path>reg add HKLM\SOFTWARE\Policies\Microsoft\Windows\System /v NoLocalPasswordResetQuestions /t REG_DWORD /d 1 /f</Path>
+                </RunSynchronousCommand>
+"@
     }
 
     # Recopie du fichier de réponses vers Panther (voir le passage specialize).
@@ -311,20 +359,35 @@ $(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </Run
                     <Order>2</Order>
                     <Path>$(& $esc $copiePanther)</Path>
                 </RunSynchronousCommand>
+$blocQuestions
             </RunSynchronous>
         </component>
     </settings>
 
     <settings pass="oobeSystem">
+        <!-- Langue du Windows INSTALLE. Le composant « -WinPE » plus haut ne regle
+             que l'installeur : sans ce bloc-ci, la machine installee repart en
+             disposition par defaut, et on decouvre son clavier en QWERTY. -->
+        <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <InputLocale>$($L.Clavier)</InputLocale>
+            <SystemLocale>$($L.Locale)</SystemLocale>
+            <UILanguage>$($L.UI)</UILanguage>
+            <UserLocale>$($L.Locale)</UserLocale>
+        </component>
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <!-- Liste exacte des reglages que Microsoft documente pour automatiser
+                 l'OOBE (page « Automate OOBE »). SkipMachineOOBE et SkipUserOOBE en
+                 sont volontairement ABSENTS : ils sont deprecies depuis Windows 10
+                 1709 et la doc dit noir sur blanc de ne pas s'en servir pour ca.
+                 HideWirelessSetupInOOBE reste a false EXPRES : sans reseau, les
+                 installations winget de la premiere ouverture de session echouent. -->
             <OOBE>
                 <HideEULAPage>true</HideEULAPage>
                 <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
                 <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideLocalAccountScreen>true</HideLocalAccountScreen>
                 <HideWirelessSetupInOOBE>false</HideWirelessSetupInOOBE>
                 <ProtectYourPC>3</ProtectYourPC>
-                <SkipMachineOOBE>true</SkipMachineOOBE>
-                <SkipUserOOBE>true</SkipUserOOBE>
             </OOBE>
             <UserAccounts>
                 <LocalAccounts>
@@ -367,14 +430,28 @@ function Read-ChoixListe {
     param(
         [Parameter(Mandatory)]$Liste,
         [Parameter(Mandatory)][string]$Question,
-        [int]$Defaut = 1
+        [int]$Defaut = 1,
+        # Au-delà de ce nombre d'entrées, on n'affiche qu'un aperçu : la liste des
+        # fuseaux horaires en compte près de 140, et les dérouler noierait la question.
+        [int]$Apercu = 0
     )
     $cles = @($Liste.Keys)
-    for ($i = 0; $i -lt $cles.Count; $i++) {
+    $tronque = ($Apercu -gt 0 -and $cles.Count -gt $Apercu)
+    $fin = if ($tronque) { $Apercu } else { $cles.Count }
+    for ($i = 0; $i -lt $fin; $i++) {
         $marque = if (($i + 1) -eq $Defaut) { "*" } else { " " }
         Write-Host ("   {0}{1,2} - {2}" -f $marque, ($i + 1), $cles[$i]) -ForegroundColor Gray
     }
+    if ($tronque) {
+        Write-Host ("    ... et " + ($cles.Count - $Apercu) + " autres — tape 0 pour tout voir.") -ForegroundColor DarkGray
+    }
     $r = (Read-Host "  $Question [$Defaut]").Trim()
+    if ($tronque -and $r -eq '0') {
+        for ($i = 0; $i -lt $cles.Count; $i++) {
+            Write-Host ("   {0,3} - {1}" -f ($i + 1), $cles[$i]) -ForegroundColor Gray
+        }
+        $r = (Read-Host "  $Question [$Defaut]").Trim()
+    }
     if (-not $r) { $r = "$Defaut" }
     $n = 0
     if (-not [int]::TryParse($r, [ref]$n) -or $n -lt 1 -or $n -gt $cles.Count) {
@@ -428,7 +505,7 @@ function Menu-Installation {
     $langue = Read-ChoixListe $langues "Langue et clavier ?" 1
     Write-Host ""
     $fuseaux = Get-FuseauxCourants
-    $fuseau = $fuseaux[(Read-ChoixListe $fuseaux "Fuseau horaire ?" 1)]
+    $fuseau = $fuseaux[(Read-ChoixListe $fuseaux "Fuseau horaire ?" 1 -Apercu 6)]
     Write-Host ""
 
     # --- Compte ---------------------------------------------------------------
