@@ -68,3 +68,40 @@ jobs:
             exit 1
           }
           Write-Host "Syntaxe correcte ($($tok.Count) jetons)."
+
+      # Le depot peut etre a jour pendant que le TELECHARGEMENT ment : le bouton des
+      # sites pointe sur releases/latest, pas sur dist/. C'est arrive -- la release
+      # a servi pendant des heures un fichier anterieur a la traduction complete.
+      # Ce controle ne fait pas echouer la construction (dist AVANCE normalement
+      # entre deux versions), il rend l'ecart VISIBLE dans le resume du run.
+      - name: La derniere release sert-elle encore le bon fichier ?
+        if: github.event_name == 'push'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $local = (Get-Item 'dist\MadTweak.ps1').Length
+          $json = gh release view --repo $env:GITHUB_REPOSITORY --json tagName,assets 2>$null
+          if (-not $json) {
+            Write-Host "Aucune release publiee : rien a comparer."
+            exit 0
+          }
+          $r = $json | ConvertFrom-Json
+          $asset = @($r.assets | Where-Object { $_.name -like '*.ps1' })[0]
+          if (-not $asset) {
+            Write-Host "::warning::La release $($r.tagName) ne contient aucun .ps1 telechargeable."
+            exit 0
+          }
+          $ecart = [math]::Abs($local - $asset.size)
+          $pct = if ($local -gt 0) { [math]::Round(100 * $ecart / $local, 1) } else { 0 }
+          Write-Host "dist local : $local octets"
+          Write-Host "release $($r.tagName) : $($asset.size) octets"
+          if ($ecart -eq 0) {
+            Write-Host "La release sert exactement le fichier construit."
+          }
+          elseif ($pct -ge 2) {
+            Write-Host "::warning::La release $($r.tagName) est en retard de $ecart octets ($pct %) sur dist\MadTweak.ps1. Le bouton Telecharger des sites sert donc une version anterieure — publie une nouvelle release."
+          }
+          else {
+            Write-Host "::notice::Ecart mineur de $ecart octets ($pct %) entre dist et la release $($r.tagName)."
+          }
