@@ -36,8 +36,9 @@ param(
     # Mode non interactif : exécute le nettoyage léger et sort. Utilisé par la tâche
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
     [switch]$Maintenance,
-    # Force la langue de l'interface. Sans ce paramètre, elle suit celle de Windows.
-    # Les tweaks eux-mêmes restent en français pour l'instant (traduction en cours).
+    # Force la langue. Sans ce paramètre, elle suit celle de Windows.
+    # Tout est traduit : interface, profils, onglets, les 150 tweaks et les 104
+    # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
     [string]$Langue
 )
@@ -45,7 +46,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
-$script:Version = "1.0"
+$script:Version = "1.1"
 
 # Compteurs de la session (remis à zéro à chaque entrée de menu)
 $script:CompteurOK = 0

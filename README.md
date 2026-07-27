@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.0
+  # 🔴 MadTweak v1.1
 
   **L'optimisation maîtrisée de votre Windows 10 / 11**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.0-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **Français** · [English](README.en.md)
@@ -290,7 +290,7 @@ Le fichier livré est **construit**, pas édité à la main.
 Lancer.bat             double-clic : élévation UAC + powershell.exe 5.1
 build.ps1              l'outil : src/ → dist/
 README.md
-src/                   25 modules SOURCES — l'ordre vient du nom (00-, 10-, 20-…)
+src/                   26 modules SOURCES — l'ordre vient du nom (00-, 10-, 20-…)
 dist/MadTweak.ps1  le PRODUIT — généré, ne pas éditer
 ```
 
@@ -327,6 +327,9 @@ jetable — tu peux le supprimer, `.\build.ps1` le recrée à l'identique.
 | Module | Rôle |
 |---|---|
 | `00-entete` | `#Requires`, en-tête, compteurs de session |
+| `05-langue` | Détection FR/EN, `T 'cle'`, expansion des marqueurs `{{cle}}` du XAML |
+| `06-textes-tweaks` | Traductions anglaises des 150 tweaks (le FR reste à l'appel) |
+| `07-textes-audit` | Traductions anglaises des 104 tests d'audit |
 | `10-socle` | Affichage, questions, détection OS/NPU/tâches |
 | `20-sauvegarde` | Sauvegarde et restauration de l'état d'origine |
 | `30-simulation-et-tweaks` | Les 4 portes, `Invoke-Tweak`, entrées/sorties de menu |

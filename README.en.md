@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.0
+  # 🔴 MadTweak v1.1
 
   **Windows 10 / 11 optimisation you stay in control of**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.0-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **English** · [Français](README.md)
@@ -142,7 +142,7 @@ The shipped file is **built**, not hand-edited.
 ```
 Lancer.bat             double-click: UAC elevation + PowerShell 5.1
 build.ps1              the tool: src/ → dist/
-src/                   25 source modules — order comes from the name (00-, 10-, 20-…)
+src/                   26 source modules — order comes from the name (00-, 10-, 20-…)
 dist/MadTweak.ps1      the PRODUCT — generated, do not edit
 ```
 
