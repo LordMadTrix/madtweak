@@ -46,7 +46,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
-$script:Version = "1.1"
+$script:Version = "1.2"
 
 # Compteurs de la session (remis à zéro à chaque entrée de menu)
 $script:CompteurOK = 0
