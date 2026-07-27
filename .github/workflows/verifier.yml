@@ -1,0 +1,70 @@
+# ------------------------------------------------------------------------------
+# Le cinquième filet.
+#
+# Les quatre premiers (Test-ClesProfils, Test-CoherenceAudit, Test-Explications et
+# le relevé $script:ClesJouees) protègent le CODE. Celui-ci protège le PRODUIT :
+# il vérifie que dist/MadTweak.ps1 correspond bien aux modules de src/.
+#
+# Sans lui, une modification de src/ poussée sans rebuild livrerait un fichier
+# obsolète aux utilisateurs — en silence, puisque rien ne planterait.
+# ------------------------------------------------------------------------------
+name: Vérifier la construction
+
+on:
+  push:
+    branches: [main]
+    paths: ['src/**', 'dist/**', 'build.ps1', '.github/workflows/verifier.yml']
+  pull_request:
+    paths: ['src/**', 'dist/**', 'build.ps1']
+  workflow_dispatch:
+
+jobs:
+  verifier:
+    # Windows PowerShell 5.1 : la version que le script cible réellement, et la seule
+    # qui reproduit le piège d'encodage (BOM absent = accents illisibles).
+    runs-on: windows-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Version de PowerShell utilisée
+        shell: powershell
+        run: $PSVersionTable | Format-List
+
+      - name: dist correspond-il à src ?
+        shell: powershell
+        run: |
+          .\build.ps1 -Verifier
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::dist\MadTweak.ps1 ne correspond plus aux modules de src\. Lance .\build.ps1 puis recommite le résultat."
+            exit 1
+          }
+
+      - name: Les modules sont-ils en UTF-8 AVEC BOM ?
+        shell: powershell
+        run: |
+          # build.ps1 le contrôle déjà, mais on le redit ici pour que l'échec soit
+          # explicite dans le journal : sans BOM, PS 5.1 lit le fichier en ANSI.
+          $sansBom = @()
+          foreach ($f in (Get-ChildItem src\*.ps1) + (Get-Item build.ps1)) {
+            $o = [System.IO.File]::ReadAllBytes($f.FullName)[0..2]
+            if (-not ($o[0] -eq 0xEF -and $o[1] -eq 0xBB -and $o[2] -eq 0xBF)) { $sansBom += $f.Name }
+          }
+          if ($sansBom.Count -gt 0) {
+            Write-Host "::error::Modules sans BOM (accents illisibles en PowerShell 5.1) : $($sansBom -join ', ')"
+            exit 1
+          }
+          Write-Host "Tous les modules sont en UTF-8 avec BOM."
+
+      - name: Le script s'analyse-t-il sans erreur ?
+        shell: powershell
+        run: |
+          $err = $null; $tok = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'dist\MadTweak.ps1'), [ref]$tok, [ref]$err) | Out-Null
+          if ($err) {
+            $err | ForEach-Object { Write-Host "::error::Ligne $($_.Extent.StartLineNumber) : $($_.Message)" }
+            exit 1
+          }
+          Write-Host "Syntaxe correcte ($($tok.Count) jetons)."

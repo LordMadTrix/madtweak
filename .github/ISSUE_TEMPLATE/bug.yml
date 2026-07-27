@@ -1,0 +1,63 @@
+name: 🐛 Signaler un bug
+description: Un tweak qui échoue, une erreur, ou un comportement inattendu
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de prendre le temps. Un outil qui touche au registre doit rester sûr
+        sur des machines que je ne possède pas : ton rapport y contribue directement.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Que s'est-il passé ?
+      description: Décris le problème, et ce que tu attendais à la place.
+    validations:
+      required: true
+
+  - type: input
+    id: tweak
+    attributes:
+      label: Quel tweak / quelle fonction ?
+      description: "Le libellé affiché, ou la clé si tu la connais (ex. « modern-standby »)."
+      placeholder: "Désactiver la veille moderne…"
+
+  - type: textarea
+    id: journal
+    attributes:
+      label: Journal de session
+      description: |
+        Colle le passage utile du journal. Il se trouve dans
+        `%LOCALAPPDATA%\MadTweak\madtweak-log-*.txt`.
+      render: text
+
+  - type: input
+    id: systeme
+    attributes:
+      label: Système
+      description: "Affiché sous le titre dans l'interface (ex. « 25H2 — build 26200.8875 — Core »)."
+      placeholder: "24H2 — build 26100 — Professional"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Comment lançais-tu l'outil ?
+      options:
+        - Interface graphique (Lancer.bat)
+        - Interface graphique (MadTweak.ps1 en admin)
+        - Menu console (-Console)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: verifs
+    attributes:
+      label: Avant d'envoyer
+      options:
+        - label: J'ai lancé l'outil **en administrateur**
+          required: true
+        - label: J'ai retiré de mon journal toute donnée personnelle (chemins, noms de machine)
+          required: true

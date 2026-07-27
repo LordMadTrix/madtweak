@@ -1,0 +1,49 @@
+name: 💡 Proposer un tweak
+description: Suggérer un réglage à ajouter au catalogue
+labels: ["tweak"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Avant tout : **MadTweak refuse les placebos.** Les réglages populaires mais
+        inertes ou nuisibles sont exclus volontairement (`LargeSystemCache`, vidage de
+        la standby list, désactivation d'IPv6…). Un tweak n'entre au catalogue que si
+        son effet est réel et vérifiable.
+
+  - type: textarea
+    id: quoi
+    attributes:
+      label: Que fait ce réglage ?
+      description: En français simple, comme si tu l'expliquais à quelqu'un qui ne connaît pas Windows.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cout
+    attributes:
+      label: Qu'est-ce qu'on PERD en l'appliquant ?
+      description: |
+        La question la plus importante. « Coupe X » ne suffit pas ; « coupe X, et tu
+        perds Y en échange » est ce qui permet de choisir en connaissance de cause.
+        S'il n'y a vraiment aucun inconvénient, dis-le.
+    validations:
+      required: true
+
+  - type: textarea
+    id: preuve
+    attributes:
+      label: Comment vérifier que l'effet est réel ?
+      description: |
+        Clé de registre, service, mesure avant/après, documentation Microsoft…
+        C'est ce qui distingue un vrai tweak d'un placebo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: risque
+    attributes:
+      label: Sur quelles machines serait-il néfaste ?
+      description: |
+        Optionnel mais précieux : un tweak qui nuit dans certains cas doit **refuser de
+        s'appliquer** dans ces cas-là (comme SysMain sur disque mécanique, ou la veille
+        S3 forcée sur une plateforme à veille moderne).
