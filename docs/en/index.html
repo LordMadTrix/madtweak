@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MadTweak — L'optimisation maîtrisée de Windows 10 / 11</title>
-<meta name="description" content="Utilitaire PowerShell d'optimisation, de confidentialité et de maintenance pour Windows 10 et 11. 150 tweaks réversibles, audit complet, annulation exacte. En français, libre et gratuit.">
-<link rel="icon" href="assets/logo.png">
+<title>MadTweak — Windows 10 / 11 optimisation you stay in control of</title>
+<meta name="description" content="A PowerShell utility for optimising, securing and maintaining Windows 10 and 11. 150 reversible tweaks, full audit, exact undo. Free and open source.">
+<link rel="icon" href="../assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
@@ -96,185 +96,192 @@ footer a{color:var(--rog-red);text-decoration:none}
 <nav>
   <a href="#" class="logo">MAD<span>TWEAK</span></a>
   <div class="nav-links">
-    <a href="#telecharger">Télécharger</a>
-    <a href="#apercu">Aperçu</a>
-    <a href="#fonctions">Fonctions</a>
-    <a href="#principes">Principes</a>
-    <a href="#duo">Sur Linux ?</a>
+    <a href="#telecharger">Download</a>
+    <a href="#apercu">Screenshot</a>
+    <a href="#fonctions">Features</a>
+    <a href="#principes">Principles</a>
+    <a href="#duo">On Linux?</a>
     <a href="https://github.com/LordMadTrix/madtweak" target="_blank" rel="noopener">Source</a>
-    <a href="en/" style="color:var(--rog-red)">EN</a>
+    <a href="../" style="color:var(--rog-red)">FR</a>
   </div>
 </nav>
 
 <section class="hero">
   <div class="version-badge">VERSION 1.0 — WINDOWS 10 &amp; 11</div>
-  <div><img src="assets/logo.png" alt="Logo MadTweak"></div>
+  <div><img src="../assets/logo.png" alt="Logo MadTweak"></div>
   <h1>MADTWEAK<br><span>WINDOWS EDITION</span></h1>
   <p class="subtitle">
-    L'optimisation <b>maîtrisée</b> de Windows. 150 tweaks réversibles, un audit complet de la machine,
-    et surtout une <b>annulation réelle</b> : chaque valeur touchée est sauvegardée avant d'être écrite.
-    En français, libre, et <b>sans placebo</b>.
+    Windows optimisation you stay <b>in control of</b>. 150 reversible tweaks, a full machine audit,
+    and above all <b>real undo</b>: every value touched is backed up before it is written.
+    Free, open source, and <b>placebo-free</b>.
   </p>
 
   <div class="terminal-box" id="telecharger">
     <div class="terminal-header">
       <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
-      <span class="terminal-title">Windows PowerShell (administrateur)</span>
+      <span class="terminal-title">Windows PowerShell (administrator)</span>
     </div>
     <div class="terminal-body">
       <span class="prompt">PS&gt;</span>
       <code class="command" id="cmd">powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\MadTweak.ps1</code>
-      <button class="copy-btn" onclick="copierCommande()" id="btn-copie">Copier</button>
+      <button class="copy-btn" onclick="copierCommande()" id="btn-copie">Copy</button>
     </div>
   </div>
 
   <div class="cta">
-    <a class="primary" href="https://github.com/LordMadTrix/madtweak/releases/latest" target="_blank" rel="noopener">TÉLÉCHARGER MADTWEAK.PS1</a>
-    <a class="ghost" href="https://github.com/LordMadTrix/madtweak" target="_blank" rel="noopener">VOIR LE CODE SOURCE</a>
+    <a class="primary" href="https://github.com/LordMadTrix/madtweak/releases/latest" target="_blank" rel="noopener">DOWNLOAD MADTWEAK.PS1</a>
+    <a class="ghost" href="https://github.com/LordMadTrix/madtweak" target="_blank" rel="noopener">VIEW THE SOURCE</a>
+  </div>
+
+  <div class="avert" style="border-color:rgba(255,0,60,.5);background:rgba(255,0,60,.07)">
+    <b style="color:var(--text-main)">🇫🇷 Heads-up: the tool itself is in French.</b><br>
+    MadTweak's interface, menus and explanations are currently <b>French only</b> — a deliberate choice, since
+    French-speaking users are poorly served by this kind of tool. An English translation is planned.
+    Everything described on this page applies regardless of language.
   </div>
 
   <div class="avert">
-    <b>Un seul fichier, autonome.</b> Windows peut afficher un avertissement SmartScreen : le script n'est pas
-    signé numériquement. Tout le code est public et lisible sur GitHub — et le mode <b>Simulation</b> permet de
-    voir exactement ce qui changerait avant d'écrire quoi que ce soit.
+    <b>A single, self-contained file.</b> Windows may show a SmartScreen warning: the script isn't code-signed.
+    All of the source is public and readable on GitHub — and <b>Simulation mode</b> lets you see exactly what
+    would change before anything is written.
   </div>
 </section>
 
 <section id="apercu">
-  <h2>L'INTERFACE</h2>
+  <h2>THE INTERFACE</h2>
   <p class="section-intro">
-    Chaque réglage affiche <b>en permanence</b> ce qu'il fait et ce qu'il coûte — pas dans une infobulle
-    que personne ne lit. Rien n'est écrit tant que tu n'as pas cliqué sur « Appliquer ».
+    Every setting <b>permanently</b> shows what it does and what it costs — not hidden in a tooltip nobody
+    reads. Nothing is written until you click « Appliquer » (Apply).
   </p>
   <div style="max-width:1200px;margin:0 auto">
-    <img src="assets/interface.png" alt="L'interface de MadTweak"
+    <img src="../assets/interface.png" alt="The MadTweak interface"
          style="width:100%;border-radius:10px;border:1px solid var(--border-red);box-shadow:0 14px 60px rgba(255,0,60,.2)">
   </div>
 </section>
 
 <section>
-  <h2>EN CHIFFRES</h2>
+  <h2>BY THE NUMBERS</h2>
   <p class="section-intro">
-    Un seul fichier PowerShell, <b>aucune dépendance</b> : ni installateur, ni runtime, ni service en arrière-plan.
+    A single PowerShell file, <b>zero dependencies</b>: no installer, no runtime, no background service.
   </p>
   <div class="stats">
-    <div class="stat"><span class="n">150</span><span class="l">tweaks réversibles</span></div>
-    <div class="stat"><span class="n">104</span><span class="l">tests d'audit</span></div>
-    <div class="stat"><span class="n">5</span><span class="l">profils prêts</span></div>
-    <div class="stat"><span class="n">6</span><span class="l">thèmes d'interface</span></div>
+    <div class="stat"><span class="n">150</span><span class="l">reversible tweaks</span></div>
+    <div class="stat"><span class="n">104</span><span class="l">audit checks</span></div>
+    <div class="stat"><span class="n">5</span><span class="l">ready profiles</span></div>
+    <div class="stat"><span class="n">6</span><span class="l">UI themes</span></div>
   </div>
 </section>
 
 <section id="fonctions">
-  <h2>CE QU'IL FAIT</h2>
+  <h2>WHAT IT DOES</h2>
   <p class="section-intro">
-    Tout passe par une interface graphique thémable — ou 15 menus console si tu préfères le clavier.
+    Everything runs through a themeable GUI — or 15 console menus if you prefer the keyboard.
   </p>
   <div class="features">
     <div class="card">
-      <h3><span>🛡️</span> Confidentialité</h3>
-      <p>Télémétrie, pubs, Copilot, Recall, bloatwares du Store. <b>5 profils</b> pour appliquer un lot cohérent d'un coup, ou case par case.</p>
+      <h3><span>🛡️</span> Privacy</h3>
+      <p>Telemetry, ads, Copilot, Recall, Store bloatware. <b>5 profiles</b> to apply a coherent batch at once, or tick them one by one.</p>
     </div>
     <div class="card">
-      <h3><span>↩️</span> Annulation réelle</h3>
-      <p>Chaque valeur est <b>sauvegardée avant d'être écrite</b>. Restauration exacte, totale ou tweak par tweak. Et un mode Simulation pour tout voir sans rien écrire.</p>
+      <h3><span>↩️</span> Real undo</h3>
+      <p>Every value is <b>backed up before it is written</b>. Exact restore, all at once or tweak by tweak. Plus a Simulation mode to see everything without writing anything.</p>
     </div>
     <div class="card">
-      <h3><span>📊</span> Score de santé</h3>
-      <p>Une note <b>/100</b> calculée depuis 104 tests réels, avec le détail par catégorie. Les réglages inapplicables à ta machine sont exclus du barème.</p>
+      <h3><span>📊</span> Health score</h3>
+      <p>A score <b>out of 100</b> computed from 104 real checks, broken down by category. Settings that don't apply to your machine are excluded from the scale.</p>
     </div>
     <div class="card">
-      <h3><span>🚀</span> Analyse du démarrage</h3>
-      <p>La durée réelle mesurée par Windows, et le <b>coût en secondes</b> de chaque programme lancé au boot. La même source que le Gestionnaire des tâches.</p>
+      <h3><span>🚀</span> Startup analysis</h3>
+      <p>The real duration measured by Windows, and the <b>cost in seconds</b> of every program launched at boot. Same source as Task Manager.</p>
     </div>
     <div class="card">
-      <h3><span>💾</span> Analyse du disque</h3>
-      <p>Chaque poste récupérable est <b>pesé avant</b> tout nettoyage : temporaires, caches, Windows.old, hibernation. On mesure, on ne devine pas.</p>
+      <h3><span>💾</span> Disk analysis</h3>
+      <p>Every reclaimable item is <b>weighed before</b> any cleanup: temp files, caches, Windows.old, hibernation. Measured, never guessed.</p>
     </div>
     <div class="card">
-      <h3><span>🩺</span> Diagnostic des plantages</h3>
-      <p>Croise les arrêts inattendus et écrans bleus récents avec les réglages d'alimentation actifs, et <b>désigne les suspects</b>.</p>
+      <h3><span>🩺</span> Crash diagnosis</h3>
+      <p>Cross-references recent unexpected shutdowns and blue screens with active power settings, and <b>names the suspects</b>.</p>
     </div>
     <div class="card">
-      <h3><span>🔄</span> Détection de dérive</h3>
-      <p>Une mise à jour Windows a réactivé la télémétrie ? MadTweak <b>repère ce qui est revenu en arrière</b> et le remet en un clic.</p>
+      <h3><span>🔄</span> Drift detection</h3>
+      <p>A Windows update silently re-enabled telemetry? MadTweak <b>spots what was reverted</b> and puts it back in one click.</p>
     </div>
     <div class="card">
-      <h3><span>🎨</span> Personnalisation</h3>
-      <p>6 thèmes d'interface, accent Windows, et des fonds d'écran <b>« MadTrix » générés par code</b> à la couleur choisie.</p>
+      <h3><span>🎨</span> Personalisation</h3>
+      <p>6 UI themes, Windows accent colour, and <b>« MadTrix » wallpapers generated by code</b> in the colour you pick.</p>
     </div>
     <div class="card">
-      <h3><span>🔴</span> Bonus ASUS ROG</h3>
-      <p>Clavier RGB piloté <b>en HID direct</b>, sans logiciel tiers. Capteurs GPU et ventilateurs en direct, luminosité écran et clavier.</p>
+      <h3><span>🔴</span> ASUS ROG extras</h3>
+      <p>RGB keyboard driven over <b>raw HID</b>, with no third-party software. Live GPU and fan sensors, screen and keyboard brightness.</p>
     </div>
   </div>
 </section>
 
 <section id="principes">
-  <h2>CE QUI LE REND SÛR</h2>
+  <h2>WHAT MAKES IT SAFE</h2>
   <p class="section-intro">
-    Un utilitaire d'optimisation qui casse une machine n'a rien optimisé. Ces règles sont dans le code, pas dans une promesse.
+    An optimiser that breaks a machine hasn't optimised anything. These rules live in the code, not in a promise.
   </p>
   <div class="principe">
     <div>
-      <strong>Un tweak refuse de nuire.</strong>
-      <p>Plutôt qu'appliquer un réglage néfaste sur <em>cette</em> machine-ci, il lève une erreur explicative : SysMain sur disque mécanique, plan Performances ultimes sur portable, veille S3 forcée sur une plateforme à veille moderne — un cas réel qui provoquait des plantages en sortie d'hibernation.</p>
+      <strong>A tweak refuses to do harm.</strong>
+      <p>Rather than applying a setting that would hurt <em>this particular</em> machine, it raises an explanatory error: SysMain on a mechanical hard drive, the Ultimate Performance plan on a laptop, forced S3 sleep on a modern standby platform — a real case that was causing crashes on resume from hibernation.</p>
     </div>
     <div>
-      <strong>Rien ne se déclare « appliqué » si ça a échoué.</strong>
-      <p>Un tweak qui ne peut pas agir affiche <em>[ÉCHEC]</em> avec sa raison. Il n'y a pas de succès silencieux.</p>
+      <strong>Nothing reports success if it failed.</strong>
+      <p>A tweak that can't act prints <em>[FAILED]</em> with its reason. There are no silent successes.</p>
     </div>
     <div>
-      <strong>On mesure au lieu de supposer.</strong>
-      <p>Type du disque système, présence d'un NPU, édition de Windows, taille des caches, cartes réseau : tout est lu à l'exécution, jamais deviné.</p>
+      <strong>Measured, never assumed.</strong>
+      <p>System drive type, NPU presence, Windows edition, cache sizes, network adapters: all read at runtime, never guessed.</p>
     </div>
     <div>
-      <strong>Pas de placebo.</strong>
-      <p>Les tweaks populaires mais inertes ou nuisibles sont exclus volontairement, motif documenté à l'appui : LargeSystemCache, vidage de la standby list, désactivation d'IPv6…</p>
+      <strong>No placebo.</strong>
+      <p>Popular but inert or harmful tweaks are deliberately excluded, with the reason documented: LargeSystemCache, standby list flushing, disabling IPv6…</p>
     </div>
     <div>
-      <strong>Expliqué, en français.</strong>
-      <p>Chaque réglage affiche en permanence ce qu'il fait <em>et ce qu'il coûte</em>. Un réglage qu'on ne comprend pas est un réglage qu'on applique mal.</p>
+      <strong>Explained, in plain words.</strong>
+      <p>Every setting permanently shows what it does <em>and what it costs</em>. A setting you don't understand is a setting you apply badly.</p>
     </div>
   </div>
 </section>
 
 <section id="duo">
-  <h2>DEUX SYSTÈMES, DEUX OUTILS</h2>
+  <h2>TWO SYSTEMS, TWO TOOLS</h2>
   <p class="section-intro">
-    Même philosophie, même identité ROG. Bash ne tourne pas sous Windows et PowerShell ne pilote pas KDE :
-    les deux projets partagent l'identité, pas les fichiers.
+    Same philosophy, same ROG identity. Bash doesn't run on Windows and PowerShell doesn't drive KDE:
+    the two projects share an identity, not files.
   </p>
   <div class="duo">
     <div class="os actif">
       <h3>🪟 MadTweak</h3>
       <div class="sys">Windows 10 / 11</div>
-      <p><b>Ajuste et nettoie</b> un système existant. 150 tweaks réversibles, audit complet, annulation exacte.</p>
-      <span style="color:var(--text-dim)">Vous y êtes</span>
+      <p><b>Tunes and cleans</b> an existing system. 150 reversible tweaks, full audit, exact undo.</p>
+      <span style="color:var(--text-dim)">You are here</span>
     </div>
     <div class="os">
       <h3>🐧 MadOS ROG Edition</h3>
       <div class="sys">Kubuntu 24.04 LTS</div>
-      <p><b>Installe et transforme</b> un système neuf en station de jeu : noyau XanMod, pilotes GPU, asusctl, KDE thématisé.</p>
-      <a href="https://github.com/LordMadTrix/MadOS_ROG_Edition" target="_blank" rel="noopener">DÉCOUVRIR MADOS →</a>
+      <p><b>Installs and transforms</b> a fresh system into a gaming station: XanMod kernel, GPU drivers, asusctl, themed KDE.</p>
+      <a href="https://github.com/LordMadTrix/MadOS_ROG_Edition" target="_blank" rel="noopener">DISCOVER MADOS →</a>
     </div>
   </div>
 </section>
 
 <footer>
   <p style="color:var(--text-dim);max-width:700px;margin:0 auto 1.4rem;line-height:1.7">
-    <b style="color:var(--text-main)">MadTweak est gratuit, et le restera.</b><br>
-    Pas de version « Pro », pas de fonction bridée, pas de publicité, aucune collecte de données.
+    <b style="color:var(--text-main)">MadTweak is free, and will stay that way.</b><br>
+    No « Pro » version, no gated features, no ads, no data collection.
   </p>
-  <p><strong>MadTweak</strong> — Licence MIT, libre et open source.</p>
-  <p style="margin-top:.6rem">Fait avec ❤️ par <a href="https://github.com/LordMadTrix" target="_blank" rel="noopener">LordMadTrix</a></p>
+  <p><strong>MadTweak</strong> — MIT Licence, free and open source.</p>
+  <p style="margin-top:.6rem">Made with ❤️ by <a href="https://github.com/LordMadTrix" target="_blank" rel="noopener">LordMadTrix</a></p>
 </footer>
 
 <script>
 function copierCommande(){
   var t = document.getElementById('cmd').innerText;
   var b = document.getElementById('btn-copie');
-  var ok = function(){ b.innerText = 'Copié !'; setTimeout(function(){ b.innerText = 'Copier'; }, 1800); };
+  var ok = function(){ b.innerText = 'Copied!'; setTimeout(function(){ b.innerText = 'Copy'; }, 1800); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(ok, secours);
   } else { secours(); }

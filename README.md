@@ -11,6 +11,8 @@
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
   [![Version](https://img.shields.io/badge/Version-1.0-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
+
+  **Français** · [English](README.en.md)
 </div>
 
 <div align="center">
