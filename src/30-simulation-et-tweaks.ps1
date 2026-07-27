@@ -283,7 +283,9 @@ function Start-Menu {
     $script:CategorieCourante = $Titre
     if (Test-SansInteraction) { return }
     Clear-Host
-    Write-Host "=== $Titre ===" -ForegroundColor $Couleur
+    # La CLÉ reste $Titre (français) : elle nomme la catégorie de l'inventaire et
+    # l'onglet de l'interface. Seul le libellé AFFICHÉ suit la langue courante.
+    Write-Host "=== $(Get-TitreMenu $Titre) ===" -ForegroundColor $Couleur
     foreach ($l in $SousTitre) { Write-Host "  $l" -ForegroundColor DarkGray }
     if ($SousTitre.Count -gt 0) { Write-Host "" }
     $script:CompteurOK = 0; $script:CompteurEchec = 0

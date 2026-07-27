@@ -7,37 +7,39 @@ function Afficher-Menu-Principal {
     while ($true) {
         Clear-Host
         Write-Host "==========================================================" -ForegroundColor Cyan
-        Write-Host "     MADTWEAK v$($script:Version) : CONFIGURATION SYSTÈME INTÉGRALE   " -ForegroundColor Cyan
+        Write-Host ("     MADTWEAK v$($script:Version) : " + (T 'c.titre') + "   ") -ForegroundColor Cyan
         Write-Host "==========================================================" -ForegroundColor Cyan
-        Write-Host " 1 [PROFILS]            - Appliquer un lot cohérent d'un coup" -ForegroundColor White
-        Write-Host " 2 [AUDIT]              - Que vaut ma machine ? (ne modifie rien)" -ForegroundColor White
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host " 3 [TWEAKS DE BASE]     - Télémétrie, Pubs, Bloatwares & Interface" -ForegroundColor Yellow
-        Write-Host " 4 [TWEAKS AVANCÉS]     - Clic Droit, Services & Mémoire" -ForegroundColor Yellow
-        Write-Host " 5 [EXPLORATEUR & PRIVÉ]- Épurer l'explorateur, Confidentialité" -ForegroundColor Yellow
-        Write-Host " 6 [MATÉRIEL & RÉSEAU]  - Télémétrie GPU, USB, Latence, LLMNR" -ForegroundColor Yellow
-        Write-Host " 7 [MAJ, SÉCURITÉ & IA] - Windows Update, VBS, Copilot & Recall" -ForegroundColor Yellow
-        Write-Host " 8 [WINDOWS 11 24H2+]   - Pubs Démarrer, Verrouillage, Widgets, IA" -ForegroundColor Cyan
-        Write-Host " 9 [APPARENCE & VISUEL] - Thème sombre, Explorateur, Barre des tâches" -ForegroundColor Cyan
-        Write-Host "10 [SIGNATURE MADTRIX]  - Fond d'écran perso généré à la volée" -ForegroundColor Red
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host "11 [NETTOYAGE DISQUE]   - Caches et temporaires (mesurés d'abord)" -ForegroundColor Green
-        Write-Host "12 [DÉMARRAGE & SERV.]  - Démarrage, services rarement utiles" -ForegroundColor Green
-        Write-Host "13 [LOGICIELS EXTRA]    - Catalogue d'installation Winget" -ForegroundColor Yellow
-        Write-Host "14 [MAINTENANCE & FIX]  - Réparation système (DISM / SFC)" -ForegroundColor Green
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host "15 [ANNULER]            - Revenir aux défauts Windows" -ForegroundColor Magenta
-        Write-Host "16 [QUITTER]            - Quitter l'utilitaire" -ForegroundColor Red
+        # Une table plutôt que 16 Write-Host : le libellé vient de la langue courante,
+        # et la mise en forme (numéro, crochets, alignement) reste écrite une seule fois.
+        $entrees = @(
+            @{ N = ' 1'; C = 'White' },   @{ N = ' 2'; C = 'White' },  @{ Sep = $true }
+            @{ N = ' 3'; C = 'Yellow' },  @{ N = ' 4'; C = 'Yellow' }
+            @{ N = ' 5'; C = 'Yellow' },  @{ N = ' 6'; C = 'Yellow' }
+            @{ N = ' 7'; C = 'Yellow' },  @{ N = ' 8'; C = 'Cyan' }
+            @{ N = ' 9'; C = 'Cyan' },    @{ N = '10'; C = 'Red' },    @{ Sep = $true }
+            @{ N = '11'; C = 'Green' },   @{ N = '12'; C = 'Green' }
+            @{ N = '13'; C = 'Yellow' },  @{ N = '14'; C = 'Green' },  @{ Sep = $true }
+            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Red' }
+        )
+        foreach ($e in $entrees) {
+            if ($e.Sep) {
+                Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
+                continue
+            }
+            $i = $e.N.Trim()
+            $etiquette = "[" + (T "c.$i") + "]"
+            Write-Host ("{0} {1,-22}- {2}" -f $e.N, $etiquette, (T "c.$i`d")) -ForegroundColor $e.C
+        }
         Write-Host "==========================================================" -ForegroundColor Cyan
         if ($script:Simulation) {
-            Write-Host "  S [SIMULATION] : ACTIVE - rien ne sera écrit sur le système" -ForegroundColor Cyan
+            Write-Host (T 'c.simu.on') -ForegroundColor Cyan
         }
         else {
-            Write-Host "  S [SIMULATION] : inactive - les tweaks seront RÉELLEMENT appliqués" -ForegroundColor DarkGray
+            Write-Host (T 'c.simu.off') -ForegroundColor DarkGray
         }
-        Write-Host " Système : $($script:InfosOS.DisplayVersion) / build $script:BuildOS / $($script:InfosOS.EditionID)" -ForegroundColor DarkGray
+        Write-Host ((T 'c.systeme') + "$($script:InfosOS.DisplayVersion) / build $script:BuildOS / $($script:InfosOS.EditionID)") -ForegroundColor DarkGray
 
-        switch (Read-Host "Entre ton choix (1-16, ou S)") {
+        switch (Read-Host (T 'c.choix')) {
             { $_ -match '^\s*[sS]\s*$' } {
                 $script:Simulation = -not $script:Simulation
                 $script:SimuCompteur = 0

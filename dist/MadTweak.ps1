@@ -118,6 +118,31 @@ function Expand-Textes {
         })
 }
 
+function Get-TitreMenu {
+    # Titre COMPLET d'un menu console. Le paramètre reste le titre français : c'est
+    # lui la clé de catégorie. Un titre non traduit s'affiche tel quel.
+    param([Parameter(Mandatory)][string]$Titre)
+    if ($script:LangueActive -ne 'en') { return $Titre }
+    $t = $script:TitresMenus[$Titre]
+    if ($t) { return $t }
+    return $Titre
+}
+
+$script:TitresMenus = @{
+    "TWEAKS DE BASE"                                   = "BASIC TWEAKS"
+    "TWEAKS AVANCÉS"                                   = "ADVANCED TWEAKS"
+    "EXPLORATEUR DE FICHIERS & CONFIGURATION PRIVÉE"   = "FILE EXPLORER & PRIVACY SETTINGS"
+    "OPTIMISATION DU MATÉRIEL, DU RÉSEAU ET DE LA RAM" = "HARDWARE, NETWORK AND RAM OPTIMISATION"
+    "CONFIGURATION SÉCURITÉ & MISES À JOUR"            = "SECURITY & UPDATE SETTINGS"
+    "LOGICIELS EXPRESS (via winget)"                   = "QUICK SOFTWARE (via winget)"
+    "OUTILS DE DIAGNOSTIC ET DE RÉPARATION"            = "DIAGNOSTIC AND REPAIR TOOLS"
+    "NOUVEAUTÉS WINDOWS 11 (24H2 ET PLUS)"             = "WINDOWS 11 NEWCOMERS (24H2 AND LATER)"
+    "NETTOYAGE DU DISQUE"                              = "DISK CLEANUP"
+    "DÉMARRAGE & SERVICES"                             = "STARTUP & SERVICES"
+    "APPARENCE & CONFORT VISUEL"                       = "APPEARANCE & VISUAL COMFORT"
+    "ANNULER LES TWEAKS / REVENIR AUX DÉFAUTS WINDOWS" = "UNDO TWEAKS / RETURN TO WINDOWS DEFAULTS"
+}
+
 # ------------------------------------------------------------------------------
 # TABLE DES TEXTES
 #
@@ -252,6 +277,49 @@ $script:Textes = @{
     'etat.pret'            = @{ fr = "Prêt. Données de session : {0}"; en = "Ready. Session data: {0}" }
     'etat.audit'           = @{ fr = "Analyse de l'état réel de la machine (quelques secondes)..."; en = "Analysing the machine's real state (a few seconds)..." }
     'etat.sante'           = @{ fr = "Santé : {0}/100  ·  {1}"; en = "Health: {0}/100  ·  {1}" }
+
+    # --- Menu console ---
+    # Les entrées sont affichées ; les TITRES de menu (Start-Menu -Titre) restent
+    # français car ils servent de clé de catégorie à l'inventaire et aux onglets.
+    'c.titre'    = @{ fr = "CONFIGURATION SYSTÈME INTÉGRALE"; en = "COMPLETE SYSTEM CONFIGURATION" }
+    'c.1'        = @{ fr = "PROFILS"; en = "PROFILES" }
+    'c.1d'       = @{ fr = "Appliquer un lot cohérent d'un coup"; en = "Apply a coherent batch in one go" }
+    'c.2'        = @{ fr = "AUDIT"; en = "AUDIT" }
+    'c.2d'       = @{ fr = "Que vaut ma machine ? (ne modifie rien)"; en = "How does my machine score? (changes nothing)" }
+    'c.3'        = @{ fr = "TWEAKS DE BASE"; en = "BASIC TWEAKS" }
+    'c.3d'       = @{ fr = "Télémétrie, Pubs, Bloatwares & Interface"; en = "Telemetry, ads, bloatware and interface" }
+    'c.4'        = @{ fr = "TWEAKS AVANCÉS"; en = "ADVANCED TWEAKS" }
+    'c.4d'       = @{ fr = "Clic Droit, Services & Mémoire"; en = "Right-click, services and memory" }
+    'c.5'        = @{ fr = "EXPLORATEUR & PRIVÉ"; en = "EXPLORER & PRIVACY" }
+    'c.5d'       = @{ fr = "Épurer l'explorateur, Confidentialité"; en = "Declutter Explorer, privacy" }
+    'c.6'        = @{ fr = "MATÉRIEL & RÉSEAU"; en = "HARDWARE & NETWORK" }
+    'c.6d'       = @{ fr = "Télémétrie GPU, USB, Latence, LLMNR"; en = "GPU telemetry, USB, latency, LLMNR" }
+    'c.7'        = @{ fr = "MAJ, SÉCURITÉ & IA"; en = "UPDATES, SECURITY & AI" }
+    'c.7d'       = @{ fr = "Windows Update, VBS, Copilot & Recall"; en = "Windows Update, VBS, Copilot and Recall" }
+    'c.8'        = @{ fr = "WINDOWS 11 24H2+"; en = "WINDOWS 11 24H2+" }
+    'c.8d'       = @{ fr = "Pubs Démarrer, Verrouillage, Widgets, IA"; en = "Start menu ads, lock screen, Widgets, AI" }
+    'c.9'        = @{ fr = "APPARENCE & VISUEL"; en = "APPEARANCE & VISUALS" }
+    'c.9d'       = @{ fr = "Thème sombre, Explorateur, Barre des tâches"; en = "Dark theme, Explorer, taskbar" }
+    'c.10'       = @{ fr = "SIGNATURE MADTRIX"; en = "MADTRIX SIGNATURE" }
+    'c.10d'      = @{ fr = "Fond d'écran perso généré à la volée"; en = "Custom wallpaper generated on the fly" }
+    'c.11'       = @{ fr = "NETTOYAGE DISQUE"; en = "DISK CLEANUP" }
+    'c.11d'      = @{ fr = "Caches et temporaires (mesurés d'abord)"; en = "Caches and temp files (weighed first)" }
+    'c.12'       = @{ fr = "DÉMARRAGE & SERV."; en = "STARTUP & SERVICES" }
+    'c.12d'      = @{ fr = "Démarrage, services rarement utiles"; en = "Startup, rarely useful services" }
+    'c.13'       = @{ fr = "LOGICIELS EXTRA"; en = "EXTRA SOFTWARE" }
+    'c.13d'      = @{ fr = "Catalogue d'installation Winget"; en = "Winget installation catalogue" }
+    'c.14'       = @{ fr = "MAINTENANCE & FIX"; en = "MAINTENANCE & REPAIR" }
+    'c.14d'      = @{ fr = "Réparation système (DISM / SFC)"; en = "System repair (DISM / SFC)" }
+    'c.15'       = @{ fr = "ANNULER"; en = "UNDO" }
+    'c.15d'      = @{ fr = "Revenir aux défauts Windows"; en = "Return to Windows defaults" }
+    'c.16'       = @{ fr = "QUITTER"; en = "QUIT" }
+    'c.16d'      = @{ fr = "Quitter l'utilitaire"; en = "Leave the utility" }
+    'c.simu.on'  = @{ fr = "  S [SIMULATION] : ACTIVE - rien ne sera écrit sur le système"
+        en = "  S [SIMULATION]: ON - nothing will be written to the system" }
+    'c.simu.off' = @{ fr = "  S [SIMULATION] : inactive - les tweaks seront RÉELLEMENT appliqués"
+        en = "  S [SIMULATION]: off - tweaks will be REALLY applied" }
+    'c.systeme'  = @{ fr = " Système : "; en = " System: " }
+    'c.choix'    = @{ fr = "Entre ton choix (1-16, ou S)"; en = "Enter your choice (1-16, or S)" }
 
     # --- Mentions de santé ---
     'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
@@ -1511,7 +1579,9 @@ function Start-Menu {
     $script:CategorieCourante = $Titre
     if (Test-SansInteraction) { return }
     Clear-Host
-    Write-Host "=== $Titre ===" -ForegroundColor $Couleur
+    # La CLÉ reste $Titre (français) : elle nomme la catégorie de l'inventaire et
+    # l'onglet de l'interface. Seul le libellé AFFICHÉ suit la langue courante.
+    Write-Host "=== $(Get-TitreMenu $Titre) ===" -ForegroundColor $Couleur
     foreach ($l in $SousTitre) { Write-Host "  $l" -ForegroundColor DarkGray }
     if ($SousTitre.Count -gt 0) { Write-Host "" }
     $script:CompteurOK = 0; $script:CompteurEchec = 0
@@ -5790,37 +5860,39 @@ function Afficher-Menu-Principal {
     while ($true) {
         Clear-Host
         Write-Host "==========================================================" -ForegroundColor Cyan
-        Write-Host "     MADTWEAK v$($script:Version) : CONFIGURATION SYSTÈME INTÉGRALE   " -ForegroundColor Cyan
+        Write-Host ("     MADTWEAK v$($script:Version) : " + (T 'c.titre') + "   ") -ForegroundColor Cyan
         Write-Host "==========================================================" -ForegroundColor Cyan
-        Write-Host " 1 [PROFILS]            - Appliquer un lot cohérent d'un coup" -ForegroundColor White
-        Write-Host " 2 [AUDIT]              - Que vaut ma machine ? (ne modifie rien)" -ForegroundColor White
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host " 3 [TWEAKS DE BASE]     - Télémétrie, Pubs, Bloatwares & Interface" -ForegroundColor Yellow
-        Write-Host " 4 [TWEAKS AVANCÉS]     - Clic Droit, Services & Mémoire" -ForegroundColor Yellow
-        Write-Host " 5 [EXPLORATEUR & PRIVÉ]- Épurer l'explorateur, Confidentialité" -ForegroundColor Yellow
-        Write-Host " 6 [MATÉRIEL & RÉSEAU]  - Télémétrie GPU, USB, Latence, LLMNR" -ForegroundColor Yellow
-        Write-Host " 7 [MAJ, SÉCURITÉ & IA] - Windows Update, VBS, Copilot & Recall" -ForegroundColor Yellow
-        Write-Host " 8 [WINDOWS 11 24H2+]   - Pubs Démarrer, Verrouillage, Widgets, IA" -ForegroundColor Cyan
-        Write-Host " 9 [APPARENCE & VISUEL] - Thème sombre, Explorateur, Barre des tâches" -ForegroundColor Cyan
-        Write-Host "10 [SIGNATURE MADTRIX]  - Fond d'écran perso généré à la volée" -ForegroundColor Red
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host "11 [NETTOYAGE DISQUE]   - Caches et temporaires (mesurés d'abord)" -ForegroundColor Green
-        Write-Host "12 [DÉMARRAGE & SERV.]  - Démarrage, services rarement utiles" -ForegroundColor Green
-        Write-Host "13 [LOGICIELS EXTRA]    - Catalogue d'installation Winget" -ForegroundColor Yellow
-        Write-Host "14 [MAINTENANCE & FIX]  - Réparation système (DISM / SFC)" -ForegroundColor Green
-        Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
-        Write-Host "15 [ANNULER]            - Revenir aux défauts Windows" -ForegroundColor Magenta
-        Write-Host "16 [QUITTER]            - Quitter l'utilitaire" -ForegroundColor Red
+        # Une table plutôt que 16 Write-Host : le libellé vient de la langue courante,
+        # et la mise en forme (numéro, crochets, alignement) reste écrite une seule fois.
+        $entrees = @(
+            @{ N = ' 1'; C = 'White' },   @{ N = ' 2'; C = 'White' },  @{ Sep = $true }
+            @{ N = ' 3'; C = 'Yellow' },  @{ N = ' 4'; C = 'Yellow' }
+            @{ N = ' 5'; C = 'Yellow' },  @{ N = ' 6'; C = 'Yellow' }
+            @{ N = ' 7'; C = 'Yellow' },  @{ N = ' 8'; C = 'Cyan' }
+            @{ N = ' 9'; C = 'Cyan' },    @{ N = '10'; C = 'Red' },    @{ Sep = $true }
+            @{ N = '11'; C = 'Green' },   @{ N = '12'; C = 'Green' }
+            @{ N = '13'; C = 'Yellow' },  @{ N = '14'; C = 'Green' },  @{ Sep = $true }
+            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Red' }
+        )
+        foreach ($e in $entrees) {
+            if ($e.Sep) {
+                Write-Host "----------------------------------------------------------" -ForegroundColor DarkGray
+                continue
+            }
+            $i = $e.N.Trim()
+            $etiquette = "[" + (T "c.$i") + "]"
+            Write-Host ("{0} {1,-22}- {2}" -f $e.N, $etiquette, (T "c.$i`d")) -ForegroundColor $e.C
+        }
         Write-Host "==========================================================" -ForegroundColor Cyan
         if ($script:Simulation) {
-            Write-Host "  S [SIMULATION] : ACTIVE - rien ne sera écrit sur le système" -ForegroundColor Cyan
+            Write-Host (T 'c.simu.on') -ForegroundColor Cyan
         }
         else {
-            Write-Host "  S [SIMULATION] : inactive - les tweaks seront RÉELLEMENT appliqués" -ForegroundColor DarkGray
+            Write-Host (T 'c.simu.off') -ForegroundColor DarkGray
         }
-        Write-Host " Système : $($script:InfosOS.DisplayVersion) / build $script:BuildOS / $($script:InfosOS.EditionID)" -ForegroundColor DarkGray
+        Write-Host ((T 'c.systeme') + "$($script:InfosOS.DisplayVersion) / build $script:BuildOS / $($script:InfosOS.EditionID)") -ForegroundColor DarkGray
 
-        switch (Read-Host "Entre ton choix (1-16, ou S)") {
+        switch (Read-Host (T 'c.choix')) {
             { $_ -match '^\s*[sS]\s*$' } {
                 $script:Simulation = -not $script:Simulation
                 $script:SimuCompteur = 0
