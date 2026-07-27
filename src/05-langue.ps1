@@ -215,6 +215,48 @@ $script:Textes = @{
 
     # --- Onglets ---
     'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
+    'onglet.installation'  = @{ fr = "Clé d'installation"; en = "Install media" }
+
+    # --- Page « Clé d'installation » ---
+    'inst.titre' = @{ fr = "Générer un fichier de réponses Windows"
+        en = "Generate a Windows answer file" }
+    'inst.expl1' = @{ fr = "Produit un autounattend.xml à déposer À LA RACINE de ta clé USB Windows, à côté de setup.exe. L'installation ne pose alors plus de questions."
+        en = "Produces an autounattend.xml to drop AT THE ROOT of your Windows USB stick, next to setup.exe. Setup then stops asking questions." }
+    'inst.expl2' = @{ fr = "MadTweak ne fournit aucune image Windows : la licence Microsoft interdit de la redistribuer. Tu télécharges l'ISO officielle toi-même ; ce fichier vient se poser à côté. C'est du texte, relis-le."
+        en = "MadTweak ships no Windows image: the Microsoft licence forbids redistributing it. You download the official ISO yourself; this file simply sits next to it. It is plain text, read it." }
+    'inst.avert' = @{ fr = "À savoir sur Windows 11 24H2 et 25H2 : le nouvel installeur applique bien le disque, l'édition et la langue, mais ignore souvent la partie « compte utilisateur » — l'écran de création de compte peut réapparaître. Un contournement est inclus, sans garantie possible. Windows 10 et Windows 11 jusqu'à 23H2 ne sont pas concernés."
+        en = "Note for Windows 11 24H2 and 25H2: the new setup engine applies disk, edition and language correctly, but often ignores the user-account part - the account creation screen may come back. A workaround is included, with no possible guarantee. Windows 10 and Windows 11 up to 23H2 are unaffected." }
+    'inst.version'   = @{ fr = "Version de Windows"; en = "Windows version" }
+    'inst.edition'   = @{ fr = "Édition"; en = "Edition" }
+    'inst.edition.demander'   = @{ fr = "Laisser l'installeur demander (le plus sûr)"; en = "Let setup ask (safest)" }
+    'inst.edition.famille'    = @{ fr = "Famille"; en = "Home" }
+    'inst.edition.entreprise' = @{ fr = "Entreprise"; en = "Enterprise" }
+    'inst.langue'    = @{ fr = "Langue et clavier"; en = "Language and keyboard" }
+    'inst.fuseau'    = @{ fr = "Fuseau horaire"; en = "Time zone" }
+    'inst.compte'    = @{ fr = "Nom du compte à créer"; en = "Account name to create" }
+    'inst.mdp'       = @{ fr = "Mot de passe (vide = aucun)"; en = "Password (empty = none)" }
+    'inst.mdp.avert' = @{ fr = "Dans un fichier de réponses, un mot de passe n'est PAS chiffré : il est encodé en base64, que quiconque a la clé USB relit en une commande. Laisser vide est plus sûr."
+        en = "In an answer file a password is NOT encrypted: it is base64-encoded, which anyone holding the USB stick can read back in one command. Leaving it empty is safer." }
+    'inst.machine'   = @{ fr = "Nom de la machine (vide = généré)"; en = "Computer name (empty = generated)" }
+    'inst.profil'    = @{ fr = "Profil appliqué au premier démarrage"; en = "Profile applied at first boot" }
+    'inst.profil.aucun' = @{ fr = "Aucun (ne rien appliquer)"; en = "None (apply nothing)" }
+    'inst.apps'      = @{ fr = "Applications à installer au premier démarrage"; en = "Applications to install at first boot" }
+    'inst.tpm'       = @{ fr = "Contourner TPM / Secure Boot / RAM (machine ancienne, Windows 11)"; en = "Bypass TPM / Secure Boot / RAM checks (older machine, Windows 11)" }
+    'inst.disque'    = @{ fr = "Effacer entièrement le disque 0 (destructif)"; en = "Wipe disk 0 entirely (destructive)" }
+    'inst.disque.titre'   = @{ fr = "Effacement du disque"; en = "Disk wipe" }
+    'inst.disque.confirm' = @{ fr = "Cette option détruit TOUTES les partitions du disque 0, sans confirmation au moment de l'installation.`n`nSans elle, l'installeur demandera où installer Windows, comme d'habitude.`n`nActiver l'effacement ?"
+        en = "This option destroys ALL partitions on disk 0, with no confirmation during setup.`n`nWithout it, setup will ask where to install Windows, as usual.`n`nEnable the wipe?" }
+    'inst.generer'   = @{ fr = "Générer le fichier de réponses"; en = "Generate the answer file" }
+    'inst.jrn.sansnom' = @{ fr = "Clé d'installation : indique d'abord un nom de compte."; en = "Install media: enter an account name first." }
+    'inst.jrn.simu'  = @{ fr = "SIMULATION : générerait {0} ({1} application(s))."; en = "SIMULATION: would generate {0} ({1} application(s))." }
+    'inst.jrn.ok'    = @{ fr = "Fichier de réponses généré : {0}"; en = "Answer file generated: {0}" }
+    'inst.jrn.suite' = @{ fr = "  Prépare la clé avec l'ISO officielle, puis copie autounattend.xml à sa racine, à côté de setup.exe."
+        en = "  Prepare the stick with the official ISO, then copy autounattend.xml to its root, next to setup.exe." }
+    'inst.jrn.profil' = @{ fr = "  Copie AUSSI MadTweak.ps1 à la racine de la clé : sans lui, le profil ne sera pas appliqué."
+        en = "  ALSO copy MadTweak.ps1 to the root of the stick: without it the profile will not be applied." }
+    'inst.jrn.mdp'   = @{ fr = "  Rappel : le mot de passe est lisible dans ce fichier. Ne prête pas la clé."
+        en = "  Reminder: the password is readable in this file. Do not lend the stick." }
+    'inst.jrn.echec' = @{ fr = "Clé d'installation : échec — {0}"; en = "Install media: failed - {0}" }
 
     # --- Journal / états ---
     'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
@@ -256,16 +298,18 @@ $script:Textes = @{
     'c.13d'      = @{ fr = "Catalogue d'installation Winget"; en = "Winget installation catalogue" }
     'c.14'       = @{ fr = "MAINTENANCE & FIX"; en = "MAINTENANCE & REPAIR" }
     'c.14d'      = @{ fr = "Réparation système (DISM / SFC)"; en = "System repair (DISM / SFC)" }
-    'c.15'       = @{ fr = "ANNULER"; en = "UNDO" }
-    'c.15d'      = @{ fr = "Revenir aux défauts Windows"; en = "Return to Windows defaults" }
-    'c.16'       = @{ fr = "QUITTER"; en = "QUIT" }
-    'c.16d'      = @{ fr = "Quitter l'utilitaire"; en = "Leave the utility" }
+    'c.15'       = @{ fr = "CLÉ D'INSTALLATION"; en = "INSTALL MEDIA" }
+    'c.15d'      = @{ fr = "Fichier de réponses pour installer Windows"; en = "Answer file to install Windows" }
+    'c.16'       = @{ fr = "ANNULER"; en = "UNDO" }
+    'c.16d'      = @{ fr = "Revenir aux défauts Windows"; en = "Return to Windows defaults" }
+    'c.17'       = @{ fr = "QUITTER"; en = "QUIT" }
+    'c.17d'      = @{ fr = "Quitter l'utilitaire"; en = "Leave the utility" }
     'c.simu.on'  = @{ fr = "  S [SIMULATION] : ACTIVE - rien ne sera écrit sur le système"
         en = "  S [SIMULATION]: ON - nothing will be written to the system" }
     'c.simu.off' = @{ fr = "  S [SIMULATION] : inactive - les tweaks seront RÉELLEMENT appliqués"
         en = "  S [SIMULATION]: off - tweaks will be REALLY applied" }
     'c.systeme'  = @{ fr = " Système : "; en = " System: " }
-    'c.choix'    = @{ fr = "Entre ton choix (1-16, ou S)"; en = "Enter your choice (1-16, or S)" }
+    'c.choix'    = @{ fr = "Entre ton choix (1-17, ou S)"; en = "Enter your choice (1-17, or S)" }
 
     # --- Mentions de santé ---
     'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }

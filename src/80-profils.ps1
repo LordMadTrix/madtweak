@@ -297,6 +297,43 @@ function Get-Inventaire {
     return $script:InventaireCache
 }
 
+function ConvertTo-CleComparable {
+    # Réduit un texte à sa forme la plus robuste : sans accent, sans ponctuation,
+    # sans espace, en minuscules. « Minimal / sûr » devient « minimalsur ».
+    param([Parameter(Mandatory)][string]$Texte)
+    $decompose = $Texte.Normalize([Text.NormalizationForm]::FormD)
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($c in $decompose.ToCharArray()) {
+        # Un caractère accentué décomposé = la lettre nue + un signe diacritique
+        # « sans chasse ». On garde la lettre, on jette le signe.
+        if ([Globalization.CharUnicodeInfo]::GetUnicodeCategory($c) -ne [Globalization.UnicodeCategory]::NonSpacingMark) {
+            [void]$sb.Append($c)
+        }
+    }
+    return ($sb.ToString() -replace '[^a-zA-Z0-9]', '').ToLowerInvariant()
+}
+
+function Resolve-NomProfil {
+    # Retrouve le nom EXACT d'un profil à partir d'une écriture approchante.
+    #
+    # Les noms de profils contiennent espaces, barre oblique et accents. Quand le
+    # nom arrive d'une ligne de commande -- et surtout du fichier de réponses d'une
+    # installation automatisée, où il traverse un XML puis une console dont la page
+    # de codes n'est pas garantie -- il en revient parfois abîmé. Répondre « profil
+    # inconnu » à un nom visiblement juste serait absurde, et sur une machine qu'on
+    # vient d'installer, l'échec passerait inaperçu.
+    param([Parameter(Mandatory)][string]$Nom)
+    # On renvoie toujours la clé TELLE QU'ELLE EST ÉCRITE dans le catalogue, jamais
+    # ce qu'a tapé l'appelant : c'est ce nom-là qui sera affiché à l'écran ensuite.
+    # La correspondance exacte l'emporte sur toute approximation.
+    foreach ($k in $script:Profils.Keys) { if ($k -ceq $Nom) { return $k } }
+    $cible = ConvertTo-CleComparable $Nom
+    foreach ($k in $script:Profils.Keys) {
+        if ((ConvertTo-CleComparable $k) -eq $cible) { return $k }
+    }
+    return $null
+}
+
 function Invoke-Profil {
     param([Parameter(Mandatory)][string]$Nom)
     $profil = $script:Profils[$Nom]

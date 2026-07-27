@@ -46,6 +46,10 @@ function Write-Explication {
 
 function Demander-Option {
     param([Parameter(Mandatory)][string]$Message)
+    # Mode sans question, posé par -Profil : le script tourne alors à la première
+    # ouverture de session d'une installation automatisée, où PERSONNE n'a demandé
+    # à répondre à quoi que ce soit. Un Read-Host y serait une impasse silencieuse.
+    if ($script:SansQuestion) { return $true }
     $Reponse = Read-Host "$Message (O/N)"
     return ($Reponse -match '^\s*(o|oui|y|yes)\s*$')
 }

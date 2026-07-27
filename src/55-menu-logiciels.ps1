@@ -1,6 +1,44 @@
 ﻿# ------------------------------------------------------------------------------
 # LOGICIELS EXTRA (winget)
 # ------------------------------------------------------------------------------
+
+# Le catalogue vit au niveau du module, et non dans la fonction : le menu « Clé
+# d'installation » propose exactement les mêmes applications, et deux listes qui
+# dérivent l'une de l'autre finiraient par ne plus dire la même chose.
+$script:CatalogueApps = [ordered]@{
+    # Navigateurs
+    "Google Chrome"       = "Google.Chrome"
+    "Mozilla Firefox"     = "Mozilla.Firefox"
+    "Brave"               = "Brave.Brave"
+    # Essentiels
+    "7-Zip"               = "7zip.7zip"
+    "VLC Media Player"    = "VideoLAN.VLC"
+    "Notepad++"           = "Notepad++.Notepad++"
+    "PowerToys"           = "Microsoft.PowerToys"
+    "Windows Terminal"    = "Microsoft.WindowsTerminal"
+    # Communication et jeu
+    "Discord"             = "Discord.Discord"
+    "Steam"               = "Valve.Steam"
+    # --- Matériel / gaming (optionnel) : monitoring, overlay, pilotes ---
+    # G-Helper : le SEUL moyen de piloter ventilateurs et modes Turbo/Silencieux ASUS
+    # ROG (le driver ASUS ignore ces commandes hors de son écosystème). Léger, libre.
+    "G-Helper (ventilos + modes ASUS ROG)"           = "seerge.g-helper"
+    "HWiNFO (vraies températures / capteurs)"        = "REALiX.HWiNFO"
+    "MSI Afterburner (courbe ventilo GPU)"           = "Guru3D.Afterburner"
+    "RivaTuner Statistics Server (overlay FPS)"      = "Guru3D.RTSS"
+    "Display Driver Uninstaller (MAJ pilote propre)" = "Wagnardsoft.DisplayDriverUninstaller"
+    "Nilesoft Shell (menu clic droit moderne)"       = "Nilesoft.Shell"
+    # Développement
+    "Visual Studio Code"  = "Microsoft.VisualStudioCode"
+    "Git"                 = "Git.Git"
+    "PowerShell 7"        = "Microsoft.PowerShell"
+    # Utilitaires
+    "ShareX (captures)"   = "ShareX.ShareX"
+    "Everything (recherche instantanée)" = "voidtools.Everything"
+    "qBittorrent"         = "qBittorrent.qBittorrent"
+    "Adobe Acrobat Reader" = "Adobe.Acrobat.Reader.64-bit"
+}
+
 function Menu-Logiciels-Extra {
     Start-Menu -Titre "LOGICIELS EXPRESS (via winget)"
 
@@ -12,39 +50,7 @@ function Menu-Logiciels-Extra {
         return
     }
 
-    $Catalogue = [ordered]@{
-        # Navigateurs
-        "Google Chrome"       = "Google.Chrome"
-        "Mozilla Firefox"     = "Mozilla.Firefox"
-        "Brave"               = "Brave.Brave"
-        # Essentiels
-        "7-Zip"               = "7zip.7zip"
-        "VLC Media Player"    = "VideoLAN.VLC"
-        "Notepad++"           = "Notepad++.Notepad++"
-        "PowerToys"           = "Microsoft.PowerToys"
-        "Windows Terminal"    = "Microsoft.WindowsTerminal"
-        # Communication et jeu
-        "Discord"             = "Discord.Discord"
-        "Steam"               = "Valve.Steam"
-        # --- Matériel / gaming (optionnel) : monitoring, overlay, pilotes ---
-        # G-Helper : le SEUL moyen de piloter ventilateurs et modes Turbo/Silencieux ASUS
-        # ROG (le driver ASUS ignore ces commandes hors de son écosystème). Léger, libre.
-        "G-Helper (ventilos + modes ASUS ROG)"           = "seerge.g-helper"
-        "HWiNFO (vraies températures / capteurs)"        = "REALiX.HWiNFO"
-        "MSI Afterburner (courbe ventilo GPU)"           = "Guru3D.Afterburner"
-        "RivaTuner Statistics Server (overlay FPS)"      = "Guru3D.RTSS"
-        "Display Driver Uninstaller (MAJ pilote propre)" = "Wagnardsoft.DisplayDriverUninstaller"
-        "Nilesoft Shell (menu clic droit moderne)"       = "Nilesoft.Shell"
-        # Développement
-        "Visual Studio Code"  = "Microsoft.VisualStudioCode"
-        "Git"                 = "Git.Git"
-        "PowerShell 7"        = "Microsoft.PowerShell"
-        # Utilitaires
-        "ShareX (captures)"   = "ShareX.ShareX"
-        "Everything (recherche instantanée)" = "voidtools.Everything"
-        "qBittorrent"         = "qBittorrent.qBittorrent"
-        "Adobe Acrobat Reader" = "Adobe.Acrobat.Reader.64-bit"
-    }
+    $Catalogue = $script:CatalogueApps
 
     # --- Cas "nouveau PC" : transporter sa liste d'apps d'une machine à l'autre ---
 

@@ -19,7 +19,8 @@ function Afficher-Menu-Principal {
             @{ N = ' 9'; C = 'Cyan' },    @{ N = '10'; C = 'Red' },    @{ Sep = $true }
             @{ N = '11'; C = 'Green' },   @{ N = '12'; C = 'Green' }
             @{ N = '13'; C = 'Yellow' },  @{ N = '14'; C = 'Green' },  @{ Sep = $true }
-            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Red' }
+            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Magenta' }
+            @{ N = '17'; C = 'Red' }
         )
         foreach ($e in $entrees) {
             if ($e.Sep) {
@@ -58,8 +59,9 @@ function Afficher-Menu-Principal {
             "12" { Menu-Demarrage }
             "13" { Menu-Logiciels-Extra }
             "14" { Menu-Maintenance }
-            "15" { Menu-Annuler }
-            "16" { return }
+            "15" { Menu-Installation }
+            "16" { Menu-Annuler }
+            "17" { return }
             default { }
         }
     }

@@ -26,13 +26,19 @@ param(
     # Tout est traduit : interface, profils, onglets, les 150 tweaks et les 104
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
-    [string]$Langue
+    [string]$Langue,
+    # Applique un profil complet SANS poser de question, puis rend la main.
+    # Écrit pour les installations automatisées : le fichier de réponses généré
+    # par le menu « Clé d'installation » appelle le script ainsi à la première
+    # ouverture de session. Le nom attendu est celui affiché dans le menu Profils
+    # (« Minimal / sûr », « Gamer ROG »...). Un nom inconnu est signalé, pas deviné.
+    [string]$Profil
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
-$script:Version = "1.2"
+$script:Version = "1.3"
 
 # Compteurs de la session (remis à zéro à chaque entrée de menu)
 $script:CompteurOK = 0

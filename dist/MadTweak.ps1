@@ -40,13 +40,19 @@ param(
     # Tout est traduit : interface, profils, onglets, les 150 tweaks et les 104
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
-    [string]$Langue
+    [string]$Langue,
+    # Applique un profil complet SANS poser de question, puis rend la main.
+    # Écrit pour les installations automatisées : le fichier de réponses généré
+    # par le menu « Clé d'installation » appelle le script ainsi à la première
+    # ouverture de session. Le nom attendu est celui affiché dans le menu Profils
+    # (« Minimal / sûr », « Gamer ROG »...). Un nom inconnu est signalé, pas deviné.
+    [string]$Profil
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
-$script:Version = "1.2"
+$script:Version = "1.3"
 
 # Compteurs de la session (remis à zéro à chaque entrée de menu)
 $script:CompteurOK = 0
@@ -269,6 +275,48 @@ $script:Textes = @{
 
     # --- Onglets ---
     'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
+    'onglet.installation'  = @{ fr = "Clé d'installation"; en = "Install media" }
+
+    # --- Page « Clé d'installation » ---
+    'inst.titre' = @{ fr = "Générer un fichier de réponses Windows"
+        en = "Generate a Windows answer file" }
+    'inst.expl1' = @{ fr = "Produit un autounattend.xml à déposer À LA RACINE de ta clé USB Windows, à côté de setup.exe. L'installation ne pose alors plus de questions."
+        en = "Produces an autounattend.xml to drop AT THE ROOT of your Windows USB stick, next to setup.exe. Setup then stops asking questions." }
+    'inst.expl2' = @{ fr = "MadTweak ne fournit aucune image Windows : la licence Microsoft interdit de la redistribuer. Tu télécharges l'ISO officielle toi-même ; ce fichier vient se poser à côté. C'est du texte, relis-le."
+        en = "MadTweak ships no Windows image: the Microsoft licence forbids redistributing it. You download the official ISO yourself; this file simply sits next to it. It is plain text, read it." }
+    'inst.avert' = @{ fr = "À savoir sur Windows 11 24H2 et 25H2 : le nouvel installeur applique bien le disque, l'édition et la langue, mais ignore souvent la partie « compte utilisateur » — l'écran de création de compte peut réapparaître. Un contournement est inclus, sans garantie possible. Windows 10 et Windows 11 jusqu'à 23H2 ne sont pas concernés."
+        en = "Note for Windows 11 24H2 and 25H2: the new setup engine applies disk, edition and language correctly, but often ignores the user-account part - the account creation screen may come back. A workaround is included, with no possible guarantee. Windows 10 and Windows 11 up to 23H2 are unaffected." }
+    'inst.version'   = @{ fr = "Version de Windows"; en = "Windows version" }
+    'inst.edition'   = @{ fr = "Édition"; en = "Edition" }
+    'inst.edition.demander'   = @{ fr = "Laisser l'installeur demander (le plus sûr)"; en = "Let setup ask (safest)" }
+    'inst.edition.famille'    = @{ fr = "Famille"; en = "Home" }
+    'inst.edition.entreprise' = @{ fr = "Entreprise"; en = "Enterprise" }
+    'inst.langue'    = @{ fr = "Langue et clavier"; en = "Language and keyboard" }
+    'inst.fuseau'    = @{ fr = "Fuseau horaire"; en = "Time zone" }
+    'inst.compte'    = @{ fr = "Nom du compte à créer"; en = "Account name to create" }
+    'inst.mdp'       = @{ fr = "Mot de passe (vide = aucun)"; en = "Password (empty = none)" }
+    'inst.mdp.avert' = @{ fr = "Dans un fichier de réponses, un mot de passe n'est PAS chiffré : il est encodé en base64, que quiconque a la clé USB relit en une commande. Laisser vide est plus sûr."
+        en = "In an answer file a password is NOT encrypted: it is base64-encoded, which anyone holding the USB stick can read back in one command. Leaving it empty is safer." }
+    'inst.machine'   = @{ fr = "Nom de la machine (vide = généré)"; en = "Computer name (empty = generated)" }
+    'inst.profil'    = @{ fr = "Profil appliqué au premier démarrage"; en = "Profile applied at first boot" }
+    'inst.profil.aucun' = @{ fr = "Aucun (ne rien appliquer)"; en = "None (apply nothing)" }
+    'inst.apps'      = @{ fr = "Applications à installer au premier démarrage"; en = "Applications to install at first boot" }
+    'inst.tpm'       = @{ fr = "Contourner TPM / Secure Boot / RAM (machine ancienne, Windows 11)"; en = "Bypass TPM / Secure Boot / RAM checks (older machine, Windows 11)" }
+    'inst.disque'    = @{ fr = "Effacer entièrement le disque 0 (destructif)"; en = "Wipe disk 0 entirely (destructive)" }
+    'inst.disque.titre'   = @{ fr = "Effacement du disque"; en = "Disk wipe" }
+    'inst.disque.confirm' = @{ fr = "Cette option détruit TOUTES les partitions du disque 0, sans confirmation au moment de l'installation.`n`nSans elle, l'installeur demandera où installer Windows, comme d'habitude.`n`nActiver l'effacement ?"
+        en = "This option destroys ALL partitions on disk 0, with no confirmation during setup.`n`nWithout it, setup will ask where to install Windows, as usual.`n`nEnable the wipe?" }
+    'inst.generer'   = @{ fr = "Générer le fichier de réponses"; en = "Generate the answer file" }
+    'inst.jrn.sansnom' = @{ fr = "Clé d'installation : indique d'abord un nom de compte."; en = "Install media: enter an account name first." }
+    'inst.jrn.simu'  = @{ fr = "SIMULATION : générerait {0} ({1} application(s))."; en = "SIMULATION: would generate {0} ({1} application(s))." }
+    'inst.jrn.ok'    = @{ fr = "Fichier de réponses généré : {0}"; en = "Answer file generated: {0}" }
+    'inst.jrn.suite' = @{ fr = "  Prépare la clé avec l'ISO officielle, puis copie autounattend.xml à sa racine, à côté de setup.exe."
+        en = "  Prepare the stick with the official ISO, then copy autounattend.xml to its root, next to setup.exe." }
+    'inst.jrn.profil' = @{ fr = "  Copie AUSSI MadTweak.ps1 à la racine de la clé : sans lui, le profil ne sera pas appliqué."
+        en = "  ALSO copy MadTweak.ps1 to the root of the stick: without it the profile will not be applied." }
+    'inst.jrn.mdp'   = @{ fr = "  Rappel : le mot de passe est lisible dans ce fichier. Ne prête pas la clé."
+        en = "  Reminder: the password is readable in this file. Do not lend the stick." }
+    'inst.jrn.echec' = @{ fr = "Clé d'installation : échec — {0}"; en = "Install media: failed - {0}" }
 
     # --- Journal / états ---
     'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
@@ -310,16 +358,18 @@ $script:Textes = @{
     'c.13d'      = @{ fr = "Catalogue d'installation Winget"; en = "Winget installation catalogue" }
     'c.14'       = @{ fr = "MAINTENANCE & FIX"; en = "MAINTENANCE & REPAIR" }
     'c.14d'      = @{ fr = "Réparation système (DISM / SFC)"; en = "System repair (DISM / SFC)" }
-    'c.15'       = @{ fr = "ANNULER"; en = "UNDO" }
-    'c.15d'      = @{ fr = "Revenir aux défauts Windows"; en = "Return to Windows defaults" }
-    'c.16'       = @{ fr = "QUITTER"; en = "QUIT" }
-    'c.16d'      = @{ fr = "Quitter l'utilitaire"; en = "Leave the utility" }
+    'c.15'       = @{ fr = "CLÉ D'INSTALLATION"; en = "INSTALL MEDIA" }
+    'c.15d'      = @{ fr = "Fichier de réponses pour installer Windows"; en = "Answer file to install Windows" }
+    'c.16'       = @{ fr = "ANNULER"; en = "UNDO" }
+    'c.16d'      = @{ fr = "Revenir aux défauts Windows"; en = "Return to Windows defaults" }
+    'c.17'       = @{ fr = "QUITTER"; en = "QUIT" }
+    'c.17d'      = @{ fr = "Quitter l'utilitaire"; en = "Leave the utility" }
     'c.simu.on'  = @{ fr = "  S [SIMULATION] : ACTIVE - rien ne sera écrit sur le système"
         en = "  S [SIMULATION]: ON - nothing will be written to the system" }
     'c.simu.off' = @{ fr = "  S [SIMULATION] : inactive - les tweaks seront RÉELLEMENT appliqués"
         en = "  S [SIMULATION]: off - tweaks will be REALLY applied" }
     'c.systeme'  = @{ fr = " Système : "; en = " System: " }
-    'c.choix'    = @{ fr = "Entre ton choix (1-16, ou S)"; en = "Enter your choice (1-16, or S)" }
+    'c.choix'    = @{ fr = "Entre ton choix (1-17, ou S)"; en = "Enter your choice (1-17, or S)" }
 
     # --- Mentions de santé ---
     'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
@@ -941,6 +991,10 @@ function Write-Explication {
 
 function Demander-Option {
     param([Parameter(Mandatory)][string]$Message)
+    # Mode sans question, posé par -Profil : le script tourne alors à la première
+    # ouverture de session d'une installation automatisée, où PERSONNE n'a demandé
+    # à répondre à quoi que ce soit. Un Read-Host y serait une impasse silencieuse.
+    if ($script:SansQuestion) { return $true }
     $Reponse = Read-Host "$Message (O/N)"
     return ($Reponse -match '^\s*(o|oui|y|yes)\s*$')
 }
@@ -2702,6 +2756,44 @@ function Menu-Maj-Securite {
 # ------------------------------------------------------------------------------
 # LOGICIELS EXTRA (winget)
 # ------------------------------------------------------------------------------
+
+# Le catalogue vit au niveau du module, et non dans la fonction : le menu « Clé
+# d'installation » propose exactement les mêmes applications, et deux listes qui
+# dérivent l'une de l'autre finiraient par ne plus dire la même chose.
+$script:CatalogueApps = [ordered]@{
+    # Navigateurs
+    "Google Chrome"       = "Google.Chrome"
+    "Mozilla Firefox"     = "Mozilla.Firefox"
+    "Brave"               = "Brave.Brave"
+    # Essentiels
+    "7-Zip"               = "7zip.7zip"
+    "VLC Media Player"    = "VideoLAN.VLC"
+    "Notepad++"           = "Notepad++.Notepad++"
+    "PowerToys"           = "Microsoft.PowerToys"
+    "Windows Terminal"    = "Microsoft.WindowsTerminal"
+    # Communication et jeu
+    "Discord"             = "Discord.Discord"
+    "Steam"               = "Valve.Steam"
+    # --- Matériel / gaming (optionnel) : monitoring, overlay, pilotes ---
+    # G-Helper : le SEUL moyen de piloter ventilateurs et modes Turbo/Silencieux ASUS
+    # ROG (le driver ASUS ignore ces commandes hors de son écosystème). Léger, libre.
+    "G-Helper (ventilos + modes ASUS ROG)"           = "seerge.g-helper"
+    "HWiNFO (vraies températures / capteurs)"        = "REALiX.HWiNFO"
+    "MSI Afterburner (courbe ventilo GPU)"           = "Guru3D.Afterburner"
+    "RivaTuner Statistics Server (overlay FPS)"      = "Guru3D.RTSS"
+    "Display Driver Uninstaller (MAJ pilote propre)" = "Wagnardsoft.DisplayDriverUninstaller"
+    "Nilesoft Shell (menu clic droit moderne)"       = "Nilesoft.Shell"
+    # Développement
+    "Visual Studio Code"  = "Microsoft.VisualStudioCode"
+    "Git"                 = "Git.Git"
+    "PowerShell 7"        = "Microsoft.PowerShell"
+    # Utilitaires
+    "ShareX (captures)"   = "ShareX.ShareX"
+    "Everything (recherche instantanée)" = "voidtools.Everything"
+    "qBittorrent"         = "qBittorrent.qBittorrent"
+    "Adobe Acrobat Reader" = "Adobe.Acrobat.Reader.64-bit"
+}
+
 function Menu-Logiciels-Extra {
     Start-Menu -Titre "LOGICIELS EXPRESS (via winget)"
 
@@ -2713,39 +2805,7 @@ function Menu-Logiciels-Extra {
         return
     }
 
-    $Catalogue = [ordered]@{
-        # Navigateurs
-        "Google Chrome"       = "Google.Chrome"
-        "Mozilla Firefox"     = "Mozilla.Firefox"
-        "Brave"               = "Brave.Brave"
-        # Essentiels
-        "7-Zip"               = "7zip.7zip"
-        "VLC Media Player"    = "VideoLAN.VLC"
-        "Notepad++"           = "Notepad++.Notepad++"
-        "PowerToys"           = "Microsoft.PowerToys"
-        "Windows Terminal"    = "Microsoft.WindowsTerminal"
-        # Communication et jeu
-        "Discord"             = "Discord.Discord"
-        "Steam"               = "Valve.Steam"
-        # --- Matériel / gaming (optionnel) : monitoring, overlay, pilotes ---
-        # G-Helper : le SEUL moyen de piloter ventilateurs et modes Turbo/Silencieux ASUS
-        # ROG (le driver ASUS ignore ces commandes hors de son écosystème). Léger, libre.
-        "G-Helper (ventilos + modes ASUS ROG)"           = "seerge.g-helper"
-        "HWiNFO (vraies températures / capteurs)"        = "REALiX.HWiNFO"
-        "MSI Afterburner (courbe ventilo GPU)"           = "Guru3D.Afterburner"
-        "RivaTuner Statistics Server (overlay FPS)"      = "Guru3D.RTSS"
-        "Display Driver Uninstaller (MAJ pilote propre)" = "Wagnardsoft.DisplayDriverUninstaller"
-        "Nilesoft Shell (menu clic droit moderne)"       = "Nilesoft.Shell"
-        # Développement
-        "Visual Studio Code"  = "Microsoft.VisualStudioCode"
-        "Git"                 = "Git.Git"
-        "PowerShell 7"        = "Microsoft.PowerShell"
-        # Utilitaires
-        "ShareX (captures)"   = "ShareX.ShareX"
-        "Everything (recherche instantanée)" = "voidtools.Everything"
-        "qBittorrent"         = "qBittorrent.qBittorrent"
-        "Adobe Acrobat Reader" = "Adobe.Acrobat.Reader.64-bit"
-    }
+    $Catalogue = $script:CatalogueApps
 
     # --- Cas "nouveau PC" : transporter sa liste d'apps d'une machine à l'autre ---
 
@@ -4704,6 +4764,560 @@ function Menu-Signature {
     Fin-De-Menu
 }
 # ------------------------------------------------------------------------------
+# CLÉ D'INSTALLATION — génération d'un autounattend.xml
+#
+# Windows ne peut PAS être redistribué : la licence Microsoft l'interdit. MadTweak
+# ne fournit donc aucune ISO. Il génère le fichier de réponses que l'utilisateur
+# dépose sur SA clé, à côté de l'ISO officielle qu'il a téléchargée lui-même.
+#
+# Même logique que les fonds d'écran : on GÉNÈRE, on n'embarque pas. Le fichier
+# produit est du texte, il reste lisible et vérifiable avant d'être utilisé.
+#
+# WINDOWS 10 ET 11 : le schema « unattend » est le meme pour les deux, il n'a pas
+# change depuis Vista. Les contournements TPM/SecureBoot sont des ecritures de
+# registre INERTES sous Windows 10 (sans effet, pas en echec). En revanche le NOM
+# de l'edition dans l'image differe (« Windows 11 Pro » / « Windows 10 Pro ») :
+# c'est la seule vraie divergence, d'ou le parametre -Version.
+#
+# Le compte local est cree par le bloc LocalAccount du passage oobeSystem, qui est
+# le chemin DOCUMENTE par Microsoft. BypassNRO n'est qu'une ceinture-bretelles :
+# Microsoft a retire le SCRIPT bypassnro.cmd en 24H2, mais pas la valeur de
+# registre, qui marche toujours. Ce n'est pas elle qui cree le compte local.
+#
+# LIMITE CONNUE, WINDOWS 11 24H2 ET 25H2 : le nouvel installeur (SetupPrep.exe,
+# dit « ConX ») lit le passage windowsPE — disque, edition, langue — mais ignore
+# souvent oobeSystem. Le compte local n'est alors pas cree et l'OOBE repose ses
+# questions. D'ou la recopie du fichier vers C:\Windows\Panther\unattend.xml en
+# specialize, qui est le chemin de relecture historique. Ce contournement vient de
+# la pratique, pas de la documentation Microsoft : il ne peut pas etre garanti.
+# Windows 10 et Windows 11 jusqu'a 23H2 utilisent l'ancien installeur et ne sont
+# pas concernes.
+#
+# Le fichier n'installe pas les tweaks : au premier démarrage, il APPELLE MadTweak
+# avec un profil. Les 150 tweaks, la sauvegarde et l'annulation exacte continuent
+# donc de fonctionner à l'identique — rien n'est dupliqué.
+# ------------------------------------------------------------------------------
+
+function Get-FuseauxCourants {
+    # Les identifiants de fuseau attendus par Windows Setup ne sont pas des noms
+    # IANA : on propose les plus courants plutôt que d'exposer les 140 de la machine.
+    return [ordered]@{
+        "Europe de l'Ouest (Paris, Bruxelles)" = "Romance Standard Time"
+        "Europe centrale (Berlin, Madrid)"     = "W. Europe Standard Time"
+        "Royaume-Uni (Londres)"                = "GMT Standard Time"
+        "Canada (Montreal)"                    = "Eastern Standard Time"
+        "Suisse (Zurich)"                      = "W. Europe Standard Time"
+    }
+}
+
+function Get-LanguesInstallation {
+    return [ordered]@{
+        "Francais (Belgique)" = @{ UI = "fr-FR"; Locale = "fr-BE"; Clavier = "080c:0000080c" }
+        "Francais (France)"   = @{ UI = "fr-FR"; Locale = "fr-FR"; Clavier = "040c:0000040c" }
+        "Francais (Suisse)"   = @{ UI = "fr-FR"; Locale = "fr-CH"; Clavier = "100c:0000100c" }
+        "Francais (Canada)"   = @{ UI = "fr-CA"; Locale = "fr-CA"; Clavier = "0c0c:00001009" }
+        "English (US)"        = @{ UI = "en-US"; Locale = "en-US"; Clavier = "0409:00000409" }
+        "English (UK)"        = @{ UI = "en-GB"; Locale = "en-GB"; Clavier = "0809:00000809" }
+    }
+}
+
+function ConvertTo-MotDePasseUnattend {
+    # Windows attend le mot de passe en base64 de (mot de passe + "Password"),
+    # en UTF-16LE. Ce n'est PAS du chiffrement : n'importe qui lisant la clé USB
+    # le retrouve en une commande. L'appelant DOIT en avertir l'utilisateur.
+    param([string]$MotDePasse)
+    $octets = [System.Text.Encoding]::Unicode.GetBytes($MotDePasse + "Password")
+    return [Convert]::ToBase64String($octets)
+}
+
+function New-AutounattendXml {
+    <#
+        Génère le fichier de réponses. Retourne le chemin écrit.
+
+        -Profil     : clé d'un profil MadTweak rejoué au premier démarrage ($null = aucun)
+        -Apps       : identifiants winget installés au premier démarrage
+        -SansTPM    : ajoute les contournements TPM/SecureBoot/RAM (matériel ancien)
+        -MotDePasse : laissé vide = compte SANS mot de passe, à définir au 1er démarrage
+        -Version    : 11 ou 10 — ne sert qu'à nommer l'édition dans l'image
+        -Edition    : Pro / Famille / Entreprise. Vide = l'installeur pose la question.
+                      Ne la remplir que si on est sûr de ce que contient l'ISO : un
+                      nom d'édition absent de l'image fait échouer l'installation.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Chemin,
+        [Parameter(Mandatory)][string]$NomUtilisateur,
+        [ValidateSet('11', '10')][string]$Version = '11',
+        [ValidateSet('', 'Pro', 'Famille', 'Entreprise')][string]$Edition = '',
+        [string]$MotDePasse = "",
+        [string]$NomMachine = "",
+        [string]$Langue = "Francais (Belgique)",
+        [string]$Fuseau = "Romance Standard Time",
+        [string]$Profil,
+        [string[]]$Apps = @(),
+        [switch]$SansTPM,
+        [switch]$EffacerDisque
+    )
+
+    $langues = Get-LanguesInstallation
+    if (-not $langues.Contains($Langue)) { throw "Langue « $Langue » inconnue." }
+    $L = $langues[$Langue]
+
+    if ($NomUtilisateur -match '[\\/:*?"<>|]') { throw "Le nom d'utilisateur contient un caractere interdit." }
+    if (-not $NomMachine) { $NomMachine = "PC-" + ($NomUtilisateur -replace '[^a-zA-Z0-9]', '') }
+    if ($NomMachine.Length -gt 15) { $NomMachine = $NomMachine.Substring(0, 15) }
+
+    $esc = {
+        param($t)
+        "$t" -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;' -replace "'", '&apos;'
+    }
+
+    # Recopie du fichier de réponses vers Panther (voir le passage specialize).
+    # On le cherche sur TOUS les lecteurs : une clé USB n'a aucune lettre garantie.
+    $copiePanther = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter autounattend.xml -ErrorAction SilentlyContinue | Select-Object -First 1; if ($f) { Copy-Item $f.FullName ''C:\Windows\Panther\unattend.xml'' -Force }"'
+
+    # --- Commandes de première ouverture de session -------------------------------
+    # Elles s'exécutent une fois, en tant que l'utilisateur créé, session ouverte.
+    $cmds = New-Object System.Collections.Generic.List[string]
+    $ordre = 1
+    $ajouteCmd = {
+        param($description, $ligne)
+        $cmds.Add(@"
+                <SynchronousCommand wcm:action="add">
+                    <Order>$ordre</Order>
+                    <Description>$(& $esc $description)</Description>
+                    <CommandLine>$(& $esc $ligne)</CommandLine>
+                </SynchronousCommand>
+"@)
+    }
+
+    foreach ($id in $Apps) {
+        & $ajouteCmd "Installer $id" "cmd /c winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements"
+        $ordre++
+    }
+
+    if ($Profil) {
+        # MadTweak est attendu a la racine de la cle, montee en general sur D:.
+        # On le cherche sur tous les lecteurs plutot que de parier sur une lettre.
+        # Le nom du profil voyage en ASCII pur, sans espace ni accent (« Minimal / sur »
+        # devient « minimalsur ») : il traverse un XML puis une ligne de commande, et
+        # Resolve-NomProfil le retrouve a l'arrivee. Un accent mal transcode ici se
+        # solderait par un « profil inconnu » sur une machine fraichement installee,
+        # ou personne ne lirait le message.
+        $cleProfil = ConvertTo-CleComparable $Profil
+        $chercher = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter MadTweak.ps1 -ErrorAction SilentlyContinue | Select-Object -First 1; if ($s) { & $s.FullName -Profil ' + $cleProfil + ' }"'
+        & $ajouteCmd "Appliquer le profil MadTweak $cleProfil" $chercher
+        $ordre++
+    }
+
+    if ($MotDePasse) {
+        # La copie qu'on a posee dans Panther contient le mot de passe en base64.
+        # Windows nettoie le fichier qu'il y met LUI-MEME, pas forcement celui qu'on
+        # y a depose : sans cette ligne, le mot de passe resterait lisible sur le
+        # disque de la machine installee. C'est la derniere commande jouee.
+        & $ajouteCmd "Effacer la copie du fichier de reponses" 'cmd /c del /q "C:\Windows\Panther\unattend.xml"'
+        $ordre++
+    }
+
+    $blocCmds = if ($cmds.Count -gt 0) {
+        "            <FirstLogonCommands>`r`n" + ($cmds -join "`r`n") + "`r`n            </FirstLogonCommands>"
+    }
+    else { "" }
+
+    # --- Contournements matériels (specialize) ------------------------------------
+    $blocTPM = ""
+    if ($SansTPM) {
+        $blocTPM = @"
+            <RunSynchronousCommand wcm:action="add">
+                <Order>1</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassTPMCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>2</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassSecureBootCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>3</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassRAMCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+"@
+    }
+
+    # --- Disque : on n'efface RIEN sans demande explicite -------------------------
+    # Sans -EffacerDisque, aucune section DiskConfiguration n'est ecrite : Windows
+    # pose alors sa question habituelle, et l'utilisateur choisit sa partition.
+    # Automatiser un formatage qu'on n'a pas demande serait la pire des surprises.
+    $blocDisque = ""
+    if ($EffacerDisque) {
+        $blocDisque = @"
+            <DiskConfiguration>
+                <Disk wcm:action="add">
+                    <DiskID>0</DiskID>
+                    <WillWipeDisk>true</WillWipeDisk>
+                    <CreatePartitions>
+                        <CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>300</Size></CreatePartition>
+                        <CreatePartition wcm:action="add"><Order>2</Order><Type>MSR</Type><Size>16</Size></CreatePartition>
+                        <CreatePartition wcm:action="add"><Order>3</Order><Type>Primary</Type><Extend>true</Extend></CreatePartition>
+                    </CreatePartitions>
+                    <ModifyPartitions>
+                        <ModifyPartition wcm:action="add"><Order>1</Order><PartitionID>1</PartitionID><Format>FAT32</Format><Label>System</Label></ModifyPartition>
+                        <ModifyPartition wcm:action="add"><Order>2</Order><PartitionID>3</PartitionID><Format>NTFS</Format><Label>Windows</Label><Letter>C</Letter></ModifyPartition>
+                    </ModifyPartitions>
+                </Disk>
+            </DiskConfiguration>
+"@
+    }
+
+    # --- Choix de l'image et cible d'installation ---------------------------------
+    # « For unattended installations, you must specify either the InstallTo or the
+    # InstallToAvailablePartition setting » (doc Microsoft). Sans ce bloc, effacer
+    # le disque laisse l'installeur sans cible : il efface, puis se bloque.
+    $blocMeta = ""
+    if ($Edition) {
+        $nomEdition = switch ($Edition) {
+            'Pro'        { "Windows $Version Pro" }
+            'Famille'    { "Windows $Version Home" }
+            'Entreprise' { "Windows $Version Enterprise" }
+        }
+        $blocMeta = @"
+                    <InstallFrom>
+                        <MetaData wcm:action="add">
+                            <Key>/IMAGE/NAME</Key>
+                            <Value>$(& $esc $nomEdition)</Value>
+                        </MetaData>
+                    </InstallFrom>
+"@
+    }
+
+    $blocImage = ""
+    if ($EffacerDisque -or $blocMeta) {
+        # Partition 3 = la partition Windows creee plus haut (1=EFI, 2=MSR, 3=Windows).
+        # Sans effacement, on ne fixe PAS de cible : l'utilisateur choisit la sienne.
+        $cible = if ($EffacerDisque) {
+            @"
+                    <InstallTo>
+                        <DiskID>0</DiskID>
+                        <PartitionID>3</PartitionID>
+                    </InstallTo>
+"@
+        }
+        else { "" }
+        $blocImage = @"
+            <ImageInstall>
+                <OSImage>
+$blocMeta$cible                    <WillShowUI>OnError</WillShowUI>
+                </OSImage>
+            </ImageInstall>
+"@
+    }
+
+    # --- Mot de passe : vide = compte sans mot de passe ---------------------------
+    $blocMdp = if ($MotDePasse) {
+        @"
+                        <Password>
+                            <Value>$(ConvertTo-MotDePasseUnattend $MotDePasse)</Value>
+                            <PlainText>false</PlainText>
+                        </Password>
+"@
+    }
+    else { "" }
+
+    $xml = @"
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Fichier de reponses genere par MadTweak.
+    A DEPOSER A LA RACINE de la cle d'installation Windows, a cote de setup.exe.
+
+    Il ne contient aucun composant Microsoft : c'est un fichier de configuration.
+    Relis-le avant usage, c'est du texte.
+-->
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+
+    <settings pass="windowsPE">
+        <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <SetupUILanguage><UILanguage>$($L.UI)</UILanguage></SetupUILanguage>
+            <InputLocale>$($L.Clavier)</InputLocale>
+            <SystemLocale>$($L.Locale)</SystemLocale>
+            <UILanguage>$($L.UI)</UILanguage>
+            <UserLocale>$($L.Locale)</UserLocale>
+        </component>
+        <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+$blocDisque
+$blocImage
+            <UserData>
+                <AcceptEula>true</AcceptEula>
+            </UserData>
+$(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </RunSynchronous>" })
+        </component>
+    </settings>
+
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <ComputerName>$(& $esc $NomMachine)</ComputerName>
+            <TimeZone>$(& $esc $Fuseau)</TimeZone>
+        </component>
+        <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <RunSynchronous>
+                <!-- Ceinture-bretelles pour le compte local. Le compte est en fait
+                     cree par le bloc LocalAccount du passage oobeSystem, plus bas.
+                     Microsoft a retire le SCRIPT bypassnro.cmd en 24H2, mais pas
+                     cette valeur de registre, qui fonctionne toujours (25H2 inclus). -->
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE /v BypassNRO /t REG_DWORD /d 1 /f</Path>
+                </RunSynchronousCommand>
+                <!-- Recopie du fichier de reponses dans Panther. Depuis 24H2, et
+                     surtout en 25H2, le nouvel installeur (SetupPrep.exe, dit
+                     « ConX ») lit bien le passage windowsPE mais ignore souvent
+                     oobeSystem : le compte local n'est alors pas cree et l'OOBE
+                     repose ses questions. Relire le fichier depuis Panther est le
+                     chemin historique, et cette copie ne coute rien la ou l'ancien
+                     installeur fonctionnait deja. -->
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <Path>$(& $esc $copiePanther)</Path>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+    </settings>
+
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+            <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+                <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideWirelessSetupInOOBE>false</HideWirelessSetupInOOBE>
+                <ProtectYourPC>3</ProtectYourPC>
+                <SkipMachineOOBE>true</SkipMachineOOBE>
+                <SkipUserOOBE>true</SkipUserOOBE>
+            </OOBE>
+            <UserAccounts>
+                <LocalAccounts>
+                    <LocalAccount wcm:action="add">
+                        <Name>$(& $esc $NomUtilisateur)</Name>
+                        <DisplayName>$(& $esc $NomUtilisateur)</DisplayName>
+                        <Group>Administrators</Group>
+$blocMdp
+                    </LocalAccount>
+                </LocalAccounts>
+            </UserAccounts>
+$blocCmds
+        </component>
+    </settings>
+
+</unattend>
+"@
+
+    # UTF-8 SANS BOM : Windows Setup lit le fichier de reponses en UTF-8 et un BOM
+    # peut le faire echouer. C'est la convention INVERSE des modules du projet.
+    [System.IO.File]::WriteAllText($Chemin, $xml, (New-Object System.Text.UTF8Encoding($false)))
+
+    # Verification immediate : un XML mal forme se voit ici, pas devant l'ecran
+    # d'installation d'une machine qu'on vient de formater.
+    try { [xml](Get-Content $Chemin -Raw) | Out-Null }
+    catch { throw "Le fichier genere n'est pas un XML valide : $($_.Exception.Message)" }
+
+    return $Chemin
+}
+
+
+# ------------------------------------------------------------------------------
+# MENU CONSOLE
+# ------------------------------------------------------------------------------
+
+function Read-ChoixListe {
+    # Affiche une table ordonnée numérotée et renvoie la CLÉ choisie.
+    # Entrée vide = la valeur par défaut : on peut dérouler tout le questionnaire
+    # à coups d'Entrée et obtenir un fichier cohérent.
+    param(
+        [Parameter(Mandatory)]$Liste,
+        [Parameter(Mandatory)][string]$Question,
+        [int]$Defaut = 1
+    )
+    $cles = @($Liste.Keys)
+    for ($i = 0; $i -lt $cles.Count; $i++) {
+        $marque = if (($i + 1) -eq $Defaut) { "*" } else { " " }
+        Write-Host ("   {0}{1,2} - {2}" -f $marque, ($i + 1), $cles[$i]) -ForegroundColor Gray
+    }
+    $r = (Read-Host "  $Question [$Defaut]").Trim()
+    if (-not $r) { $r = "$Defaut" }
+    $n = 0
+    if (-not [int]::TryParse($r, [ref]$n) -or $n -lt 1 -or $n -gt $cles.Count) {
+        Write-Etat "Choix hors liste : on garde « $($cles[$Defaut - 1]) »." -Niveau Avert
+        return $cles[$Defaut - 1]
+    }
+    return $cles[$n - 1]
+}
+
+function Menu-Installation {
+    Clear-Host
+    Write-Host "=== CLÉ D'INSTALLATION : FICHIER DE RÉPONSES ===" -ForegroundColor Magenta
+    Write-Host ""
+    Write-Host "  Génère un fichier autounattend.xml à déposer À LA RACINE de ta clé USB" -ForegroundColor Gray
+    Write-Host "  Windows, à côté de setup.exe. L'installation ne pose alors plus de" -ForegroundColor Gray
+    Write-Host "  questions : langue, compte, applications et tweaks sont déjà décidés." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  MadTweak ne fournit AUCUNE image Windows : la licence Microsoft interdit" -ForegroundColor Yellow
+    Write-Host "  de la redistribuer. Tu télécharges l'ISO officielle toi-même, et ce" -ForegroundColor Yellow
+    Write-Host "  fichier vient simplement se poser à côté. C'est du texte, relis-le." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  À SAVOIR sur Windows 11 24H2 et 25H2 : le nouvel installeur de Microsoft" -ForegroundColor Cyan
+    Write-Host "  applique bien le disque, l'édition et la langue, mais ignore souvent la" -ForegroundColor Cyan
+    Write-Host "  partie « compte utilisateur » — l'écran de création de compte peut donc" -ForegroundColor Cyan
+    Write-Host "  réapparaître. Un contournement est inclus, sans garantie possible." -ForegroundColor Cyan
+    Write-Host "  Windows 10 et Windows 11 jusqu'à 23H2 ne sont pas concernés." -ForegroundColor Cyan
+    Write-Host ""
+    $script:CompteurOK = 0; $script:CompteurEchec = 0
+
+    if (-not (Demander-Option "Créer un fichier de réponses maintenant ?")) { return }
+    Write-Host ""
+
+    # --- Cible ----------------------------------------------------------------
+    $versions = [ordered]@{ "Windows 11" = "11"; "Windows 10" = "10" }
+    $version = $versions[(Read-ChoixListe $versions "Quelle version de Windows ?" 1)]
+    Write-Host ""
+
+    $editions = [ordered]@{
+        "Laisser l'installeur demander (le plus sûr)" = ""
+        "Pro"                                        = "Pro"
+        "Famille / Home"                             = "Famille"
+        "Entreprise / Enterprise"                    = "Entreprise"
+    }
+    Write-Host "  L'édition n'est à préciser que si tu es SÛR de ce que contient l'ISO :" -ForegroundColor DarkGray
+    Write-Host "  un nom d'édition absent de l'image fait échouer l'installation." -ForegroundColor DarkGray
+    $edition = $editions[(Read-ChoixListe $editions "Quelle édition ?" 1)]
+    Write-Host ""
+
+    # --- Langue et fuseau -----------------------------------------------------
+    $langues = Get-LanguesInstallation
+    $langue = Read-ChoixListe $langues "Langue et clavier ?" 1
+    Write-Host ""
+    $fuseaux = Get-FuseauxCourants
+    $fuseau = $fuseaux[(Read-ChoixListe $fuseaux "Fuseau horaire ?" 1)]
+    Write-Host ""
+
+    # --- Compte ---------------------------------------------------------------
+    $utilisateur = (Read-Host "  Nom du compte à créer").Trim()
+    if (-not $utilisateur) {
+        Write-Etat "Aucun nom d'utilisateur : abandon." -Niveau Avert
+        if (-not (Test-SansInteraction)) { Read-Host "`nEntrée pour revenir" }
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  ATTENTION : dans un fichier de réponses, un mot de passe n'est PAS" -ForegroundColor Red
+    Write-Host "  chiffré. Il est encodé en base64, ce qui se relit en une commande par" -ForegroundColor Red
+    Write-Host "  quiconque a la clé USB en main. Laisse VIDE pour créer un compte sans" -ForegroundColor Red
+    Write-Host "  mot de passe et en définir un au premier démarrage : c'est plus sûr." -ForegroundColor Red
+    $motDePasse = (Read-Host "  Mot de passe (vide = aucun)")
+    Write-Host ""
+
+    $machine = (Read-Host "  Nom de la machine (vide = généré)").Trim()
+
+    # --- Profil MadTweak ------------------------------------------------------
+    Write-Host ""
+    $profils = [ordered]@{ "Aucun (ne rien appliquer)" = "" }
+    foreach ($k in $script:Profils.Keys) { $profils[$k] = $k }
+    Write-Host "  Le profil sera appliqué à la première ouverture de session, à condition" -ForegroundColor DarkGray
+    Write-Host "  que MadTweak.ps1 soit copié à la racine de la même clé USB." -ForegroundColor DarkGray
+    $profil = $profils[(Read-ChoixListe $profils "Quel profil appliquer ?" 1)]
+    Write-Host ""
+
+    # --- Applications ---------------------------------------------------------
+    $apps = @()
+    if (Demander-Option "Installer des applications au premier démarrage ?") {
+        $noms = @($script:CatalogueApps.Keys)
+        for ($i = 0; $i -lt $noms.Count; $i++) {
+            Write-Host ("   {0,2} - {1}" -f ($i + 1), $noms[$i]) -ForegroundColor Gray
+        }
+        $rep = (Read-Host "  Numéros séparés par une virgule (ex : 2,4,10)").Trim()
+        foreach ($m in ($rep -split ',')) {
+            $n = 0
+            if ([int]::TryParse($m.Trim(), [ref]$n) -and $n -ge 1 -and $n -le $noms.Count) {
+                $apps += $script:CatalogueApps[$noms[$n - 1]]
+            }
+        }
+        $apps = @($apps | Select-Object -Unique)
+        Write-Etat "$($apps.Count) application(s) retenue(s)." -Niveau Info
+    }
+    Write-Host ""
+
+    # --- Matériel ancien ------------------------------------------------------
+    $sansTpm = $false
+    if ($version -eq '11') {
+        $sansTpm = Demander-Option "Contourner les contrôles TPM / Secure Boot / RAM (machine ancienne) ?"
+        Write-Host ""
+    }
+
+    # --- Disque : la seule question réellement destructrice -------------------
+    Write-Host "  Par défaut, l'installeur demandera OÙ installer Windows, comme d'habitude." -ForegroundColor Gray
+    Write-Host "  Tu peux aussi lui dire d'effacer entièrement le premier disque. Dans ce" -ForegroundColor Gray
+    Write-Host "  cas il ne demandera plus rien et TOUT le disque 0 sera perdu." -ForegroundColor Gray
+    $effacer = $false
+    if (Demander-Option "Effacer automatiquement le disque 0 ?") {
+        Write-Host ""
+        Write-Host "  Cette option détruit toutes les partitions du disque 0, sans confirmation" -ForegroundColor Red
+        Write-Host "  au moment de l'installation. Tape EFFACER en majuscules pour l'activer." -ForegroundColor Red
+        $effacer = ((Read-Host "  Confirmation").Trim() -ceq "EFFACER")
+        if (-not $effacer) { Write-Etat "Effacement NON activé : l'installeur posera la question." -Niveau Info }
+    }
+    Write-Host ""
+
+    # --- Génération -----------------------------------------------------------
+    $dossier = Join-Path ([Environment]::GetFolderPath("Desktop")) "madtweak-installation"
+    $chemin = Join-Path $dossier "autounattend.xml"
+
+    if ($script:Simulation) {
+        Write-Simu "générerait $chemin (Windows $version, compte « $utilisateur », $($apps.Count) app(s), effacement : $effacer)"
+        if (-not (Test-SansInteraction)) { Read-Host "`nEntrée pour revenir" }
+        return
+    }
+
+    try {
+        if (-not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
+        $params = @{
+            Chemin         = $chemin
+            NomUtilisateur = $utilisateur
+            MotDePasse     = $motDePasse
+            NomMachine     = $machine
+            Langue         = $langue
+            Fuseau         = $fuseau
+            Version        = $version
+            Edition        = $edition
+            Apps           = $apps
+        }
+        if ($profil) { $params.Profil = $profil }
+        if ($sansTpm) { $params.SansTPM = $true }
+        if ($effacer) { $params.EffacerDisque = $true }
+
+        New-AutounattendXml @params | Out-Null
+
+        Write-Host ""
+        Write-Etat "Fichier généré : $chemin" -Niveau OK
+        Write-Host ""
+        Write-Host "  Ce qu'il reste à faire :" -ForegroundColor Cyan
+        Write-Host "   1. Prépare ta clé USB avec l'ISO officielle (Rufus, ou l'outil Microsoft)." -ForegroundColor Gray
+        Write-Host "   2. Copie autounattend.xml À LA RACINE de la clé, à côté de setup.exe." -ForegroundColor Gray
+        if ($profil) {
+            Write-Host "   3. Copie AUSSI MadTweak.ps1 à la racine de la clé : sans lui, le profil" -ForegroundColor Yellow
+            Write-Host "      « $profil » ne sera pas appliqué." -ForegroundColor Yellow
+        }
+        Write-Host ""
+        if ($motDePasse) {
+            Write-Etat "Rappel : le mot de passe est lisible dans ce fichier. Ne prête pas la clé." -Niveau Avert
+        }
+        $script:CompteurOK++
+    }
+    catch {
+        Write-Etat "Génération impossible : $($_.Exception.Message)" -Niveau Echec
+        $script:CompteurEchec++
+    }
+
+    if (-not (Test-SansInteraction)) {
+        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    }
+}
+# ------------------------------------------------------------------------------
 # AUDIT : que vaut cette machine, ici et maintenant ?
 #
 # À ne pas confondre avec le tableau du menu ANNULER : celui-ci ne connaît que ce
@@ -5762,6 +6376,43 @@ function Get-Inventaire {
     return $script:InventaireCache
 }
 
+function ConvertTo-CleComparable {
+    # Réduit un texte à sa forme la plus robuste : sans accent, sans ponctuation,
+    # sans espace, en minuscules. « Minimal / sûr » devient « minimalsur ».
+    param([Parameter(Mandatory)][string]$Texte)
+    $decompose = $Texte.Normalize([Text.NormalizationForm]::FormD)
+    $sb = New-Object System.Text.StringBuilder
+    foreach ($c in $decompose.ToCharArray()) {
+        # Un caractère accentué décomposé = la lettre nue + un signe diacritique
+        # « sans chasse ». On garde la lettre, on jette le signe.
+        if ([Globalization.CharUnicodeInfo]::GetUnicodeCategory($c) -ne [Globalization.UnicodeCategory]::NonSpacingMark) {
+            [void]$sb.Append($c)
+        }
+    }
+    return ($sb.ToString() -replace '[^a-zA-Z0-9]', '').ToLowerInvariant()
+}
+
+function Resolve-NomProfil {
+    # Retrouve le nom EXACT d'un profil à partir d'une écriture approchante.
+    #
+    # Les noms de profils contiennent espaces, barre oblique et accents. Quand le
+    # nom arrive d'une ligne de commande -- et surtout du fichier de réponses d'une
+    # installation automatisée, où il traverse un XML puis une console dont la page
+    # de codes n'est pas garantie -- il en revient parfois abîmé. Répondre « profil
+    # inconnu » à un nom visiblement juste serait absurde, et sur une machine qu'on
+    # vient d'installer, l'échec passerait inaperçu.
+    param([Parameter(Mandatory)][string]$Nom)
+    # On renvoie toujours la clé TELLE QU'ELLE EST ÉCRITE dans le catalogue, jamais
+    # ce qu'a tapé l'appelant : c'est ce nom-là qui sera affiché à l'écran ensuite.
+    # La correspondance exacte l'emporte sur toute approximation.
+    foreach ($k in $script:Profils.Keys) { if ($k -ceq $Nom) { return $k } }
+    $cible = ConvertTo-CleComparable $Nom
+    foreach ($k in $script:Profils.Keys) {
+        if ((ConvertTo-CleComparable $k) -eq $cible) { return $k }
+    }
+    return $null
+}
+
 function Invoke-Profil {
     param([Parameter(Mandatory)][string]$Nom)
     $profil = $script:Profils[$Nom]
@@ -5872,7 +6523,8 @@ function Afficher-Menu-Principal {
             @{ N = ' 9'; C = 'Cyan' },    @{ N = '10'; C = 'Red' },    @{ Sep = $true }
             @{ N = '11'; C = 'Green' },   @{ N = '12'; C = 'Green' }
             @{ N = '13'; C = 'Yellow' },  @{ N = '14'; C = 'Green' },  @{ Sep = $true }
-            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Red' }
+            @{ N = '15'; C = 'Magenta' }, @{ N = '16'; C = 'Magenta' }
+            @{ N = '17'; C = 'Red' }
         )
         foreach ($e in $entrees) {
             if ($e.Sep) {
@@ -5911,8 +6563,9 @@ function Afficher-Menu-Principal {
             "12" { Menu-Demarrage }
             "13" { Menu-Logiciels-Extra }
             "14" { Menu-Maintenance }
-            "15" { Menu-Annuler }
-            "16" { return }
+            "15" { Menu-Installation }
+            "16" { Menu-Annuler }
+            "17" { return }
             default { }
         }
     }
@@ -6187,6 +6840,26 @@ $script:XamlInterface = @'
       <Setter Property="Margin" Value="0,0,8,0"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Cursor" Value="Hand"/>
+    </Style>
+    <!-- Champs de saisie : sans style explicite, WPF les peint en blanc sur blanc
+         dès que le thème est sombre. Même remède que pour les cases et les onglets. -->
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource ButtonBgBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+    </Style>
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="{DynamicResource ButtonBgBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
     </Style>
     <Style TargetType="TabItem">
       <Setter Property="FontFamily" Value="Segoe UI"/>
@@ -6943,6 +7616,204 @@ function Add-PageMateriel {
     $script:GuiTabs.Items.Add($onglet) | Out-Null
 }
 
+function Add-LigneTexte {
+    # Étiquette + champ de saisie. -Secret produit un PasswordBox (points au lieu
+    # des lettres) : même géométrie, contrôle différent, d'où le retour polymorphe.
+    param($Panneau, [string]$Etiquette, [string]$Valeur = "", [switch]$Secret, [int]$Largeur = 300)
+    $lbl = New-Object System.Windows.Controls.TextBlock
+    $lbl.Text = $Etiquette
+    $lbl.Margin = "0,10,0,3"
+    $lbl.FontWeight = "SemiBold"
+    $Panneau.Children.Add($lbl) | Out-Null
+    $ctl = if ($Secret) { New-Object System.Windows.Controls.PasswordBox }
+    else { New-Object System.Windows.Controls.TextBox }
+    if (-not $Secret) { $ctl.Text = $Valeur }
+    $ctl.Width = $Largeur
+    $ctl.HorizontalAlignment = "Left"
+    $Panneau.Children.Add($ctl) | Out-Null
+    return $ctl
+}
+
+function Add-PageInstallation {
+    # Onglet « Clé d'installation » : les mêmes questions que le menu console, mais
+    # toutes visibles d'un coup. Aucune logique n'est dupliquée -- la page se contente
+    # de remplir les paramètres de New-AutounattendXml, qui reste le seul endroit où
+    # le XML est écrit.
+    param($Fenetre)
+
+    $styleCombo = $null
+    try { $styleCombo = $Fenetre.FindResource([System.Windows.Controls.ComboBox]) } catch { }
+    $styleCase = $null
+    try { $styleCase = $Fenetre.FindResource([System.Windows.Controls.CheckBox]) } catch { }
+
+    $pile = New-Object System.Windows.Controls.StackPanel
+    $pile.Margin = "16"
+
+    $titre = New-Object System.Windows.Controls.TextBlock
+    $titre.Text = T 'inst.titre'
+    $titre.FontWeight = "Bold"; $titre.FontSize = 15; $titre.Margin = "0,0,0,6"
+    $pile.Children.Add($titre) | Out-Null
+
+    foreach ($cle in 'inst.expl1', 'inst.expl2', 'inst.avert') {
+        $t = New-Object System.Windows.Controls.TextBlock
+        $t.Text = T $cle
+        $t.TextWrapping = "Wrap"; $t.FontSize = 12; $t.Margin = "0,0,0,4"
+        $t.MaxWidth = 720
+        if ($cle -ne 'inst.expl1') { $t.Opacity = 0.85 }
+        $pile.Children.Add($t) | Out-Null
+    }
+
+    # --- Cible ----------------------------------------------------------------
+    $script:InstVersions = [ordered]@{ "Windows 11" = "11"; "Windows 10" = "10" }
+    $script:InstCbVersion = Add-LigneComboClavier $pile $styleCombo (T 'inst.version') @($script:InstVersions.Keys) 0
+
+    $script:InstEditions = [ordered]@{}
+    $script:InstEditions[(T 'inst.edition.demander')] = ""
+    $script:InstEditions["Pro"] = "Pro"
+    $script:InstEditions[(T 'inst.edition.famille')] = "Famille"
+    $script:InstEditions[(T 'inst.edition.entreprise')] = "Entreprise"
+    $script:InstCbEdition = Add-LigneComboClavier $pile $styleCombo (T 'inst.edition') @($script:InstEditions.Keys) 0
+
+    $script:InstLangues = Get-LanguesInstallation
+    $script:InstCbLangue = Add-LigneComboClavier $pile $styleCombo (T 'inst.langue') @($script:InstLangues.Keys) 0
+
+    $script:InstFuseaux = Get-FuseauxCourants
+    $script:InstCbFuseau = Add-LigneComboClavier $pile $styleCombo (T 'inst.fuseau') @($script:InstFuseaux.Keys) 0
+
+    # --- Compte ---------------------------------------------------------------
+    $script:InstTxtUser = Add-LigneTexte $pile (T 'inst.compte')
+    $script:InstTxtMdp = Add-LigneTexte $pile (T 'inst.mdp') -Secret
+    $tMdp = New-Object System.Windows.Controls.TextBlock
+    $tMdp.Text = T 'inst.mdp.avert'
+    $tMdp.TextWrapping = "Wrap"; $tMdp.FontSize = 11; $tMdp.Margin = "0,3,0,0"; $tMdp.MaxWidth = 720
+    $tMdp.Foreground = [System.Windows.Media.SolidColorBrush]::new(
+        [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
+    $pile.Children.Add($tMdp) | Out-Null
+    $script:InstTxtMachine = Add-LigneTexte $pile (T 'inst.machine')
+
+    # --- Profil ---------------------------------------------------------------
+    $script:InstProfils = [ordered]@{}
+    $script:InstProfils[(T 'inst.profil.aucun')] = ""
+    foreach ($k in $script:Profils.Keys) { $script:InstProfils[(Get-NomProfil $k)] = $k }
+    $script:InstCbProfil = Add-LigneComboClavier $pile $styleCombo (T 'inst.profil') @($script:InstProfils.Keys) 0
+
+    # --- Applications ---------------------------------------------------------
+    $lblApps = New-Object System.Windows.Controls.TextBlock
+    $lblApps.Text = T 'inst.apps'
+    $lblApps.Margin = "0,12,0,3"; $lblApps.FontWeight = "SemiBold"
+    $pile.Children.Add($lblApps) | Out-Null
+
+    $pileApps = New-Object System.Windows.Controls.StackPanel
+    $script:InstAppsCases = @{}
+    foreach ($nom in $script:CatalogueApps.Keys) {
+        $c = New-Object System.Windows.Controls.CheckBox
+        if ($styleCase) { $c.Style = $styleCase }
+        $c.Content = $nom
+        $c.Margin = "0,2,0,2"
+        $pileApps.Children.Add($c) | Out-Null
+        $script:InstAppsCases[$script:CatalogueApps[$nom]] = $c
+    }
+    $boiteApps = New-Object System.Windows.Controls.ScrollViewer
+    $boiteApps.VerticalScrollBarVisibility = "Auto"
+    $boiteApps.Height = 170; $boiteApps.Width = 420
+    $boiteApps.HorizontalAlignment = "Left"
+    $boiteApps.Padding = "8"
+    $boiteApps.BorderThickness = "1"
+    $boiteApps.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
+    $boiteApps.Content = $pileApps
+    $pile.Children.Add($boiteApps) | Out-Null
+
+    # --- Options ---------------------------------------------------------------
+    $script:InstCaseTpm = New-Object System.Windows.Controls.CheckBox
+    if ($styleCase) { $script:InstCaseTpm.Style = $styleCase }
+    $script:InstCaseTpm.Content = T 'inst.tpm'
+    $script:InstCaseTpm.Margin = "0,14,0,4"
+    $pile.Children.Add($script:InstCaseTpm) | Out-Null
+
+    $script:InstCaseDisque = New-Object System.Windows.Controls.CheckBox
+    if ($styleCase) { $script:InstCaseDisque.Style = $styleCase }
+    $script:InstCaseDisque.Content = T 'inst.disque'
+    $script:InstCaseDisque.Margin = "0,4,0,4"
+    $script:InstCaseDisque.Foreground = [System.Windows.Media.SolidColorBrush]::new(
+        [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
+    $pile.Children.Add($script:InstCaseDisque) | Out-Null
+
+    # La case la plus destructrice de tout l'outil : on redemande, explicitement,
+    # au moment où elle est cochée. Décocher ne demande évidemment rien.
+    $script:InstCaseDisque.Add_Checked({
+            $r = [System.Windows.MessageBox]::Show(
+                (T 'inst.disque.confirm'), (T 'inst.disque.titre'),
+                [System.Windows.MessageBoxButton]::YesNo,
+                [System.Windows.MessageBoxImage]::Warning)
+            if ($r -ne [System.Windows.MessageBoxResult]::Yes) { $this.IsChecked = $false }
+        }) | Out-Null
+
+    # --- Génération ------------------------------------------------------------
+    $btn = New-Object System.Windows.Controls.Button
+    $btn.Content = T 'inst.generer'
+    $btn.Margin = "0,16,0,0"
+    $btn.HorizontalAlignment = "Left"
+    $btn.Add_Click({
+            try {
+                $user = $script:InstTxtUser.Text.Trim()
+                if (-not $user) {
+                    $script:JournalGui.AppendText((T 'inst.jrn.sansnom') + "`r`n")
+                    $script:JournalGui.ScrollToEnd()
+                    return
+                }
+                $apps = @()
+                foreach ($id in $script:InstAppsCases.Keys) {
+                    if ($script:InstAppsCases[$id].IsChecked) { $apps += $id }
+                }
+                $profil = $script:InstProfils[$script:InstCbProfil.SelectedItem]
+                $dossier = Join-Path ([Environment]::GetFolderPath("Desktop")) "madtweak-installation"
+                $chemin = Join-Path $dossier "autounattend.xml"
+
+                if ($script:Simulation) {
+                    $script:JournalGui.AppendText(((T 'inst.jrn.simu') -f $chemin, $apps.Count) + "`r`n")
+                    $script:JournalGui.ScrollToEnd()
+                    return
+                }
+                if (-not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
+
+                $p = @{
+                    Chemin         = $chemin
+                    NomUtilisateur = $user
+                    MotDePasse     = $script:InstTxtMdp.Password
+                    NomMachine     = $script:InstTxtMachine.Text.Trim()
+                    Langue         = $script:InstCbLangue.SelectedItem
+                    Fuseau         = $script:InstFuseaux[$script:InstCbFuseau.SelectedItem]
+                    Version        = $script:InstVersions[$script:InstCbVersion.SelectedItem]
+                    Edition        = $script:InstEditions[$script:InstCbEdition.SelectedItem]
+                    Apps           = $apps
+                }
+                if ($profil) { $p.Profil = $profil }
+                if ($script:InstCaseTpm.IsChecked) { $p.SansTPM = $true }
+                if ($script:InstCaseDisque.IsChecked) { $p.EffacerDisque = $true }
+
+                New-AutounattendXml @p | Out-Null
+                $script:JournalGui.AppendText(((T 'inst.jrn.ok') -f $chemin) + "`r`n")
+                $script:JournalGui.AppendText((T 'inst.jrn.suite') + "`r`n")
+                if ($profil) { $script:JournalGui.AppendText((T 'inst.jrn.profil') + "`r`n") }
+                if ($script:InstTxtMdp.Password) { $script:JournalGui.AppendText((T 'inst.jrn.mdp') + "`r`n") }
+                try { Start-Process explorer.exe $dossier } catch { }
+            }
+            catch {
+                $script:JournalGui.AppendText(((T 'inst.jrn.echec') -f $_.Exception.Message) + "`r`n")
+            }
+            $script:JournalGui.ScrollToEnd()
+        }) | Out-Null
+    $pile.Children.Add($btn) | Out-Null
+
+    $def = New-Object System.Windows.Controls.ScrollViewer
+    $def.VerticalScrollBarVisibility = "Auto"
+    $def.Content = $pile
+    $onglet = New-Object System.Windows.Controls.TabItem
+    $onglet.Header = T 'onglet.installation'
+    $onglet.Content = $def
+    $script:GuiTabs.Items.Add($onglet) | Out-Null
+}
+
 function Update-ScoreGui {
     # Affiche la note de santé dans l'en-tête, colorée selon le niveau.
     param($Score)
@@ -7337,6 +8208,10 @@ function Show-Gui {
     # Page MATÉRIEL : mode d'alimentation Windows (toujours) + réglages du clavier RGB
     # si le matériel répond. Comme le sous-titre OS, l'interface s'adapte au matériel.
     Add-PageMateriel $fenetre
+
+    # Page CLÉ D'INSTALLATION : génère le fichier de réponses d'une installation
+    # automatisée. Rien à cocher parmi les tweaks ici, uniquement de la saisie.
+    Add-PageInstallation $fenetre
 
     $majSelection = {
         $n = @($script:GuiCases.Values | Where-Object { $_.IsChecked }).Count
@@ -7975,26 +8850,47 @@ Test-CoherenceAudit
 Test-Explications
 
 try {
-    # Interface graphique par défaut ; -Console force l'ancien menu.
-    # Le repli n'est pas décoratif : WPF manque sur une installation Server Core, et
-    # il exige un thread STA -- ce que powershell.exe fournit, mais pas n'importe
-    # quel hôte. Plutôt que d'échouer, on redonne la main à la console, qui sait
-    # tout faire (et même davantage : les tweaks lourds n'existent que là).
-    $consoleDemandee = [bool]$Console
-    if (-not $consoleDemandee) {
-        # Le premier chargement de WPF (Add-Type PresentationFramework) prend quelques
-        # secondes : sans ce message, la console reste muette et on croit à un blocage.
-        Write-Host ""
-        Write-Host "  Ouverture de l'interface graphique (chargement de l'affichage, quelques secondes)..." -ForegroundColor Cyan
-        try { Show-Gui }
-        catch {
-            Write-Etat "Interface graphique indisponible : $($_.Exception.Message)" -Niveau Avert
-            Write-Etat "Repli sur le menu console." -Niveau Info
-            Start-Sleep -Seconds 2
-            $consoleDemandee = $true
+    if ($Profil) {
+        # Installation automatisée : on applique le profil et on sort. Ni interface,
+        # ni menu -- il n'y a pas de session de travail ici, juste un lot à jouer.
+        $nomExact = Resolve-NomProfil $Profil
+        if (-not $nomExact) {
+            Write-Etat "Profil « $Profil » inconnu." -Niveau Erreur
+            Write-Etat "Profils disponibles : $($script:Profils.Keys -join ' | ')" -Niveau Info
+        }
+        else {
+            $script:SansQuestion = $true
+            try { Invoke-Profil $nomExact }
+            finally {
+                # On rend la parole AVANT de parler de redémarrage : quelqu'un vient
+                # d'ouvrir sa session, il est devant l'écran. Redémarrer sa machine
+                # neuve sans le lui demander serait le pire accueil possible.
+                $script:SansQuestion = $false
+            }
         }
     }
-    if ($consoleDemandee) { Afficher-Menu-Principal }
+    else {
+        # Interface graphique par défaut ; -Console force l'ancien menu.
+        # Le repli n'est pas décoratif : WPF manque sur une installation Server Core, et
+        # il exige un thread STA -- ce que powershell.exe fournit, mais pas n'importe
+        # quel hôte. Plutôt que d'échouer, on redonne la main à la console, qui sait
+        # tout faire (et même davantage : les tweaks lourds n'existent que là).
+        $consoleDemandee = [bool]$Console
+        if (-not $consoleDemandee) {
+            # Le premier chargement de WPF (Add-Type PresentationFramework) prend quelques
+            # secondes : sans ce message, la console reste muette et on croit à un blocage.
+            Write-Host ""
+            Write-Host "  Ouverture de l'interface graphique (chargement de l'affichage, quelques secondes)..." -ForegroundColor Cyan
+            try { Show-Gui }
+            catch {
+                Write-Etat "Interface graphique indisponible : $($_.Exception.Message)" -Niveau Avert
+                Write-Etat "Repli sur le menu console." -Niveau Info
+                Start-Sleep -Seconds 2
+                $consoleDemandee = $true
+            }
+        }
+        if ($consoleDemandee) { Afficher-Menu-Principal }
+    }
 
     # C'est ici que se joue le cumul des redémarrages : les tweaks marqués
     # -Redemarrage ont alimenté $script:RedemarrageRequis tout au long de la session,

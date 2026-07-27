@@ -42,26 +42,47 @@ Test-CoherenceAudit
 Test-Explications
 
 try {
-    # Interface graphique par défaut ; -Console force l'ancien menu.
-    # Le repli n'est pas décoratif : WPF manque sur une installation Server Core, et
-    # il exige un thread STA -- ce que powershell.exe fournit, mais pas n'importe
-    # quel hôte. Plutôt que d'échouer, on redonne la main à la console, qui sait
-    # tout faire (et même davantage : les tweaks lourds n'existent que là).
-    $consoleDemandee = [bool]$Console
-    if (-not $consoleDemandee) {
-        # Le premier chargement de WPF (Add-Type PresentationFramework) prend quelques
-        # secondes : sans ce message, la console reste muette et on croit à un blocage.
-        Write-Host ""
-        Write-Host "  Ouverture de l'interface graphique (chargement de l'affichage, quelques secondes)..." -ForegroundColor Cyan
-        try { Show-Gui }
-        catch {
-            Write-Etat "Interface graphique indisponible : $($_.Exception.Message)" -Niveau Avert
-            Write-Etat "Repli sur le menu console." -Niveau Info
-            Start-Sleep -Seconds 2
-            $consoleDemandee = $true
+    if ($Profil) {
+        # Installation automatisée : on applique le profil et on sort. Ni interface,
+        # ni menu -- il n'y a pas de session de travail ici, juste un lot à jouer.
+        $nomExact = Resolve-NomProfil $Profil
+        if (-not $nomExact) {
+            Write-Etat "Profil « $Profil » inconnu." -Niveau Erreur
+            Write-Etat "Profils disponibles : $($script:Profils.Keys -join ' | ')" -Niveau Info
+        }
+        else {
+            $script:SansQuestion = $true
+            try { Invoke-Profil $nomExact }
+            finally {
+                # On rend la parole AVANT de parler de redémarrage : quelqu'un vient
+                # d'ouvrir sa session, il est devant l'écran. Redémarrer sa machine
+                # neuve sans le lui demander serait le pire accueil possible.
+                $script:SansQuestion = $false
+            }
         }
     }
-    if ($consoleDemandee) { Afficher-Menu-Principal }
+    else {
+        # Interface graphique par défaut ; -Console force l'ancien menu.
+        # Le repli n'est pas décoratif : WPF manque sur une installation Server Core, et
+        # il exige un thread STA -- ce que powershell.exe fournit, mais pas n'importe
+        # quel hôte. Plutôt que d'échouer, on redonne la main à la console, qui sait
+        # tout faire (et même davantage : les tweaks lourds n'existent que là).
+        $consoleDemandee = [bool]$Console
+        if (-not $consoleDemandee) {
+            # Le premier chargement de WPF (Add-Type PresentationFramework) prend quelques
+            # secondes : sans ce message, la console reste muette et on croit à un blocage.
+            Write-Host ""
+            Write-Host "  Ouverture de l'interface graphique (chargement de l'affichage, quelques secondes)..." -ForegroundColor Cyan
+            try { Show-Gui }
+            catch {
+                Write-Etat "Interface graphique indisponible : $($_.Exception.Message)" -Niveau Avert
+                Write-Etat "Repli sur le menu console." -Niveau Info
+                Start-Sleep -Seconds 2
+                $consoleDemandee = $true
+            }
+        }
+        if ($consoleDemandee) { Afficher-Menu-Principal }
+    }
 
     # C'est ici que se joue le cumul des redémarrages : les tweaks marqués
     # -Redemarrage ont alimenté $script:RedemarrageRequis tout au long de la session,

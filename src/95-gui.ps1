@@ -268,6 +268,26 @@ $script:XamlInterface = @'
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Cursor" Value="Hand"/>
     </Style>
+    <!-- Champs de saisie : sans style explicite, WPF les peint en blanc sur blanc
+         dès que le thème est sombre. Même remède que pour les cases et les onglets. -->
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="{DynamicResource ButtonBgBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+    </Style>
+    <Style TargetType="PasswordBox">
+      <Setter Property="Background" Value="{DynamicResource ButtonBgBrush}"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource TextPrimaryBrush}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="FontFamily" Value="Segoe UI"/>
+    </Style>
     <Style TargetType="TabItem">
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -1023,6 +1043,204 @@ function Add-PageMateriel {
     $script:GuiTabs.Items.Add($onglet) | Out-Null
 }
 
+function Add-LigneTexte {
+    # Étiquette + champ de saisie. -Secret produit un PasswordBox (points au lieu
+    # des lettres) : même géométrie, contrôle différent, d'où le retour polymorphe.
+    param($Panneau, [string]$Etiquette, [string]$Valeur = "", [switch]$Secret, [int]$Largeur = 300)
+    $lbl = New-Object System.Windows.Controls.TextBlock
+    $lbl.Text = $Etiquette
+    $lbl.Margin = "0,10,0,3"
+    $lbl.FontWeight = "SemiBold"
+    $Panneau.Children.Add($lbl) | Out-Null
+    $ctl = if ($Secret) { New-Object System.Windows.Controls.PasswordBox }
+    else { New-Object System.Windows.Controls.TextBox }
+    if (-not $Secret) { $ctl.Text = $Valeur }
+    $ctl.Width = $Largeur
+    $ctl.HorizontalAlignment = "Left"
+    $Panneau.Children.Add($ctl) | Out-Null
+    return $ctl
+}
+
+function Add-PageInstallation {
+    # Onglet « Clé d'installation » : les mêmes questions que le menu console, mais
+    # toutes visibles d'un coup. Aucune logique n'est dupliquée -- la page se contente
+    # de remplir les paramètres de New-AutounattendXml, qui reste le seul endroit où
+    # le XML est écrit.
+    param($Fenetre)
+
+    $styleCombo = $null
+    try { $styleCombo = $Fenetre.FindResource([System.Windows.Controls.ComboBox]) } catch { }
+    $styleCase = $null
+    try { $styleCase = $Fenetre.FindResource([System.Windows.Controls.CheckBox]) } catch { }
+
+    $pile = New-Object System.Windows.Controls.StackPanel
+    $pile.Margin = "16"
+
+    $titre = New-Object System.Windows.Controls.TextBlock
+    $titre.Text = T 'inst.titre'
+    $titre.FontWeight = "Bold"; $titre.FontSize = 15; $titre.Margin = "0,0,0,6"
+    $pile.Children.Add($titre) | Out-Null
+
+    foreach ($cle in 'inst.expl1', 'inst.expl2', 'inst.avert') {
+        $t = New-Object System.Windows.Controls.TextBlock
+        $t.Text = T $cle
+        $t.TextWrapping = "Wrap"; $t.FontSize = 12; $t.Margin = "0,0,0,4"
+        $t.MaxWidth = 720
+        if ($cle -ne 'inst.expl1') { $t.Opacity = 0.85 }
+        $pile.Children.Add($t) | Out-Null
+    }
+
+    # --- Cible ----------------------------------------------------------------
+    $script:InstVersions = [ordered]@{ "Windows 11" = "11"; "Windows 10" = "10" }
+    $script:InstCbVersion = Add-LigneComboClavier $pile $styleCombo (T 'inst.version') @($script:InstVersions.Keys) 0
+
+    $script:InstEditions = [ordered]@{}
+    $script:InstEditions[(T 'inst.edition.demander')] = ""
+    $script:InstEditions["Pro"] = "Pro"
+    $script:InstEditions[(T 'inst.edition.famille')] = "Famille"
+    $script:InstEditions[(T 'inst.edition.entreprise')] = "Entreprise"
+    $script:InstCbEdition = Add-LigneComboClavier $pile $styleCombo (T 'inst.edition') @($script:InstEditions.Keys) 0
+
+    $script:InstLangues = Get-LanguesInstallation
+    $script:InstCbLangue = Add-LigneComboClavier $pile $styleCombo (T 'inst.langue') @($script:InstLangues.Keys) 0
+
+    $script:InstFuseaux = Get-FuseauxCourants
+    $script:InstCbFuseau = Add-LigneComboClavier $pile $styleCombo (T 'inst.fuseau') @($script:InstFuseaux.Keys) 0
+
+    # --- Compte ---------------------------------------------------------------
+    $script:InstTxtUser = Add-LigneTexte $pile (T 'inst.compte')
+    $script:InstTxtMdp = Add-LigneTexte $pile (T 'inst.mdp') -Secret
+    $tMdp = New-Object System.Windows.Controls.TextBlock
+    $tMdp.Text = T 'inst.mdp.avert'
+    $tMdp.TextWrapping = "Wrap"; $tMdp.FontSize = 11; $tMdp.Margin = "0,3,0,0"; $tMdp.MaxWidth = 720
+    $tMdp.Foreground = [System.Windows.Media.SolidColorBrush]::new(
+        [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
+    $pile.Children.Add($tMdp) | Out-Null
+    $script:InstTxtMachine = Add-LigneTexte $pile (T 'inst.machine')
+
+    # --- Profil ---------------------------------------------------------------
+    $script:InstProfils = [ordered]@{}
+    $script:InstProfils[(T 'inst.profil.aucun')] = ""
+    foreach ($k in $script:Profils.Keys) { $script:InstProfils[(Get-NomProfil $k)] = $k }
+    $script:InstCbProfil = Add-LigneComboClavier $pile $styleCombo (T 'inst.profil') @($script:InstProfils.Keys) 0
+
+    # --- Applications ---------------------------------------------------------
+    $lblApps = New-Object System.Windows.Controls.TextBlock
+    $lblApps.Text = T 'inst.apps'
+    $lblApps.Margin = "0,12,0,3"; $lblApps.FontWeight = "SemiBold"
+    $pile.Children.Add($lblApps) | Out-Null
+
+    $pileApps = New-Object System.Windows.Controls.StackPanel
+    $script:InstAppsCases = @{}
+    foreach ($nom in $script:CatalogueApps.Keys) {
+        $c = New-Object System.Windows.Controls.CheckBox
+        if ($styleCase) { $c.Style = $styleCase }
+        $c.Content = $nom
+        $c.Margin = "0,2,0,2"
+        $pileApps.Children.Add($c) | Out-Null
+        $script:InstAppsCases[$script:CatalogueApps[$nom]] = $c
+    }
+    $boiteApps = New-Object System.Windows.Controls.ScrollViewer
+    $boiteApps.VerticalScrollBarVisibility = "Auto"
+    $boiteApps.Height = 170; $boiteApps.Width = 420
+    $boiteApps.HorizontalAlignment = "Left"
+    $boiteApps.Padding = "8"
+    $boiteApps.BorderThickness = "1"
+    $boiteApps.SetResourceReference([System.Windows.Controls.Control]::BorderBrushProperty, "BorderBrush")
+    $boiteApps.Content = $pileApps
+    $pile.Children.Add($boiteApps) | Out-Null
+
+    # --- Options ---------------------------------------------------------------
+    $script:InstCaseTpm = New-Object System.Windows.Controls.CheckBox
+    if ($styleCase) { $script:InstCaseTpm.Style = $styleCase }
+    $script:InstCaseTpm.Content = T 'inst.tpm'
+    $script:InstCaseTpm.Margin = "0,14,0,4"
+    $pile.Children.Add($script:InstCaseTpm) | Out-Null
+
+    $script:InstCaseDisque = New-Object System.Windows.Controls.CheckBox
+    if ($styleCase) { $script:InstCaseDisque.Style = $styleCase }
+    $script:InstCaseDisque.Content = T 'inst.disque'
+    $script:InstCaseDisque.Margin = "0,4,0,4"
+    $script:InstCaseDisque.Foreground = [System.Windows.Media.SolidColorBrush]::new(
+        [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
+    $pile.Children.Add($script:InstCaseDisque) | Out-Null
+
+    # La case la plus destructrice de tout l'outil : on redemande, explicitement,
+    # au moment où elle est cochée. Décocher ne demande évidemment rien.
+    $script:InstCaseDisque.Add_Checked({
+            $r = [System.Windows.MessageBox]::Show(
+                (T 'inst.disque.confirm'), (T 'inst.disque.titre'),
+                [System.Windows.MessageBoxButton]::YesNo,
+                [System.Windows.MessageBoxImage]::Warning)
+            if ($r -ne [System.Windows.MessageBoxResult]::Yes) { $this.IsChecked = $false }
+        }) | Out-Null
+
+    # --- Génération ------------------------------------------------------------
+    $btn = New-Object System.Windows.Controls.Button
+    $btn.Content = T 'inst.generer'
+    $btn.Margin = "0,16,0,0"
+    $btn.HorizontalAlignment = "Left"
+    $btn.Add_Click({
+            try {
+                $user = $script:InstTxtUser.Text.Trim()
+                if (-not $user) {
+                    $script:JournalGui.AppendText((T 'inst.jrn.sansnom') + "`r`n")
+                    $script:JournalGui.ScrollToEnd()
+                    return
+                }
+                $apps = @()
+                foreach ($id in $script:InstAppsCases.Keys) {
+                    if ($script:InstAppsCases[$id].IsChecked) { $apps += $id }
+                }
+                $profil = $script:InstProfils[$script:InstCbProfil.SelectedItem]
+                $dossier = Join-Path ([Environment]::GetFolderPath("Desktop")) "madtweak-installation"
+                $chemin = Join-Path $dossier "autounattend.xml"
+
+                if ($script:Simulation) {
+                    $script:JournalGui.AppendText(((T 'inst.jrn.simu') -f $chemin, $apps.Count) + "`r`n")
+                    $script:JournalGui.ScrollToEnd()
+                    return
+                }
+                if (-not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
+
+                $p = @{
+                    Chemin         = $chemin
+                    NomUtilisateur = $user
+                    MotDePasse     = $script:InstTxtMdp.Password
+                    NomMachine     = $script:InstTxtMachine.Text.Trim()
+                    Langue         = $script:InstCbLangue.SelectedItem
+                    Fuseau         = $script:InstFuseaux[$script:InstCbFuseau.SelectedItem]
+                    Version        = $script:InstVersions[$script:InstCbVersion.SelectedItem]
+                    Edition        = $script:InstEditions[$script:InstCbEdition.SelectedItem]
+                    Apps           = $apps
+                }
+                if ($profil) { $p.Profil = $profil }
+                if ($script:InstCaseTpm.IsChecked) { $p.SansTPM = $true }
+                if ($script:InstCaseDisque.IsChecked) { $p.EffacerDisque = $true }
+
+                New-AutounattendXml @p | Out-Null
+                $script:JournalGui.AppendText(((T 'inst.jrn.ok') -f $chemin) + "`r`n")
+                $script:JournalGui.AppendText((T 'inst.jrn.suite') + "`r`n")
+                if ($profil) { $script:JournalGui.AppendText((T 'inst.jrn.profil') + "`r`n") }
+                if ($script:InstTxtMdp.Password) { $script:JournalGui.AppendText((T 'inst.jrn.mdp') + "`r`n") }
+                try { Start-Process explorer.exe $dossier } catch { }
+            }
+            catch {
+                $script:JournalGui.AppendText(((T 'inst.jrn.echec') -f $_.Exception.Message) + "`r`n")
+            }
+            $script:JournalGui.ScrollToEnd()
+        }) | Out-Null
+    $pile.Children.Add($btn) | Out-Null
+
+    $def = New-Object System.Windows.Controls.ScrollViewer
+    $def.VerticalScrollBarVisibility = "Auto"
+    $def.Content = $pile
+    $onglet = New-Object System.Windows.Controls.TabItem
+    $onglet.Header = T 'onglet.installation'
+    $onglet.Content = $def
+    $script:GuiTabs.Items.Add($onglet) | Out-Null
+}
+
 function Update-ScoreGui {
     # Affiche la note de santé dans l'en-tête, colorée selon le niveau.
     param($Score)
@@ -1417,6 +1635,10 @@ function Show-Gui {
     # Page MATÉRIEL : mode d'alimentation Windows (toujours) + réglages du clavier RGB
     # si le matériel répond. Comme le sous-titre OS, l'interface s'adapte au matériel.
     Add-PageMateriel $fenetre
+
+    # Page CLÉ D'INSTALLATION : génère le fichier de réponses d'une installation
+    # automatisée. Rien à cocher parmi les tweaks ici, uniquement de la saisie.
+    Add-PageInstallation $fenetre
 
     $majSelection = {
         $n = @($script:GuiCases.Values | Where-Object { $_.IsChecked }).Count

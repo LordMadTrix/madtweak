@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.2
+  # 🔴 MadTweak v1.3
 
   **L'optimisation maîtrisée de votre Windows 10 / 11**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.2-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.3-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **Français** · [English](README.en.md)
@@ -40,8 +40,13 @@
 - ✅ **Restauration exacte**, totale ou tweak par tweak
 - ✅ **Mode simulation** : tout voir sans rien écrire
 
+### 💾 **Installer Windows sans y assister**
+- ✅ **Fichier de réponses** généré pour ta clé USB : plus aucune question à l'installation
+- ✅ **Compte, langue, fuseau, édition, applications** décidés à l'avance
+- ✅ **Un profil MadTweak appliqué au premier démarrage**, machine propre d'emblée
+
 ### 🎨 **Interface & personnalisation**
-- ✅ **Interface graphique** thémable (6 thèmes) ou 15 menus console
+- ✅ **Interface graphique** thémable (6 thèmes) ou 16 menus console
 - ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code
 - ✅ **Bonus ASUS ROG** : clavier RGB en HID direct, capteurs GPU et ventilateurs
 
@@ -214,7 +219,8 @@ en 7 le **dégraderait**. Le script le détecte et te prévient ; `Lancer.bat` �
 | `12` | DÉMARRAGE & SERV. | Démarrage, services rarement utiles |
 | `13` | LOGICIELS EXTRA | Catalogue winget, export/import de tes apps |
 | `14` | MAINTENANCE & FIX | DISM, SFC, journaux d'événements |
-| `15` | **ANNULER** | Restauration exacte, ou retour aux défauts Windows |
+| `15` | **CLÉ D'INSTALLATION** | Fichier de réponses pour installer Windows sans y assister |
+| `16` | **ANNULER** | Restauration exacte, ou retour aux défauts Windows |
 
 **`9` — APPARENCE** est à part : il ne cherche aucun gain de performance, il change ce
 que tu vois, et rien n'y casse quoi que ce soit. Les réglages visuels qui se paient en
@@ -228,6 +234,32 @@ résolution réelle au moment où tu le demandes — le script reste un seul fic
 sans mégaoctets de binaire. Ton fond précédent et ton accent d'origine sont mémorisés et
 remis par le menu ANNULER. Les mêmes réglages sont disponibles dans l'en-tête de
 l'interface graphique (voir *Personnaliser l'apparence*).
+
+**`15` — CLÉ D'INSTALLATION** génère un `autounattend.xml` : le fichier de réponses que
+Windows lit au démarrage de son installeur. Déposé à la racine de ta clé USB, à côté de
+`setup.exe`, il décide à l'avance la langue, le fuseau, l'édition, le compte à créer, les
+applications à installer, et le profil MadTweak à appliquer à la première ouverture de
+session. Le résultat : une machine propre et réglée, sans être resté devant l'écran.
+
+**Aucune image Windows n'est fournie** — la licence Microsoft interdit de la redistribuer.
+Tu télécharges l'ISO officielle toi-même, ce fichier vient simplement se poser à côté.
+Même logique que les fonds d'écran : on **génère**, on n'embarque pas. Le fichier produit
+est du texte, relisible et vérifiable avant usage.
+
+Trois choses à savoir avant de s'en servir :
+
+- **Un mot de passe dans un fichier de réponses n'est pas chiffré.** Il est encodé en
+  base64, que quiconque tient la clé USB relit en une commande. Laisser le champ vide crée
+  un compte sans mot de passe, à définir au premier démarrage — c'est plus sûr.
+- **Rien n'est effacé sans demande explicite.** Par défaut, l'installeur pose sa question
+  habituelle et tu choisis ta partition. L'effacement automatique du disque 0 existe, mais
+  il faut taper `EFFACER` en toutes lettres (console) ou confirmer une boîte d'alerte (interface).
+- **Windows 11 24H2 et 25H2 :** le nouvel installeur de Microsoft (`SetupPrep.exe`, dit
+  « ConX ») applique bien le disque, l'édition et la langue, mais **ignore souvent la partie
+  compte utilisateur** — l'écran de création de compte peut réapparaître. Un contournement
+  connu est inclus (relecture depuis `C:\Windows\Panther`), sans garantie possible puisqu'il
+  ne vient pas de la documentation Microsoft. **Windows 10 et Windows 11 jusqu'à 23H2**
+  utilisent l'ancien installeur et ne sont pas concernés.
 
 ## Les profils
 

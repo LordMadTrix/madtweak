@@ -1,5 +1,7 @@
 # Réglages locaux de Claude Code : chemins personnels, rien à publier.
 .claude/settings.local.json
+# Verrou de tâche planifiée : fichier d'exécution local, sans intérêt versionné.
+.claude/scheduled_tasks.lock
 
 # Sorties générées par l'outil (il les recrée à la demande).
 signatures/
