@@ -169,6 +169,15 @@ function Test-AutounattendXml {
         $pbs.Add("Le disque est efface mais aucune cible d'installation n'est indiquee (InstallTo).")
     }
 
+    # Effacer un disque et installer sur un AUTRE est la pire issue possible : on
+    # detruit des donnees ET on installe ailleurs que prevu. Les deux numeros doivent
+    # concorder.
+    $dEfface = $x.SelectSingleNode('//u:DiskConfiguration/u:Disk/u:DiskID', $ns)
+    $dCible = $x.SelectSingleNode('//u:InstallTo/u:DiskID', $ns)
+    if ($dEfface -and $dCible -and $dEfface.InnerText -ne $dCible.InnerText) {
+        $pbs.Add("Le disque efface ($($dEfface.InnerText)) n'est pas celui ou Windows serait installe ($($dCible.InnerText)).")
+    }
+
     # FirstLogonCommands n'existe qu'en oobeSystem ; ailleurs il ne joue jamais.
     foreach ($f in $x.SelectNodes('//u:FirstLogonCommands', $ns)) {
         $p = $f.SelectSingleNode('ancestor::u:settings', $ns)
@@ -288,7 +297,11 @@ function New-AutounattendXml {
         [string]$Profil,
         [string[]]$Apps = @(),
         [switch]$SansTPM,
-        [switch]$EffacerDisque
+        [switch]$EffacerDisque,
+        # Numéro du disque à effacer. 0 est le défaut habituel, mais PAS une garantie :
+        # sur une machine à plusieurs disques, le 0 peut être celui des données. Ce
+        # paramètre n'a d'effet qu'avec -EffacerDisque.
+        [int]$Disque = 0
     )
 
     $langues = Get-LanguesInstallation
@@ -441,7 +454,7 @@ function New-AutounattendXml {
         $blocDisque = @"
             <DiskConfiguration>
                 <Disk wcm:action="add">
-                    <DiskID>0</DiskID>
+                    <DiskID>$Disque</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
                         <CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>300</Size></CreatePartition>
@@ -487,7 +500,7 @@ function New-AutounattendXml {
         $cible = if ($EffacerDisque) {
             @"
                     <InstallTo>
-                        <DiskID>0</DiskID>
+                        <DiskID>$Disque</DiskID>
                         <PartitionID>3</PartitionID>
                     </InstallTo>
 "@
@@ -800,10 +813,29 @@ function Menu-Installation {
     Write-Host "  Tu peux aussi lui dire d'effacer entièrement le premier disque. Dans ce" -ForegroundColor Gray
     Write-Host "  cas il ne demandera plus rien et TOUT le disque 0 sera perdu." -ForegroundColor Gray
     $effacer = $false
-    if (Demander-Option "Effacer automatiquement le disque 0 ?") {
+    $numDisque = 0
+    if (Demander-Option "Effacer automatiquement un disque entier ?") {
         Write-Host ""
-        Write-Host "  Cette option détruit toutes les partitions du disque 0, sans confirmation" -ForegroundColor Red
-        Write-Host "  au moment de l'installation. Tape EFFACER en majuscules pour l'activer." -ForegroundColor Red
+        # Les disques affichés sont ceux de CETTE machine. Sur la machine à installer,
+        # la numérotation peut différer — c'est dit, parce que se tromper de disque
+        # ici efface les données de quelqu'un.
+        Write-Host "  Disques de CETTE machine, à titre indicatif :" -ForegroundColor Gray
+        try {
+            foreach ($dq in (Get-Disk -ErrorAction Stop | Sort-Object Number)) {
+                Write-Host ("    disque {0} — {1} Go — {2}" -f $dq.Number,
+                    [math]::Round($dq.Size / 1GB), $dq.FriendlyName) -ForegroundColor DarkGray
+            }
+        }
+        catch { Write-Host "    (liste indisponible)" -ForegroundColor DarkGray }
+        Write-Host "  ATTENTION : la numérotation de la machine à installer peut être" -ForegroundColor Yellow
+        Write-Host "  différente. Vérifie-la là-bas (Maj+F10, puis diskpart, list disk)." -ForegroundColor Yellow
+        $rep = (Read-Host "  Numéro du disque à effacer [0]").Trim()
+        if ($rep -and -not [int]::TryParse($rep, [ref]$numDisque)) { $numDisque = 0 }
+        if (-not $rep) { $numDisque = 0 }
+
+        Write-Host ""
+        Write-Host "  Cette option détruit TOUTES les partitions du disque $numDisque, sans" -ForegroundColor Red
+        Write-Host "  confirmation au moment de l'installation. Tape EFFACER pour l'activer." -ForegroundColor Red
         $effacer = ((Read-Host "  Confirmation").Trim() -ceq "EFFACER")
         if (-not $effacer) { Write-Etat "Effacement NON activé : l'installeur posera la question." -Niveau Info }
     }

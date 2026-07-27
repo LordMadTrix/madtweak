@@ -231,6 +231,13 @@ $script:Textes = @{
     'inst.edition.demander'   = @{ fr = "Laisser l'installeur demander (le plus sûr)"; en = "Let setup ask (safest)" }
     'inst.edition.famille'    = @{ fr = "Famille"; en = "Home" }
     'inst.edition.entreprise' = @{ fr = "Entreprise"; en = "Enterprise" }
+    'inst.edition.lire'   = @{ fr = "Lire les éditions dans mon ISO…"; en = "Read editions from my ISO…" }
+    'inst.edition.filtre' = @{ fr = "Image Windows (*.iso;*.wim;*.esd)|*.iso;*.wim;*.esd|Tous les fichiers|*.*"
+        en = "Windows image (*.iso;*.wim;*.esd)|*.iso;*.wim;*.esd|All files|*.*" }
+    'inst.edition.vide'   = @{ fr = "Aucune édition trouvée dans cette image."; en = "No edition found in this image." }
+    'inst.jrn.edition.ok' = @{ fr = "Clé d'installation : {0} édition(s) lue(s) dans l'image. La liste ne contient plus que ce qu'elle contient vraiment."
+        en = "Install media: {0} edition(s) read from the image. The list now holds only what it really contains." }
+    'inst.jrn.edition.echec' = @{ fr = "Clé d'installation : lecture de l'image impossible — {0}"; en = "Install media: could not read the image - {0}" }
     'inst.langue'    = @{ fr = "Langue et clavier"; en = "Language and keyboard" }
     'inst.fuseau'    = @{ fr = "Fuseau horaire"; en = "Time zone" }
     'inst.compte'    = @{ fr = "Nom du compte à créer"; en = "Account name to create" }
@@ -244,6 +251,7 @@ $script:Textes = @{
     'inst.tpm'       = @{ fr = "Contourner TPM / Secure Boot / RAM (machine ancienne, Windows 11)"; en = "Bypass TPM / Secure Boot / RAM checks (older machine, Windows 11)" }
     'inst.disque'    = @{ fr = "Effacer entièrement le disque 0 (destructif)"; en = "Wipe disk 0 entirely (destructive)" }
     'inst.disque.titre'   = @{ fr = "Effacement du disque"; en = "Disk wipe" }
+    'inst.disque.numero'  = @{ fr = "Numéro du disque à effacer (0 = le premier)"; en = "Disk number to wipe (0 = the first)" }
     'inst.disque.confirm' = @{ fr = "Cette option détruit TOUTES les partitions du disque 0, sans confirmation au moment de l'installation.`n`nSans elle, l'installeur demandera où installer Windows, comme d'habitude.`n`nActiver l'effacement ?"
         en = "This option destroys ALL partitions on disk 0, with no confirmation during setup.`n`nWithout it, setup will ask where to install Windows, as usual.`n`nEnable the wipe?" }
     'inst.generer'   = @{ fr = "Générer le fichier de réponses"; en = "Generate the answer file" }

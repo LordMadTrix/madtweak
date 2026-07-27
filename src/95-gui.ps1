@@ -1101,6 +1101,40 @@ function Add-PageInstallation {
     $script:InstEditions[(T 'inst.edition.entreprise')] = "Entreprise"
     $script:InstCbEdition = Add-LigneComboClavier $pile $styleCombo (T 'inst.edition') @($script:InstEditions.Keys) 0
 
+    # Un nom d'édition absent de l'image fait échouer l'installation. Plutôt que de
+    # faire parier l'utilisateur sur le contenu de son ISO, on la lit. Le menu console
+    # propose la même chose : les deux interfaces doivent savoir faire la même chose.
+    $btnIso = New-Object System.Windows.Controls.Button
+    $btnIso.Content = T 'inst.edition.lire'
+    $btnIso.Margin = "0,6,0,0"
+    $btnIso.HorizontalAlignment = "Left"
+    $btnIso.Add_Click({
+            $dlg = New-Object Microsoft.Win32.OpenFileDialog
+            $dlg.Filter = (T 'inst.edition.filtre')
+            $dlg.Title = T 'inst.edition.lire'
+            if (-not $dlg.ShowDialog()) { return }
+            # Le montage prend quelques secondes et fige la fenêtre : sans ce curseur,
+            # on croit à un blocage et on reclique.
+            [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+            try {
+                $trouvees = Get-EditionsImage -Chemin $dlg.FileName
+                if ($trouvees.Count -eq 0) { throw (T 'inst.edition.vide') }
+                $script:InstEditions = [ordered]@{}
+                $script:InstEditions[(T 'inst.edition.demander')] = ""
+                foreach ($e in $trouvees) { $script:InstEditions["$($e.Nom)  (index $($e.Index))"] = $e.Nom }
+                $script:InstCbEdition.Items.Clear()
+                foreach ($k in $script:InstEditions.Keys) { $script:InstCbEdition.Items.Add($k) | Out-Null }
+                $script:InstCbEdition.SelectedIndex = if ($script:InstCbEdition.Items.Count -gt 1) { 1 } else { 0 }
+                $script:JournalGui.AppendText(((T 'inst.jrn.edition.ok') -f $trouvees.Count) + "`r`n")
+            }
+            catch {
+                $script:JournalGui.AppendText(((T 'inst.jrn.edition.echec') -f $_.Exception.Message) + "`r`n")
+            }
+            finally { [System.Windows.Input.Mouse]::OverrideCursor = $null }
+            $script:JournalGui.ScrollToEnd()
+        }) | Out-Null
+    $pile.Children.Add($btnIso) | Out-Null
+
     $script:InstLangues = Get-LanguesInstallation
     $script:InstCbLangue = Add-LigneComboClavier $pile $styleCombo (T 'inst.langue') @($script:InstLangues.Keys) 0
 
@@ -1165,6 +1199,10 @@ function Add-PageInstallation {
         [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
     $pile.Children.Add($script:InstCaseDisque) | Out-Null
 
+    # Le disque 0 est l'habitude, pas une garantie : sur une machine à plusieurs
+    # disques, ce peut être celui des données. Se tromper ici efface le mauvais.
+    $script:InstTxtDisque = Add-LigneTexte $pile (T 'inst.disque.numero') "0" -Largeur 80
+
     # La case la plus destructrice de tout l'outil : on redemande, explicitement,
     # au moment où elle est cochée. Décocher ne demande évidemment rien.
     $script:InstCaseDisque.Add_Checked({
@@ -1216,7 +1254,11 @@ function Add-PageInstallation {
                 }
                 if ($profil) { $p.Profil = $profil }
                 if ($script:InstCaseTpm.IsChecked) { $p.SansTPM = $true }
-                if ($script:InstCaseDisque.IsChecked) { $p.EffacerDisque = $true }
+                if ($script:InstCaseDisque.IsChecked) {
+                    $p.EffacerDisque = $true
+                    $nd = 0
+                    if ([int]::TryParse($script:InstTxtDisque.Text.Trim(), [ref]$nd)) { $p.Disque = $nd }
+                }
 
                 New-AutounattendXml @p | Out-Null
                 $script:JournalGui.AppendText(((T 'inst.jrn.ok') -f $chemin) + "`r`n")

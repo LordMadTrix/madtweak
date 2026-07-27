@@ -291,6 +291,13 @@ $script:Textes = @{
     'inst.edition.demander'   = @{ fr = "Laisser l'installeur demander (le plus sûr)"; en = "Let setup ask (safest)" }
     'inst.edition.famille'    = @{ fr = "Famille"; en = "Home" }
     'inst.edition.entreprise' = @{ fr = "Entreprise"; en = "Enterprise" }
+    'inst.edition.lire'   = @{ fr = "Lire les éditions dans mon ISO…"; en = "Read editions from my ISO…" }
+    'inst.edition.filtre' = @{ fr = "Image Windows (*.iso;*.wim;*.esd)|*.iso;*.wim;*.esd|Tous les fichiers|*.*"
+        en = "Windows image (*.iso;*.wim;*.esd)|*.iso;*.wim;*.esd|All files|*.*" }
+    'inst.edition.vide'   = @{ fr = "Aucune édition trouvée dans cette image."; en = "No edition found in this image." }
+    'inst.jrn.edition.ok' = @{ fr = "Clé d'installation : {0} édition(s) lue(s) dans l'image. La liste ne contient plus que ce qu'elle contient vraiment."
+        en = "Install media: {0} edition(s) read from the image. The list now holds only what it really contains." }
+    'inst.jrn.edition.echec' = @{ fr = "Clé d'installation : lecture de l'image impossible — {0}"; en = "Install media: could not read the image - {0}" }
     'inst.langue'    = @{ fr = "Langue et clavier"; en = "Language and keyboard" }
     'inst.fuseau'    = @{ fr = "Fuseau horaire"; en = "Time zone" }
     'inst.compte'    = @{ fr = "Nom du compte à créer"; en = "Account name to create" }
@@ -304,6 +311,7 @@ $script:Textes = @{
     'inst.tpm'       = @{ fr = "Contourner TPM / Secure Boot / RAM (machine ancienne, Windows 11)"; en = "Bypass TPM / Secure Boot / RAM checks (older machine, Windows 11)" }
     'inst.disque'    = @{ fr = "Effacer entièrement le disque 0 (destructif)"; en = "Wipe disk 0 entirely (destructive)" }
     'inst.disque.titre'   = @{ fr = "Effacement du disque"; en = "Disk wipe" }
+    'inst.disque.numero'  = @{ fr = "Numéro du disque à effacer (0 = le premier)"; en = "Disk number to wipe (0 = the first)" }
     'inst.disque.confirm' = @{ fr = "Cette option détruit TOUTES les partitions du disque 0, sans confirmation au moment de l'installation.`n`nSans elle, l'installeur demandera où installer Windows, comme d'habitude.`n`nActiver l'effacement ?"
         en = "This option destroys ALL partitions on disk 0, with no confirmation during setup.`n`nWithout it, setup will ask where to install Windows, as usual.`n`nEnable the wipe?" }
     'inst.generer'   = @{ fr = "Générer le fichier de réponses"; en = "Generate the answer file" }
@@ -4934,6 +4942,15 @@ function Test-AutounattendXml {
         $pbs.Add("Le disque est efface mais aucune cible d'installation n'est indiquee (InstallTo).")
     }
 
+    # Effacer un disque et installer sur un AUTRE est la pire issue possible : on
+    # detruit des donnees ET on installe ailleurs que prevu. Les deux numeros doivent
+    # concorder.
+    $dEfface = $x.SelectSingleNode('//u:DiskConfiguration/u:Disk/u:DiskID', $ns)
+    $dCible = $x.SelectSingleNode('//u:InstallTo/u:DiskID', $ns)
+    if ($dEfface -and $dCible -and $dEfface.InnerText -ne $dCible.InnerText) {
+        $pbs.Add("Le disque efface ($($dEfface.InnerText)) n'est pas celui ou Windows serait installe ($($dCible.InnerText)).")
+    }
+
     # FirstLogonCommands n'existe qu'en oobeSystem ; ailleurs il ne joue jamais.
     foreach ($f in $x.SelectNodes('//u:FirstLogonCommands', $ns)) {
         $p = $f.SelectSingleNode('ancestor::u:settings', $ns)
@@ -5053,7 +5070,11 @@ function New-AutounattendXml {
         [string]$Profil,
         [string[]]$Apps = @(),
         [switch]$SansTPM,
-        [switch]$EffacerDisque
+        [switch]$EffacerDisque,
+        # Numéro du disque à effacer. 0 est le défaut habituel, mais PAS une garantie :
+        # sur une machine à plusieurs disques, le 0 peut être celui des données. Ce
+        # paramètre n'a d'effet qu'avec -EffacerDisque.
+        [int]$Disque = 0
     )
 
     $langues = Get-LanguesInstallation
@@ -5206,7 +5227,7 @@ function New-AutounattendXml {
         $blocDisque = @"
             <DiskConfiguration>
                 <Disk wcm:action="add">
-                    <DiskID>0</DiskID>
+                    <DiskID>$Disque</DiskID>
                     <WillWipeDisk>true</WillWipeDisk>
                     <CreatePartitions>
                         <CreatePartition wcm:action="add"><Order>1</Order><Type>EFI</Type><Size>300</Size></CreatePartition>
@@ -5252,7 +5273,7 @@ function New-AutounattendXml {
         $cible = if ($EffacerDisque) {
             @"
                     <InstallTo>
-                        <DiskID>0</DiskID>
+                        <DiskID>$Disque</DiskID>
                         <PartitionID>3</PartitionID>
                     </InstallTo>
 "@
@@ -5565,10 +5586,29 @@ function Menu-Installation {
     Write-Host "  Tu peux aussi lui dire d'effacer entièrement le premier disque. Dans ce" -ForegroundColor Gray
     Write-Host "  cas il ne demandera plus rien et TOUT le disque 0 sera perdu." -ForegroundColor Gray
     $effacer = $false
-    if (Demander-Option "Effacer automatiquement le disque 0 ?") {
+    $numDisque = 0
+    if (Demander-Option "Effacer automatiquement un disque entier ?") {
         Write-Host ""
-        Write-Host "  Cette option détruit toutes les partitions du disque 0, sans confirmation" -ForegroundColor Red
-        Write-Host "  au moment de l'installation. Tape EFFACER en majuscules pour l'activer." -ForegroundColor Red
+        # Les disques affichés sont ceux de CETTE machine. Sur la machine à installer,
+        # la numérotation peut différer — c'est dit, parce que se tromper de disque
+        # ici efface les données de quelqu'un.
+        Write-Host "  Disques de CETTE machine, à titre indicatif :" -ForegroundColor Gray
+        try {
+            foreach ($dq in (Get-Disk -ErrorAction Stop | Sort-Object Number)) {
+                Write-Host ("    disque {0} — {1} Go — {2}" -f $dq.Number,
+                    [math]::Round($dq.Size / 1GB), $dq.FriendlyName) -ForegroundColor DarkGray
+            }
+        }
+        catch { Write-Host "    (liste indisponible)" -ForegroundColor DarkGray }
+        Write-Host "  ATTENTION : la numérotation de la machine à installer peut être" -ForegroundColor Yellow
+        Write-Host "  différente. Vérifie-la là-bas (Maj+F10, puis diskpart, list disk)." -ForegroundColor Yellow
+        $rep = (Read-Host "  Numéro du disque à effacer [0]").Trim()
+        if ($rep -and -not [int]::TryParse($rep, [ref]$numDisque)) { $numDisque = 0 }
+        if (-not $rep) { $numDisque = 0 }
+
+        Write-Host ""
+        Write-Host "  Cette option détruit TOUTES les partitions du disque $numDisque, sans" -ForegroundColor Red
+        Write-Host "  confirmation au moment de l'installation. Tape EFFACER pour l'activer." -ForegroundColor Red
         $effacer = ((Read-Host "  Confirmation").Trim() -ceq "EFFACER")
         if (-not $effacer) { Write-Etat "Effacement NON activé : l'installeur posera la question." -Niveau Info }
     }
@@ -7985,6 +8025,40 @@ function Add-PageInstallation {
     $script:InstEditions[(T 'inst.edition.entreprise')] = "Entreprise"
     $script:InstCbEdition = Add-LigneComboClavier $pile $styleCombo (T 'inst.edition') @($script:InstEditions.Keys) 0
 
+    # Un nom d'édition absent de l'image fait échouer l'installation. Plutôt que de
+    # faire parier l'utilisateur sur le contenu de son ISO, on la lit. Le menu console
+    # propose la même chose : les deux interfaces doivent savoir faire la même chose.
+    $btnIso = New-Object System.Windows.Controls.Button
+    $btnIso.Content = T 'inst.edition.lire'
+    $btnIso.Margin = "0,6,0,0"
+    $btnIso.HorizontalAlignment = "Left"
+    $btnIso.Add_Click({
+            $dlg = New-Object Microsoft.Win32.OpenFileDialog
+            $dlg.Filter = (T 'inst.edition.filtre')
+            $dlg.Title = T 'inst.edition.lire'
+            if (-not $dlg.ShowDialog()) { return }
+            # Le montage prend quelques secondes et fige la fenêtre : sans ce curseur,
+            # on croit à un blocage et on reclique.
+            [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+            try {
+                $trouvees = Get-EditionsImage -Chemin $dlg.FileName
+                if ($trouvees.Count -eq 0) { throw (T 'inst.edition.vide') }
+                $script:InstEditions = [ordered]@{}
+                $script:InstEditions[(T 'inst.edition.demander')] = ""
+                foreach ($e in $trouvees) { $script:InstEditions["$($e.Nom)  (index $($e.Index))"] = $e.Nom }
+                $script:InstCbEdition.Items.Clear()
+                foreach ($k in $script:InstEditions.Keys) { $script:InstCbEdition.Items.Add($k) | Out-Null }
+                $script:InstCbEdition.SelectedIndex = if ($script:InstCbEdition.Items.Count -gt 1) { 1 } else { 0 }
+                $script:JournalGui.AppendText(((T 'inst.jrn.edition.ok') -f $trouvees.Count) + "`r`n")
+            }
+            catch {
+                $script:JournalGui.AppendText(((T 'inst.jrn.edition.echec') -f $_.Exception.Message) + "`r`n")
+            }
+            finally { [System.Windows.Input.Mouse]::OverrideCursor = $null }
+            $script:JournalGui.ScrollToEnd()
+        }) | Out-Null
+    $pile.Children.Add($btnIso) | Out-Null
+
     $script:InstLangues = Get-LanguesInstallation
     $script:InstCbLangue = Add-LigneComboClavier $pile $styleCombo (T 'inst.langue') @($script:InstLangues.Keys) 0
 
@@ -8049,6 +8123,10 @@ function Add-PageInstallation {
         [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString('#FFD86A5A'))
     $pile.Children.Add($script:InstCaseDisque) | Out-Null
 
+    # Le disque 0 est l'habitude, pas une garantie : sur une machine à plusieurs
+    # disques, ce peut être celui des données. Se tromper ici efface le mauvais.
+    $script:InstTxtDisque = Add-LigneTexte $pile (T 'inst.disque.numero') "0" -Largeur 80
+
     # La case la plus destructrice de tout l'outil : on redemande, explicitement,
     # au moment où elle est cochée. Décocher ne demande évidemment rien.
     $script:InstCaseDisque.Add_Checked({
@@ -8100,7 +8178,11 @@ function Add-PageInstallation {
                 }
                 if ($profil) { $p.Profil = $profil }
                 if ($script:InstCaseTpm.IsChecked) { $p.SansTPM = $true }
-                if ($script:InstCaseDisque.IsChecked) { $p.EffacerDisque = $true }
+                if ($script:InstCaseDisque.IsChecked) {
+                    $p.EffacerDisque = $true
+                    $nd = 0
+                    if ([int]::TryParse($script:InstTxtDisque.Text.Trim(), [ref]$nd)) { $p.Disque = $nd }
+                }
 
                 New-AutounattendXml @p | Out-Null
                 $script:JournalGui.AppendText(((T 'inst.jrn.ok') -f $chemin) + "`r`n")
