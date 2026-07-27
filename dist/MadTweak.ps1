@@ -5247,8 +5247,10 @@ function Menu-Audit {
 # ------------------------------------------------------------------------------
 $script:Profils = [ordered]@{
     "Minimal / sûr" = @{
+        Nom_en      = "Minimal / safe"
         Couleur     = "Green"
         Description = "Le strict nécessaire : pubs, télémétrie de base et confort d'affichage. Ne touche à AUCUN service, à aucun réglage de performance, et n'installe ni ne désinstalle rien. Le plus sûr et le plus facile à annuler."
+        Description_en = "The bare essentials: ads, basic telemetry and display comfort. Touches NO service, no performance setting, and installs or uninstalls nothing. The safest and the easiest to undo."
         Cles        = @(
             "telemetrie", "extensions-fichiers", "explorateur-accueil", "widgets-chat",
             "widgets-dsh", "recherche-bing", "delivery-optimization", "autoplay",
@@ -5260,8 +5262,10 @@ $script:Profils = [ordered]@{
         )
     }
     "Interface épurée" = @{
+        Nom_en      = "Clean interface"
         Couleur     = "White"
         Description = "Purement visuel : mode sombre, Explorateur compact ouvrant sur Ce PC, sans Galerie ni Accueil, barre des tâches allégée, menu clic droit de Windows 10. Ne touche à AUCUN service, réglage réseau ou de confidentialité. La transparence est incluse (c'est le seul de ces réglages qui coûte du GPU)."
+        Description_en = "Purely visual: dark mode, compact Explorer opening on This PC, no Gallery or Home, lighter taskbar, Windows 10 right-click menu. Touches NO service, network or privacy setting. Transparency is included (it is the only one of these settings that costs GPU time)."
         Cles        = @(
             "mode-sombre", "transparence", "explorateur-compact", "explorateur-ce-pc",
             "explorateur-galerie", "explorateur-volet-accueil", "fichiers-caches",
@@ -5275,8 +5279,10 @@ $script:Profils = [ordered]@{
         )
     }
     "Vie privée" = @{
+        Nom_en      = "Privacy"
         Couleur     = "Cyan"
         Description = "Coupe tout ce qui remonte des données : télémétrie et son service, tâches de collecte, historique d'activité, personnalisation de la saisie, recherche Bing, presse-papiers cloud, Copilot, Recall. Ne touche pas aux performances. La géolocalisation N'EST PAS incluse (elle casserait Météo et le fuseau horaire automatique) : à faire à la main si tu y tiens."
+        Description_en = "Cuts everything that reports data: telemetry and its service, collection tasks, activity history, input personalisation, Bing search, cloud clipboard, Copilot, Recall. Does not touch performance. Location is NOT included (it would break Weather and automatic time zone): do that by hand if you insist."
         Cles        = @(
             "telemetrie", "service-diagtrack", "taches-telemetrie", "nvidia-telemetrie", "wer",
             "recherche-bing", "presse-papiers", "delivery-optimization", "autoplay",
@@ -5292,8 +5298,10 @@ $script:Profils = [ordered]@{
         )
     }
     "Gamer" = @{
+        Nom_en      = "Gamer"
         Couleur     = "Magenta"
         Description = "Latence et FPS : Game DVR, accélération souris, Nagle, bridage multimédia, animations, plan Performances ultimes. Attention : Nagle peut réduire ton débit en téléchargement, et le plan Performances ultimes sera refusé sur un portable."
+        Description_en = "Latency and FPS: Game DVR, mouse acceleration, Nagle, multimedia throttling, animations, Ultimate Performance plan. Careful: Nagle can reduce your download throughput, and the Ultimate Performance plan will be refused on a laptop."
         Cles        = @(
             "game-dvr", "souris-acceleration", "nagle", "bridage-multimedia",
             "animations", "tuer-applis-figees", "sysmain", "usb-suspension",
@@ -5308,8 +5316,10 @@ $script:Profils = [ordered]@{
         )
     }
     "Portable / batterie" = @{
+        Nom_en      = "Laptop / battery"
         Couleur     = "Yellow"
         Description = "Autonomie et silence. Volontairement SANS l'hibernation (un portable en a besoin), sans la suspension USB et sans « carte réseau toujours alimentée » (les deux économisent la batterie), et sans le plan Performances ultimes (il la vide)."
+        Description_en = "Battery life and quiet. Deliberately WITHOUT hibernation (a laptop needs it), without USB selective suspend and without « keep the network adapter powered » (both save battery), and without the Ultimate Performance plan (it drains it)."
         Cles        = @(
             "telemetrie", "service-diagtrack", "taches-telemetrie", "apps-arriere-plan",
             "delivery-optimization", "recherche-bing", "bloatwares", "wer", "game-dvr",
@@ -5846,21 +5856,39 @@ function Get-NomOnglet {
     # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
     # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
     param([Parameter(Mandatory)][string]$Categorie)
+    # Le motif reste FRANÇAIS : c'est le titre du menu console qui sert de clé, et il
+    # ne dépend pas de la langue d'affichage. Seul le libellé rendu est traduit.
+    $en = $script:LangueActive -eq 'en'
     switch -Wildcard ($Categorie) {
-        "TWEAKS DE BASE*" { "Base" }
-        "TWEAKS AVANCÉS*" { "Avancés" }
-        "EXPLORATEUR*" { "Vie privée" }
-        "OPTIMISATION DU MATÉRIEL*" { "Matériel & Réseau" }
-        "SÉCURITÉ & IA*" { "Sécurité & IA" }
-        "NOUVEAUTÉS WINDOWS 11*" { "Windows 11" }
-        "APPARENCE*" { "Apparence" }
-        "DÉMARRAGE*" { "Démarrage & Services" }
-        "CONFIGURATION SÉCURITÉ*" { "Mises à jour & Sécurité" }
-        "LOGICIELS EXPRESS*" { "Logiciels (winget)" }
-        "OUTILS DE DIAGNOSTIC*" { "Maintenance" }
-        "NETTOYAGE DU DISQUE*" { "Nettoyage" }
+        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
+        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
+        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
+        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
+        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
+        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
+        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
+        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
+        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
+        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
+        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
+        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
         default { $Categorie }
     }
+}
+
+function Get-NomProfil {
+    # Nom d'affichage d'un profil. La CLÉ du profil reste française : elle sert
+    # d'identifiant dans tout le code (boutons, Tag, journal). Seul l'affichage change.
+    param([Parameter(Mandatory)][string]$Nom)
+    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
+    return $Nom
+}
+
+function Get-DescriptionProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    $p = $script:Profils[$Nom]
+    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
+    return $p.Description
 }
 
 $script:XamlInterface = @'
@@ -7103,7 +7131,7 @@ function Show-Gui {
         $ligne.LastChildFill = $true
 
         $bouton = New-Object System.Windows.Controls.Button
-        $bouton.Content = "$nomProfil  ($($profil.Cles.Count))"
+        $bouton.Content = "$(Get-NomProfil $nomProfil)  ($($profil.Cles.Count))"
         $bouton.Width = 180
         $bouton.VerticalAlignment = 'Top'
         $bouton.Margin = "0,0,10,0"
@@ -7123,7 +7151,7 @@ function Show-Gui {
         $ligne.Children.Add($bouton) | Out-Null
 
         $desc = New-Object System.Windows.Controls.TextBlock
-        $desc.Text = $profil.Description
+        $desc.Text = Get-DescriptionProfil $nomProfil
         $desc.TextWrapping = 'Wrap'
         $desc.FontSize = 11
         $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")

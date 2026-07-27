@@ -166,21 +166,39 @@ function Get-NomOnglet {
     # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
     # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
     param([Parameter(Mandatory)][string]$Categorie)
+    # Le motif reste FRANÇAIS : c'est le titre du menu console qui sert de clé, et il
+    # ne dépend pas de la langue d'affichage. Seul le libellé rendu est traduit.
+    $en = $script:LangueActive -eq 'en'
     switch -Wildcard ($Categorie) {
-        "TWEAKS DE BASE*" { "Base" }
-        "TWEAKS AVANCÉS*" { "Avancés" }
-        "EXPLORATEUR*" { "Vie privée" }
-        "OPTIMISATION DU MATÉRIEL*" { "Matériel & Réseau" }
-        "SÉCURITÉ & IA*" { "Sécurité & IA" }
-        "NOUVEAUTÉS WINDOWS 11*" { "Windows 11" }
-        "APPARENCE*" { "Apparence" }
-        "DÉMARRAGE*" { "Démarrage & Services" }
-        "CONFIGURATION SÉCURITÉ*" { "Mises à jour & Sécurité" }
-        "LOGICIELS EXPRESS*" { "Logiciels (winget)" }
-        "OUTILS DE DIAGNOSTIC*" { "Maintenance" }
-        "NETTOYAGE DU DISQUE*" { "Nettoyage" }
+        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
+        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
+        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
+        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
+        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
+        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
+        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
+        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
+        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
+        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
+        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
+        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
         default { $Categorie }
     }
+}
+
+function Get-NomProfil {
+    # Nom d'affichage d'un profil. La CLÉ du profil reste française : elle sert
+    # d'identifiant dans tout le code (boutons, Tag, journal). Seul l'affichage change.
+    param([Parameter(Mandatory)][string]$Nom)
+    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
+    return $Nom
+}
+
+function Get-DescriptionProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    $p = $script:Profils[$Nom]
+    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
+    return $p.Description
 }
 
 $script:XamlInterface = @'
@@ -1423,7 +1441,7 @@ function Show-Gui {
         $ligne.LastChildFill = $true
 
         $bouton = New-Object System.Windows.Controls.Button
-        $bouton.Content = "$nomProfil  ($($profil.Cles.Count))"
+        $bouton.Content = "$(Get-NomProfil $nomProfil)  ($($profil.Cles.Count))"
         $bouton.Width = 180
         $bouton.VerticalAlignment = 'Top'
         $bouton.Margin = "0,0,10,0"
@@ -1443,7 +1461,7 @@ function Show-Gui {
         $ligne.Children.Add($bouton) | Out-Null
 
         $desc = New-Object System.Windows.Controls.TextBlock
-        $desc.Text = $profil.Description
+        $desc.Text = Get-DescriptionProfil $nomProfil
         $desc.TextWrapping = 'Wrap'
         $desc.FontSize = 11
         $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
