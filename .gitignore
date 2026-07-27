@@ -1,0 +1,18 @@
+# Réglages locaux de Claude Code : chemins personnels, rien à publier.
+.claude/settings.local.json
+
+# Sorties générées par l'outil (il les recrée à la demande).
+signatures/
+signatures-themes/
+*.png
+theme.txt
+
+# Données de session (elles vivent normalement dans %LOCALAPPDATA%\MadTweak,
+# mais un repli les écrit à côté du script si ce dossier manque).
+madtweak-donnees/
+madtweak-log-*.txt
+sauvegarde-*.json
+cles-appliquees.json
+profils-perso.json
+mes-apps.json
+rapport-madtweak-*.html

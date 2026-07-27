@@ -1,0 +1,15 @@
+# L'encodage n'est pas un détail dans ce projet (voir README).
+# NB : dans un .gitattributes, la DERNIÈRE règle qui correspond l'emporte.
+# Le garde-fou général vient donc en premier, les règles précises ensuite.
+
+# Par défaut : aucune conversion automatique, on ne devine pas.
+* -text
+
+# Les .ps1 DOIVENT rester en UTF-8 avec BOM et en fins de ligne LF : sans le BOM,
+# Windows PowerShell 5.1 lit le fichier en ANSI et les accents deviennent illisibles.
+# Sans cette règle, git les convertirait en CRLF au clonage sous Windows.
+*.ps1 text eol=lf
+*.md  text eol=lf
+
+# Un .bat suit la convention INVERSE : ASCII, CRLF, sans BOM.
+*.bat text eol=crlf
