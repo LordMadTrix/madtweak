@@ -37,14 +37,14 @@ jobs:
         run: |
           .\build.ps1 -Verifier
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::dist\MadTweak.ps1 ne correspond plus aux modules de src\. Lance .\build.ps1 puis recommite le résultat."
+            Write-Host "::error::dist\MadTweak.ps1 ne correspond plus aux modules de src\. Lance .\build.ps1 puis recommite le resultat."
             exit 1
           }
 
       - name: Les modules sont-ils en UTF-8 AVEC BOM ?
         shell: powershell
         run: |
-          # build.ps1 le contrôle déjà, mais on le redit ici pour que l'échec soit
+          # build.ps1 le controle deja, mais on le redit ici pour que l'echec soit
           # explicite dans le journal : sans BOM, PS 5.1 lit le fichier en ANSI.
           $sansBom = @()
           foreach ($f in (Get-ChildItem src\*.ps1) + (Get-Item build.ps1)) {
@@ -100,7 +100,7 @@ jobs:
             Write-Host "La release sert exactement le fichier construit."
           }
           elseif ($pct -ge 2) {
-            Write-Host "::warning::La release $($r.tagName) est en retard de $ecart octets ($pct %) sur dist\MadTweak.ps1. Le bouton Telecharger des sites sert donc une version anterieure — publie une nouvelle release."
+            Write-Host "::warning::La release $($r.tagName) est en retard de $ecart octets ($pct %) sur dist\MadTweak.ps1. Le bouton Telecharger des sites sert donc une version anterieure - publie une nouvelle release."
           }
           else {
             Write-Host "::notice::Ecart mineur de $ecart octets ($pct %) entre dist et la release $($r.tagName)."
