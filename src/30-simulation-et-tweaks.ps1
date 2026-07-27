@@ -183,6 +183,18 @@ function Invoke-Tweak {
         # Déclare que ce tweak n'a d'effet qu'après un redémarrage.
         [switch]$Redemarrage
     )
+    # --- Traduction ---
+    # Le français reste écrit EN CLAIR à l'appel : le code se lit sans dictionnaire,
+    # et c'est lui le repli. L'anglais vient de la table, retrouvé par la CLÉ du
+    # tweak -- ce qui évite de toucher aux 150 appels existants. Une clé sans
+    # traduction affiche donc le français, plutôt que du vide.
+    if ($Cle -and $script:LangueActive -ne 'fr') {
+        $tr = $script:TextesTweaks["$Cle.t"]
+        if ($tr) { $Titre = $tr }
+        $ex = $script:TextesTweaks["$Cle.e"]
+        if ($ex) { $Explication = $ex }
+    }
+
     # L'inventaire passe AVANT tout le reste : on recense et on sort, sans jamais
     # toucher à la machine ni poser de question.
     if ($script:ModeInventaire) {
