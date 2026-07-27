@@ -13,12 +13,17 @@
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 </div>
 
+<div align="center">
+  <img src="assets/interface.png" alt="L'interface de MadTweak" width="100%" />
+  <p><sub><i>L'interface : profils, 150 tweaks par onglets avec leur explication, et le journal en direct.</i></sub></p>
+</div>
+
 ---
 
 ## ⚡ Fonctionnalités principales
 
 ### 🛡️ **Confidentialité & nettoyage**
-- ✅ **127 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
+- ✅ **150 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
 - ✅ **5 profils** prêts à l'emploi (Minimal, Interface épurée, Vie privée, Gamer, Portable)
 - ✅ **Nettoyage mesuré** : chaque poste est pesé avant d'être purgé
 
@@ -71,7 +76,7 @@ MadTweak a un grand frère pour l'autre moitié du dual-boot : **[MadOS ROG Edit
 |---|---|
 | **Cible** | Windows 10 (22H2, build 19045) **et** Windows 11 (22H2 → 25H2, builds 22621 → 26200) — édition et build détectés à l'exécution. Les tweaks propres à Windows 11 (menu *Windows 11 24H2+*) se désactivent d'eux-mêmes sur Windows 10. |
 | **Requis** | Droits administrateur (`#Requires -RunAsAdministrator`) |
-| **Contenu** | Interface graphique thémable · 15 menus console · 127 tweaks · 5 profils · 104 tests d'audit |
+| **Contenu** | Interface graphique thémable · 15 menus console · 150 tweaks · 5 profils · 104 tests d'audit |
 | **Personnalisation** | 6 thèmes d'interface · 7 accents Windows ROG · fonds d'écran « MadTrix » générés à la couleur du thème · clavier RGB ASUS synchronisé sur l'accent |
 
 ## Utilisation depuis les sources
@@ -94,7 +99,7 @@ est indisponible (Server Core, hôte non-STA) : mieux vaut un menu qu'un échec.
 
 | | Interface | Console (`-Console`) |
 |---|:---:|:---:|
-| Les 127 tweaks, case par case | ✅ | ✅ |
+| Les 150 tweaks, case par case | ✅ | ✅ |
 | Les 5 profils | ✅ | ✅ |
 | Simuler avant d'appliquer | ✅ | ✅ |
 | Edge, OneDrive, blocage Windows Update, VBS | ✅ | ✅ |
@@ -135,7 +140,7 @@ Restent visibles en permanence : le champ **Filtrer** (usage constant) et le bou
 
 Le détail des actions :
 
-- **Filtrer** — un champ de recherche masque en direct les tweaks (et leurs explications) qui ne correspondent pas, à travers tous les onglets. Pratique parmi 127 cases.
+- **Filtrer** — un champ de recherche masque en direct les tweaks (et leurs explications) qui ne correspondent pas, à travers tous les onglets. Pratique parmi 150 cases.
 - **État actuel** — lance l'audit (les 104 tests) et **colore en vert les cases déjà appliquées** sur cette machine, en gris celles non applicables ici. D'un coup d'œil, on voit ce qui reste à faire. C'est l'audit, amené dans l'interface.
 - **Vérifier la dérive** — compare ce que tu as **déjà appliqué** (mémorisé dans `cles-appliquees.json`) à l'état réel, et **coche les réglages revenus au défaut** — typiquement réactivés par une mise à jour Windows (télémétrie, Copilot, pubs). Un clic sur *Appliquer* les remet. C'est la fonction qui garde une machine « propre » dans le temps.
 - **Enregistrer la sélection** — sauvegarde les cases cochées comme **profil personnalisé nommé** (`profils-perso.json`), qui apparaît alors dans la zone Profils, rechargeable en un clic et transportable sur un autre PC (comme `mes-apps.json`). Refuse d'écraser un profil intégré.
