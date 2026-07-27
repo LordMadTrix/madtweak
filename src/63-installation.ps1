@@ -33,6 +33,62 @@
 # donc de fonctionner à l'identique — rien n'est dupliqué.
 # ------------------------------------------------------------------------------
 
+function Get-EditionsImage {
+    <#
+        Lit les éditions RÉELLEMENT contenues dans une image Windows.
+        Accepte une .iso (montée puis démontée), un install.wim ou un install.esd.
+        Retourne une liste de @{ Index; Nom }. Ne modifie rien.
+
+        Pourquoi : jusqu'ici, choisir une édition revenait à parier. Un nom absent
+        de l'image fait échouer l'installation, et on ne le découvre que devant la
+        machine. Or l'image, on peut la LIRE. Même principe que partout ailleurs
+        dans cet outil : on mesure au lieu de deviner.
+    #>
+    param([Parameter(Mandatory)][string]$Chemin)
+
+    if (-not (Test-Path -LiteralPath $Chemin)) { throw "Fichier introuvable : $Chemin" }
+    $ext = [System.IO.Path]::GetExtension($Chemin).ToLowerInvariant()
+    if ($ext -notin '.iso', '.wim', '.esd') {
+        throw "Format non reconnu ($ext). Attendu : .iso, .wim ou .esd."
+    }
+
+    $monte = $null
+    try {
+        $imagePath = $Chemin
+        if ($ext -eq '.iso') {
+            # Montage en LECTURE SEULE : on inspecte le fichier de quelqu'un d'autre,
+            # on n'y touche pas. Le démontage est dans le finally, sans quoi une ISO
+            # resterait montée après la moindre erreur.
+            $monte = Mount-DiskImage -ImagePath $Chemin -StorageType ISO -Access ReadOnly -PassThru -ErrorAction Stop
+            $lettre = ($monte | Get-Volume).DriveLetter
+            if (-not $lettre) { throw "L'image a été montée mais aucune lettre de lecteur n'a été attribuée." }
+            $candidats = @("${lettre}:\sources\install.wim", "${lettre}:\sources\install.esd")
+            $imagePath = $candidats | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+            if (-not $imagePath) {
+                throw "Ni sources\install.wim ni sources\install.esd dans cette image : ce n'est pas un support d'installation Windows."
+            }
+        }
+
+        try { $images = @(Get-WindowsImage -ImagePath $imagePath -ErrorAction Stop) }
+        catch {
+            # Cas de loin le plus fréquent, et le message natif ne le dit pas clairement.
+            if ($_.Exception.Message -match 'l.vation|elevation|denied|refus') {
+                throw "La lecture d'une image Windows exige des droits administrateur. Relance MadTweak en administrateur."
+            }
+            throw "Lecture de l'image impossible : $($_.Exception.Message)"
+        }
+
+        $sortie = New-Object System.Collections.Generic.List[object]
+        foreach ($im in $images) {
+            $sortie.Add([pscustomobject]@{ Index = $im.ImageIndex; Nom = $im.ImageName })
+        }
+        return $sortie
+    }
+    finally {
+        if ($monte) { try { Dismount-DiskImage -ImagePath $Chemin | Out-Null } catch { } }
+    }
+}
+
 function Test-AutounattendXml {
     <#
         Relit un fichier de réponses et renvoie la liste de ses problèmes.
@@ -221,7 +277,10 @@ function New-AutounattendXml {
         [Parameter(Mandatory)][string]$Chemin,
         [Parameter(Mandatory)][string]$NomUtilisateur,
         [ValidateSet('11', '10')][string]$Version = '11',
-        [ValidateSet('', 'Pro', 'Famille', 'Entreprise')][string]$Edition = '',
+        # Raccourci (Pro / Famille / Entreprise) OU nom exact d'édition lu dans
+        # l'image par Get-EditionsImage. Un nom exact l'emporte toujours : c'est
+        # une valeur mesurée, elle vaut mieux que ma table de correspondance.
+        [string]$Edition = '',
         [string]$MotDePasse = "",
         [string]$NomMachine = "",
         [string]$Langue = "Francais (Belgique)",
@@ -329,7 +388,13 @@ function New-AutounattendXml {
         # solderait par un « profil inconnu » sur une machine fraichement installee,
         # ou personne ne lirait le message.
         $cleProfil = ConvertTo-CleComparable $Profil
-        $chercher = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter MadTweak.ps1 -ErrorAction SilentlyContinue | Select-Object -First 1; if ($s) { & $s.FullName -Profil ' + $cleProfil + ' }"'
+        # Le « else » n'est pas decoratif : si MadTweak.ps1 n'a pas ete copie sur la
+        # cle, rien ne se passerait et rien ne le dirait. Le journal tranche entre
+        # « le profil a echoue » et « le script n'etait pas la ».
+        $chercher = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' +
+        '$s=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter MadTweak.ps1 -ErrorAction SilentlyContinue | Select-Object -First 1; ' +
+        'if ($s) { Add-Content ''' + $journal + ''' (''MadTweak trouve : '' + $s.FullName); & $s.FullName -Profil ' + $cleProfil + ' } ' +
+        'else { Add-Content ''' + $journal + ''' ''MadTweak.ps1 introuvable sur les lecteurs : profil NON applique.'' }"'
         & $ajouteCmd "Appliquer le profil MadTweak $cleProfil" $chercher
         $ordre++
     }
@@ -399,9 +464,11 @@ function New-AutounattendXml {
     $blocMeta = ""
     if ($Edition) {
         $nomEdition = switch ($Edition) {
-            'Pro'        { "Windows $Version Pro" }
-            'Famille'    { "Windows $Version Home" }
+            'Pro' { "Windows $Version Pro" }
+            'Famille' { "Windows $Version Home" }
             'Entreprise' { "Windows $Version Enterprise" }
+            # Tout le reste est pris tel quel : c'est un nom lu dans l'image.
+            default { $Edition }
         }
         $blocMeta = @"
                     <InstallFrom>
@@ -637,14 +704,34 @@ function Menu-Installation {
     Write-Host ""
 
     $editions = [ordered]@{
-        "Laisser l'installeur demander (le plus sûr)" = ""
-        "Pro"                                        = "Pro"
-        "Famille / Home"                             = "Famille"
-        "Entreprise / Enterprise"                    = "Entreprise"
+        "Laisser l'installeur demander (le plus sûr)"    = ""
+        "LIRE les éditions dans mon ISO / install.wim"   = "@LIRE"
+        "Pro"                                           = "Pro"
+        "Famille / Home"                                = "Famille"
+        "Entreprise / Enterprise"                       = "Entreprise"
     }
-    Write-Host "  L'édition n'est à préciser que si tu es SÛR de ce que contient l'ISO :" -ForegroundColor DarkGray
-    Write-Host "  un nom d'édition absent de l'image fait échouer l'installation." -ForegroundColor DarkGray
+    Write-Host "  Un nom d'édition absent de l'image fait échouer l'installation. Plutôt que" -ForegroundColor DarkGray
+    Write-Host "  de deviner, l'option 2 ouvre ton ISO et lit les éditions qu'elle contient." -ForegroundColor DarkGray
     $edition = $editions[(Read-ChoixListe $editions "Quelle édition ?" 1)]
+
+    if ($edition -eq "@LIRE") {
+        $edition = ""
+        $chemImage = (Read-Host "  Chemin de l'ISO, du install.wim ou du install.esd").Trim().Trim('"')
+        try {
+            Write-Etat "Lecture de l'image (le montage prend quelques secondes)..." -Niveau Info
+            $trouvees = Get-EditionsImage -Chemin $chemImage
+            if ($trouvees.Count -eq 0) { throw "Aucune édition trouvée dans cette image." }
+            $choix = [ordered]@{}
+            foreach ($e in $trouvees) { $choix["$($e.Nom)  (index $($e.Index))"] = $e.Nom }
+            Write-Host ""
+            Write-Etat "$($trouvees.Count) édition(s) réellement présente(s) dans cette image :" -Niveau OK
+            $edition = $choix[(Read-ChoixListe $choix "Laquelle installer ?" 1)]
+        }
+        catch {
+            Write-Etat "Lecture impossible : $($_.Exception.Message)" -Niveau Avert
+            Write-Etat "On continue sans préciser l'édition : l'installeur posera la question." -Niveau Info
+        }
+    }
     Write-Host ""
 
     # --- Langue et fuseau -----------------------------------------------------

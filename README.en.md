@@ -143,6 +143,11 @@ really knows (141 on an ordinary machine), current zone first. A keyboard layout
 wrong is only discovered once you are sitting in front of the installed machine, typing
 your password on the wrong layout.
 
+**The edition isn't guessed either.** An edition name absent from the image makes setup
+fail. Rather than have you bet on it, MadTweak **opens your ISO** (or `install.wim` /
+`install.esd`), reads the editions it actually contains and offers those. The image is
+mounted read-only and dismounted whatever happens.
+
 Three things to know before using it:
 
 - **A password in an answer file is not encrypted.** It is base64-encoded, which anyone

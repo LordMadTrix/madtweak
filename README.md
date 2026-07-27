@@ -252,6 +252,11 @@ Windows connaît vraiment (141 sur une machine ordinaire), fuseau courant en tê
 disposition clavier recopiée de travers ne se découvre qu'une fois devant la machine
 installée, en tapant son mot de passe sur un clavier qui n'est pas le bon.
 
+**L'édition non plus ne se devine pas.** Un nom d'édition absent de l'image fait échouer
+l'installation. Plutôt que de te faire parier, MadTweak **ouvre ton ISO** (ou ton
+`install.wim`/`install.esd`), lit les éditions qu'elle contient réellement et te les
+propose. L'image est montée en lecture seule et démontée quoi qu'il arrive.
+
 Trois choses à savoir avant de s'en servir :
 
 - **Un mot de passe dans un fichier de réponses n'est pas chiffré.** Il est encodé en
