@@ -451,4 +451,8 @@ par construction.
 
 **MIT License** — Libre et Open Source. Fait avec ❤️ par LordMadTrix.
 
+**MadTweak est gratuit, et le restera.** Pas de version « Pro », pas de fonction bridée,
+pas de publicité, aucune collecte de données. Si l'outil t'a rendu service, un ⭐ sur le
+dépôt fait déjà plaisir — le bouton *Sponsor* n'est là que pour ceux qui insistent.
+
 > Sur Linux ? Voir **[MadOS ROG Edition](https://github.com/LordMadTrix/MadOS_ROG_Edition)**, le pendant Kubuntu de ce projet.
