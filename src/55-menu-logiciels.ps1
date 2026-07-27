@@ -91,7 +91,12 @@ function Menu-Logiciels-Extra {
     foreach ($nom in $Catalogue.Keys) {
         $id = $Catalogue[$nom]
         $cleApp = "winget-" + ($id -replace '[^a-zA-Z0-9]', '-').ToLower()
-        Invoke-Tweak "Installer $nom ?" -Cle $cleApp -Explication "Télécharge et installe le logiciel $nom via winget." {
+        # Ces 23 entrées sont GÉNÉRÉES : leur libellé ne dépend que du nom de l'appli.
+        # Traduire le gabarit une fois vaut mieux que 23 entrées dans la table.
+        $titreApp = if ($script:LangueActive -eq 'fr') { "Installer $nom ?" } else { "Install $nom?" }
+        $explApp = if ($script:LangueActive -eq 'fr') { "Télécharge et installe le logiciel $nom via winget." }
+        else { "Downloads and installs $nom using winget." }
+        Invoke-Tweak $titreApp -Cle $cleApp -Explication $explApp {
             # V3 : sans --accept-*-agreements, winget pouvait rester bloqué sur un prompt,
             # et sans "-e --id" il pouvait installer un paquet homonyme.
             Invoke-Action "installerait $nom via winget (id : $id)" {

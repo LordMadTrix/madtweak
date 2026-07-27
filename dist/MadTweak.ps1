@@ -409,6 +409,263 @@ $script:TextesTweaks = @{
 
     'thirdparty-telemetrie.t' = "Disable auto-start and telemetry of third-party services (Google Update, Adobe)?"
     'thirdparty-telemetrie.e' = "Configures Adobe (Adobe Update, Genuine Integrity) and Google Update's update and telemetry services so they do not start automatically in the background when the PC boots."
+
+    # --- 53 : Matériel & réseau ---
+    'nvidia-telemetrie.t' = "Disable the hidden NVIDIA graphics telemetry?"
+    'nvidia-telemetrie.e' = "The NVIDIA driver installs a service and scheduled tasks that report usage data back to NVIDIA. Neither the driver nor your games need them. No effect if you have no NVIDIA card."
+
+    'sysmain.t' = "Disable SysMain / Superfetch? (good on SSD - AVOID on a mechanical hard drive)"
+    'sysmain.e' = "SysMain (formerly Superfetch) preloads into memory the applications it thinks you are about to open. On an SSD that guesswork is pointless and sometimes causes stutter. On a mechanical HARD DRIVE, however, it genuinely helps: the script checks your system drive and refuses the setting if it is a hard drive."
+
+    'usb-suspension.t' = "Disable USB selective suspend? (prevents disconnections)"
+    'usb-suspension.e' = "Windows cuts power to idle USB ports to save energy, which causes mice, keyboards, headsets or external drives to drop out. This setting stops it. On a desktop it is all upside; on a LAPTOP it costs battery life."
+
+    'net-crawling.t' = "Disable automatic scanning for shared network folders?"
+    'net-crawling.e' = "Stops Explorer automatically going looking for shared folders on your local network. Purely cosmetic: it avoids lag when Explorer opens. You can still reach your shares by typing their address."
+
+    'hibernation.t' = "Disable hibernation and reclaim the hiberfil.sys space? (also disables Fast Startup)"
+    'hibernation.e' = "Disables hibernation and deletes hiberfil.sys, a hidden file several GB in size. WARNING: this also disables « fast startup », so your PC will boot more slowly. On a laptop it is a bad idea: you lose the hibernation that saves your session when the battery runs out."
+
+    'nagle.t' = "Disable Nagle's algorithm? (lowers gaming latency, may reduce download throughput)"
+    'nagle.e' = "Nagle's algorithm bundles small network packets before sending them, which adds a few milliseconds of latency. Disabling it helps in online gaming. Real downside: it can REDUCE your download throughput. Only take it if latency matters more than bandwidth."
+
+    'souris-acceleration.t' = "Disable mouse acceleration ('enhance pointer precision')? (consistent aim in games)"
+    'souris-acceleration.e' = "Windows accelerates the pointer when you move the mouse quickly: the same gesture does not always travel the same distance. Turning it off makes your aim consistent, which is what every gamer wants. Expect an adjustment period: your in-game sensitivity will change. Takes effect at your next sign-in."
+
+    'spouleur.t' = "Disable the print spooler? (closes a known attack surface)"
+    'spouleur.e' = "The print spooler is a known attack surface (the PrintNightmare family of flaws) and runs permanently even without a printer. The script first checks that no real printer is installed and refuses if it finds one: without the spooler, printing becomes impossible."
+
+    'llmnr-netbios.t' = "Disable LLMNR and NetBIOS? (closes two classic local-network attack surfaces)"
+    'llmnr-netbios.e' = "LLMNR and NetBIOS are used to find machines on the local network when DNS fails. They are exploited by classic local-network spoofing attacks (Responder and friends), and a home PC with working DNS has no need for them. Downside: if you reach an old NAS or a share by name and it breaks, undo this setting."
+
+    'doh.t' = "Allow encrypted DNS (DNS over HTTPS)?"
+    'doh.e' = "Lets Windows encrypt your DNS queries (DNS over HTTPS), so your ISP no longer sees in the clear which sites you visit. Set to « allowed » rather than « required »: Windows encrypts if your DNS server supports it, and falls back to plaintext otherwise. « Required » with a DNS that lacks DoH would cut you off from the internet. Only effective with a compatible DNS (Cloudflare, Google, Quad9)."
+
+    'carte-reseau-veille.t' = "Stop Windows powering down the network adapter to save energy? (Wi-Fi drops, latency)"
+    'carte-reseau-veille.e' = "Windows powers down the network adapter to save energy, which causes Wi-Fi drops and latency spikes. This setting forbids it, on your physical adapters only (VPN virtual adapters are left alone). On a LAPTOP it costs battery life."
+
+    'game-dvr.t' = "Disable Game DVR / Game Bar background recording? (FPS gain)"
+    'game-dvr.e' = "The Game Bar records your game in the background permanently, in case you want to keep the last 30 seconds. That costs FPS for a feature few people use. The Game Bar (Win+G) stays usable: only background recording is cut."
+
+    'plan-performances-ultimes.t' = "Enable the hidden 'Ultimate Performance' power plan?"
+    'plan-performances-ultimes.e' = "Adds Microsoft's hidden power plan, which forbids any component from going to sleep. Reserved for DESKTOPS: the script refuses it on a laptop, where Microsoft hides it for good reason — it runs hot and drains the battery. Once added, you must select it in Settings > System > Power."
+
+    'bridage-multimedia.t' = "Lift the network throttling reserved for multimedia (NetworkThrottlingIndex)?"
+    'bridage-multimedia.e' = "Windows throttles the network and CPU priorities to reserve resources for multimedia, a trade-off designed for 2008-era machines. This setting lifts the throttle. Useful for gaming and streaming; no visible effect in office use."
+
+    'modern-standby.t' = "Disable modern standby (S0) and restore classic S3 sleep?"
+    'modern-standby.e' = "Forces classic S3 sleep instead of modern standby S0. RESERVED for machines whose firmware GENUINELY supports S3: on a laptop designed for S0 (most recent ROG models), forcing S3 causes crashes on wake and on RESUME FROM HIBERNATION. The tweak detects this and REFUSES to apply."
+
+    'hags-gpu.t' = "Enable hardware-accelerated GPU scheduling (HAGS)?"
+    'hags-gpu.e' = "Enables hardware-accelerated GPU scheduling to reduce display latency and improve performance in compatible games (required for Nvidia DLSS 3 / AMD FSR 3 frame generation)."
+
+    'amd-telemetrie.t' = "Disable AMD Radeon Software telemetry?"
+    'amd-telemetrie.e' = "Disables telemetry and analytics collection in AMD Radeon Software."
+
+    'pcie-power-management.t' = "Disable PCIe power saving (Link State Power Management)?"
+    'pcie-power-management.e' = "Configures the active power plan to disable PCIe Link State power management. Stops graphics cards and NVMe SSDs having their power reduced, eliminating wake-up micro-stutters."
+
+    'xbox-gamebar.t' = "Disable Xbox Game Bar background features?"
+    'xbox-gamebar.e' = "Disables background recording and the Xbox Game Bar app to free CPU and memory while gaming."
+
+    'delivery-optimization-p2p.t' = "Disable P2P sharing of Windows Update downloads (Delivery Optimization)?"
+    'delivery-optimization-p2p.e' = "Configures Windows to fetch Windows Update packages directly from Microsoft servers (HTTP) without using or sharing your upload bandwidth with other computers on the local network or the internet."
+
+    'ntfs-performance.t' = "Disable 8.3 short-name creation (NTFS performance)?"
+    'ntfs-performance.e' = "Disables the generation of DOS-style 8.3 short filenames on NTFS. Improves read/write performance, especially in directories holding very large numbers of files."
+
+    # --- 61 : Apparence & visuel ---
+    'mode-sombre.t' = "Enable DARK mode (Windows and apps)?"
+    'mode-sombre.e' = "Switches Windows and applications to the dark theme. BOTH settings are written: one dresses the apps, the other the taskbar and Start menu. Many guides set only one and leave you with a half-dark theme."
+
+    'transparence.t' = "Disable transparency effects (Acrylic / Mica)?"
+    'transparence.e' = "Turns off the transparency effects (Acrylic, Mica) on windows and the Start menu. Unlike the other settings in this tab, this one genuinely affects performance: transparency costs GPU time, which matters on a laptop with integrated graphics."
+
+    'accent-barres-titre.t' = "Apply your accent colour to title bars and borders?"
+    'accent-barres-titre.e' = "Applies your accent colour to window title bars and borders. Without this setting they stay grey whatever colour you pick in Settings. The colour used is the one from Settings > Personalisation > Colours."
+
+    'qualite-fond-ecran.t' = "Improve wallpaper quality (no JPEG recompression)?"
+    'qualite-fond-ecran.e' = "Windows recompresses your wallpaper to roughly 85% quality, which shows on gradients and flat areas. This setting switches to maximum quality. Only effective when you SET a wallpaper again: the current one is already recompressed."
+
+    'fichiers-caches.t' = "Show HIDDEN files and folders?"
+    'fichiers-caches.e' = "Shows files and folders marked as hidden. Handy for reaching AppData or a .gitignore without a detour. Harmless: these are mostly configuration files."
+
+    'fichiers-systeme.t' = "Also show protected SYSTEM files? (pagefile.sys, hiberfil.sys...)"
+    'fichiers-systeme.e' = "ALSO shows protected system files (pagefile.sys, hiberfil.sys, bootmgr). Only take this if you know what you are doing: these files are hidden for a reason, and deleting one can leave Windows unbootable."
+
+    'explorateur-ce-pc.t' = "Open Explorer on « This PC » rather than « Home »?"
+    'explorateur-ce-pc.e' = "Explorer opens on « This PC » (your drives) instead of « Home », the Windows 11 page that mixes recent files with OneDrive files."
+
+    'explorateur-compact.t' = "Enable COMPACT view in Explorer (tighter rows, like Windows 10)?"
+    'explorateur-compact.e' = "Tightens the spacing between Explorer rows, as in Windows 10. Windows 11 spaces everything out for touch; on a desktop screen that just makes you scroll for nothing."
+
+    'explorateur-galerie.t' = "Remove « Gallery » from the Explorer navigation pane?"
+    'explorateur-galerie.e' = "Removes the « Gallery » entry from the Explorer navigation pane. It is a photo view added in 23H2, redundant with the Photos app. Reversible: the script exports the key before deleting it, so Exact restore can put it back."
+
+    'explorateur-volet-accueil.t' = "Remove « Home » from the Explorer navigation pane?"
+    'explorateur-volet-accueil.e' = "Removes the « Home » entry from the navigation pane. Explorer will automatically fall back to « This PC » on opening: it cannot open on a location that no longer exists."
+
+    'suffixe-raccourci.t' = "Remove the « - Shortcut » suffix on new shortcuts?"
+    'suffixe-raccourci.e' = "Windows appends « - Shortcut » to the name of every new shortcut. This setting stops that. It does not rename existing shortcuts: only new ones are affected."
+
+    'recherche-barre-taches.t' = "Shrink the taskbar search box to a single icon?"
+    'recherche-barre-taches.e' = "Shrinks the large taskbar search box to a single icon, freeing a lot of room. To hide it entirely: right-click the taskbar > Search > Hide."
+
+    'bouton-vue-taches.t' = "Hide the « Task view » button from the taskbar?"
+    'bouton-vue-taches.e' = "Hides the « Task view » button from the taskbar. The Win+Tab shortcut keeps working: only the button disappears."
+
+    'horloge-secondes.t' = "Show SECONDS in the taskbar clock?"
+    'horloge-secondes.e' = "Shows seconds in the taskbar clock. Microsoft removed it to save battery: on a laptop the clock redraws every second, which has a real if small cost. Negligible on a desktop."
+
+    'demarrer-plus-epingles.t' = "Show MORE pins and less « Recommended » in the Start menu?"
+    'demarrer-plus-epingles.e' = "Enlarges the pinned apps area of the Start menu at the expense of the « Recommended » area. Best combined with cutting the Start menu ads, in the Windows 11 tab."
+
+    'aero-shake.t' = "Disable Aero Shake (shaking a window minimises all others)?"
+    'aero-shake.e' = "Disables Aero Shake, the feature that minimises all your other windows when you shake the top one. Mostly useful if you trigger it by accident while moving a window."
+
+    'snap-layouts.t' = "Disable the Snap Layouts flyout?"
+    'snap-layouts.e' = "Disables the flyout menu that pops up when you hover the Maximise button. Snapping keeps working normally (Win+arrows, drag to an edge): only the automatic menu disappears."
+
+    'barres-defilement.t' = "Keep scrollbars always visible (instead of letting them fade out)?"
+    'barres-defilement.e' = "Keeps scrollbars permanently visible instead of having them fade out and reappear on hover. You always see where you are in a page, and you can aim at the bar without making it appear first."
+
+    'photo-classique.t' = "Restore the classic Windows Photo Viewer?"
+    'photo-classique.e' = "Brings back the old, very fast and lightweight Windows Photo Viewer from Windows 7/8. Associates JPG, JPEG, PNG, GIF, BMP, TIFF and ICO files with it."
+
+    'god-mode.t' = "Add the « God Mode » shortcut to the Desktop?"
+    'god-mode.e' = "Creates a special « full Control Panel » folder (God Mode) on your Desktop gathering more than 200 Windows administration and settings tools in one place."
+
+    'menu-delay.t' = "Remove the menu display delay (MenuShowDelay)?"
+    'menu-delay.e' = "Reduces the delay before menus appear on hover (from 400 ms by default to 20 ms). Makes submenus and context menus appear instantly, improving the overall feeling of responsiveness."
+
+    'disable-login-blur.t' = "Disable the background blur on the sign-in screen?"
+    'disable-login-blur.e' = "Disables the acrylic blur Windows applies to the background image of the password screen, for a sharp and more responsive display."
+
+    # --- 54 : Mises à jour, sécurité & IA ---
+    'copilot.t' = "Disable Windows Copilot?"
+    'copilot.e' = "Removes the Copilot button and sets the policy that disables it. Since that old policy does not cover the modern Copilot shipped from 24H2 onwards (now a plain Store app), the script also UNINSTALLS that app: it is the only reliable way. You can reinstall it from the Store."
+
+    'recall.t' = "Disable Recall and AI data analysis?"
+    'recall.e' = "Recall periodically captures your screen and indexes it so you can « go back in time ». This setting disables it, removes its files and deletes the snapshots already recorded. On a Copilot+ PC, where Recall is a genuine Windows feature, the component is removed outright (restart required)."
+
+    'update-defer.t' = "Defer feature updates by 365 days (security fixes keep arriving)?"
+    'update-defer.e' = "Defers feature updates by 365 days to keep the system stable. Critical security fixes keep arriving. Requires Windows Pro edition."
+
+    'update-block.t' = "Completely disable the Windows Update service?"
+    'update-block.e' = "Disables and fully blocks the Windows Update service (wuauserv). Warning: no security fix will be able to install."
+
+    'update-restore.t' = "Restore the default Windows Update settings?"
+    'update-restore.e' = "Puts the Windows Update service settings back to their defaults."
+
+    'vbs-desactiver.t' = "Disable virtualisation-based security (VBS) / Core Isolation?"
+    'vbs-desactiver.e' = "Disables VBS and core isolation to improve gaming and GPU compute performance. Reduces overall system security."
+
+    'update-pilotes.t' = "Stop Windows Update installing or updating drivers?"
+    'update-pilotes.e' = "Stops Windows Update automatically overwriting your hardware drivers (such as Nvidia/AMD graphics drivers) with generic or older versions of its own choosing. You will have to update your drivers manually."
+
+    'regback-backup.t' = "Enable periodic Windows Registry backups (RegBack)?"
+    'regback-backup.e' = "Configures Windows to make regular automatic registry backups into System32\config\RegBack (disabled by default by Microsoft to save 50 MB of disk). Adds a safety margin should the registry become corrupted."
+
+    'defender-cpu-limit.t' = "Cap Windows Defender CPU usage during scans?"
+    'defender-cpu-limit.e' = "Caps Windows Defender's maximum CPU usage at 30% during its automatic background scans. Avoids temperature spikes and sudden slowdowns while you are gaming or working."
+
+    # --- 57 : Windows 11 24H2+ ---
+    'pubs-demarrer.t' = "Remove ads and 'recommendations' from the Start menu? (24H2+)"
+    'pubs-demarrer.e' = "The Start menu shows « recommendations » that are really ads for Store apps, mixed in with your recent files and applications. This setting cuts all three. The Recommended area will empty out: see the « more pins » setting in the Appearance tab to reclaim the space."
+
+    'pubs-scoobe.t' = "Cut the 'Let's finish setting up your device' screens after updates?"
+    'pubs-scoobe.e' = "After every major update, Windows shows a full-page « Let's finish setting up your device » screen pushing you towards Edge, Bing and OneDrive. This setting stops it appearing."
+
+    'pubs-explorateur.t' = "Remove OneDrive/Store ads disguised as notifications in Explorer?"
+    'pubs-explorateur.e' = "Explorer shows banners that look like system notifications but are advertisements for OneDrive and Microsoft 365. This setting removes them. If you genuinely use OneDrive, you also lose its sync notifications."
+
+    'pubs-verrouillage.t' = "Cut lock screen ads and Spotlight?"
+    'pubs-verrouillage.e' = "The lock screen (Windows Spotlight) shows attractive photos accompanied by suggestions and advertisements. This setting cuts the advertising overlays."
+
+    'widgets-dsh.t' = "Fully disable Widgets? ('Dsh' policy, the one that works since 24H2)"
+    'widgets-dsh.e' = "Fully disables the Widgets panel. This is the policy that actually works from 24H2 onwards: the old « Windows Feeds » key that most guides recommend no longer even exists."
+
+    'barre-taches-gauche.t' = "Align the taskbar LEFT (like Windows 10)?"
+    'barre-taches-gauche.e' = "Aligns the taskbar to the left, as in Windows 10 and every earlier version, instead of the Windows 11 centring. Purely a matter of habit."
+
+    'fin-de-tache.t' = "ADD 'End task' to the taskbar right-click menu? (kill an app without Task Manager)"
+    'fin-de-tache.e' = "Adds « End task » to the right-click menu on a taskbar icon, so you can kill a frozen application without opening Task Manager. This one ENABLES a useful feature rather than cutting one."
+
+    'panneau-telephone.t' = "Hide the 'Phone' panel from the Start menu? (new in 25H2)"
+    'panneau-telephone.e' = "Hides the « Phone » panel added to the Start menu by 25H2. Undocumented by Microsoft and found by the community: if it reappears after an update, the key has changed."
+
+    'paint-ia.t' = "Disable Paint's AI features (Cocreator, Generative fill, Image Creator)?"
+    'paint-ia.e' = "Disables Paint's generative AI features (Cocreator, Generative fill, Image Creator). Paint keeps working normally for everything else."
+
+    'click-to-do.t' = "Disable 'Click to Do' (AI screen analysis)?"
+    'click-to-do.e' = "Click to Do analyses your screen contents with AI to offer contextual actions. Honestly: Microsoft only documents this policy for Insider builds, so its effect on a stable release is not guaranteed. It is set as a precaution. The feature only runs on Copilot+ PCs with an NPU anyway."
+
+    # --- 55 : Logiciels (winget) ---
+    'winget-export.t' = "EXPORT the list of apps installed on this PC (to reinstall them elsewhere)?"
+    'winget-export.e' = "Exports the list of all your currently installed applications as JSON into the data folder."
+
+    'winget-import.t' = "IMPORT and reinstall apps from a previous export?"
+    'winget-import.e' = "Automatically imports and reinstalls your applications from a previously exported mes-apps.json file."
+
+    'winget-upgrade-all.t' = "Update ALL installed apps (winget upgrade --all)?"
+    'winget-upgrade-all.e' = "Automatically updates every application installed on the machine using winget."
+
+    # --- 56 : Maintenance ---
+    'maintenance-dism.t' = "Run DISM to repair the Windows system image? (several minutes)"
+    'maintenance-dism.e' = "Scans the Windows system image for damage and repairs it by downloading healthy files through Windows Update (internet required)."
+
+    'maintenance-sfc.t' = "Run an SFC scan to repair corrupted system files? (several minutes)"
+    'maintenance-sfc.e' = "Scans all protected Windows system files and replaces corrupted versions with healthy copies."
+
+    'maintenance-winsxs-cleanup.t' = "Clean and compress the component store (WinSxS)? (several minutes)"
+    'maintenance-winsxs-cleanup.e' = "Runs the DISM cleanup with StartComponentCleanup and ResetBase. Permanently removes old system component versions made obsolete or superseded by recent updates. Frees a lot of space in C:\Windows\WinSxS, but makes the updates currently installed impossible to uninstall."
+
+    'maintenance-purger-journaux.t' = "Purge every Windows event log?"
+    'maintenance-purger-journaux.e' = "Empties all the Windows Event Viewer logs to free space."
+
+    # --- 59 : Nettoyage disque ---
+    'nettoyage-temp-user.t' = "Empty the temporary files (user account)"
+    'nettoyage-temp-user.e' = "Empties the current user account's temporary folder (TEMP). Frees disk space."
+
+    'nettoyage-temp-system.t' = "Empty the temporary files (Windows system)"
+    'nettoyage-temp-system.e' = "Empties the Windows system temporary folder (System Temp) used by services and installers."
+
+    'nettoyage-update-cache.t' = "Empty the Windows Update cache"
+    'nettoyage-update-cache.e' = "Deletes the installers and temporary files of Windows updates already applied."
+
+    'nettoyage-wer.t' = "Empty the Windows Error Reporting files (WER)"
+    'nettoyage-wer.e' = "Deletes crash report files and system memory dumps."
+
+    'nettoyage-delivery-optimization.t' = "Empty the Delivery Optimization cache"
+    'nettoyage-delivery-optimization.e' = "Deletes the temporary files used for peer-to-peer distribution of updates."
+
+    'nettoyage-miniatures.t' = "Empty the Explorer thumbnail cache"
+    'nettoyage-miniatures.e' = "Deletes the thumbnail cache files (rebuilt automatically as you browse)."
+
+    'nettoyage-windows-old.t' = "Delete the Windows.old rollback folder"
+    'nettoyage-windows-old.e' = "Permanently deletes the Windows.old folder holding the previous system installation (gives up the ability to roll back)."
+
+    # --- 60 : Démarrage & services ---
+    'delai-demarrage.t' = "Remove the artificial 10 s delay before startup programs launch?"
+    'delai-demarrage.e' = "Windows deliberately delays your startup programs by 10 seconds to make the desktop usable sooner. On an SSD that delay no longer serves a purpose. Affects YOUR programs only, not Windows services."
+
+    'service-fax.t' = "Disable the Fax service?"
+    'service-fax.e' = "The Fax service is loaded on every Windows installation, including the millions of PCs that have never seen a modem. No downside, unless you genuinely send faxes."
+
+    'service-registre-distant.t' = "Disable Remote Registry? (attack surface, useless outside a company)"
+    'service-registre-distant.e' = "Lets another machine read and modify your registry remotely. It is an attack surface, and it is useless outside a corporate network. Windows already leaves it disabled by default on a home PC."
+
+    'service-retaildemo.t' = "Disable retail demo mode (RetailDemo)?"
+    'service-retaildemo.e' = "Retail demo mode is for PCs on display in a shop. On your machine it will never do anything useful."
+
+    'service-cartes.t' = "Disable offline map downloads (MapsBroker)?"
+    'service-cartes.e' = "MapsBroker handles offline map downloads. Useless if you do not use the Maps app. Downside: it will no longer be able to download maps for offline use."
+
+    'service-bluetooth.t' = "Disable Bluetooth? (only if this PC has NO Bluetooth device)"
+    'service-bluetooth.e' = "Turns off the Bluetooth service. Only take this if this PC has no Bluetooth device: the script detects active devices and refuses if it finds any, since your keyboard, mouse or headset would stop working after a restart."
+
+    'service-search.t' = "Disable Windows Search file indexing (WSearch)?"
+    'service-search.e' = "Disables the Windows Search file indexing service. Recommended on machines with a good SSD, to save RAM and pointless disk activity. Explorer's search keeps working, but directly, without a prebuilt index."
 }
 # ------------------------------------------------------------------------------
 # SOCLE : affichage, questions, écriture registre, exécution sécurisée
@@ -2307,7 +2564,12 @@ function Menu-Logiciels-Extra {
     foreach ($nom in $Catalogue.Keys) {
         $id = $Catalogue[$nom]
         $cleApp = "winget-" + ($id -replace '[^a-zA-Z0-9]', '-').ToLower()
-        Invoke-Tweak "Installer $nom ?" -Cle $cleApp -Explication "Télécharge et installe le logiciel $nom via winget." {
+        # Ces 23 entrées sont GÉNÉRÉES : leur libellé ne dépend que du nom de l'appli.
+        # Traduire le gabarit une fois vaut mieux que 23 entrées dans la table.
+        $titreApp = if ($script:LangueActive -eq 'fr') { "Installer $nom ?" } else { "Install $nom?" }
+        $explApp = if ($script:LangueActive -eq 'fr') { "Télécharge et installe le logiciel $nom via winget." }
+        else { "Downloads and installs $nom using winget." }
+        Invoke-Tweak $titreApp -Cle $cleApp -Explication $explApp {
             # V3 : sans --accept-*-agreements, winget pouvait rester bloqué sur un prompt,
             # et sans "-e --id" il pouvait installer un paquet homonyme.
             Invoke-Action "installerait $nom via winget (id : $id)" {
