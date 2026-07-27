@@ -4927,8 +4927,20 @@ function New-AutounattendXml {
     # Elles s'exécutent une fois, en tant que l'utilisateur créé, session ouverte.
     $cmds = New-Object System.Collections.Generic.List[string]
     $ordre = 1
+    # Toutes les traces de la première ouverture de session vont dans un seul fichier,
+    # dans un dossier accessible à tous. Sans lui, une installation d'application qui
+    # échoue ne laisse RIEN : on découvre l'absence du logiciel des jours plus tard,
+    # sans le moindre indice sur la cause.
+    $journal = 'C:\Users\Public\madtweak-premier-demarrage.log'
+
     $ajouteCmd = {
         param($description, $ligne)
+        # La documentation fixe la limite à 1024 caractères. Au-delà, Windows tronque
+        # ou refuse la commande — et cela ne se verrait qu'au premier démarrage d'une
+        # machine déjà formatée. Mieux vaut échouer ici, devant l'utilisateur.
+        if ($ligne.Length -gt 1024) {
+            throw "Commande de première ouverture trop longue ($($ligne.Length) caractères, maximum 1024) : $description"
+        }
         $cmds.Add(@"
                 <SynchronousCommand wcm:action="add">
                     <Order>$ordre</Order>
@@ -4938,8 +4950,31 @@ function New-AutounattendXml {
 "@)
     }
 
+    if ($Apps.Count -gt 0) {
+        # winget n'est PAS disponible tout de suite sur une installation neuve : le
+        # paquet « App Installer » est approvisionné en tâche de fond, et la première
+        # ouverture de session le précède souvent de plusieurs minutes. Sans cette
+        # attente, les installations échouent toutes, en silence, et l'utilisateur
+        # conclut que l'outil ne marche pas. On attend donc le RÉSEAU puis winget,
+        # avec une borne : mieux vaut continuer sans les applications que bloquer
+        # indéfiniment la première session de quelqu'un.
+        # Tout est en chaînes SIMPLEMENT quotées : le code ci-dessous doit arriver
+        # littéralement dans le fichier, pas être évalué ici. Une seule interpolation
+        # au mauvais endroit et c'est la date de génération qui se retrouve gravée
+        # dans le fichier de réponses, au lieu de la date d'exécution.
+        $attendre = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' +
+        '$fin=(Get-Date).AddMinutes(10); ' +
+        'while((Get-Date) -lt $fin -and -not (Get-NetConnectionProfile | Where-Object IPv4Connectivity -eq ''Internet'')) { Start-Sleep 15 }; ' +
+        'while((Get-Date) -lt $fin -and -not (Get-Command winget -ErrorAction SilentlyContinue)) { Start-Sleep 15 }; ' +
+        'Add-Content ''' + $journal + ''' ((Get-Date).ToString(''s'') + '' | winget disponible : '' + [bool](Get-Command winget -ErrorAction SilentlyContinue))' +
+        '"'
+        & $ajouteCmd "Attendre le reseau et winget" $attendre
+        $ordre++
+    }
+
     foreach ($id in $Apps) {
-        & $ajouteCmd "Installer $id" "cmd /c winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements"
+        # La redirection vers le journal transforme un échec muet en échec lisible.
+        & $ajouteCmd "Installer $id" "cmd /c winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements >> `"$journal`" 2>&1"
         $ordre++
     }
 
