@@ -109,7 +109,7 @@ code, not in a promise.
   (services), `Save-EtatCle` (whole keys, exported as `.reg`). The first state seen is
   the true one — an entry is never overwritten.
 
-### The five safety nets
+### The six safety nets
 
 They catch the failures that silence would hide: a mistyped key produces no error at
 all, just a tweak that never fires.
@@ -120,6 +120,7 @@ all, just a tweak that never fires.
 | `Test-CoherenceAudit` | startup | an audit testing a key no tweak sets |
 | `Test-Explications` | startup | a selectable tweak **with no explanation** |
 | `$script:ClesJouees` tally | end of a run | a valid key that is **unreachable** |
+| `Test-AutounattendXml` | every answer file generated | a setting placed in a pass where Windows would **silently ignore** it, a wiped disk with no install target, a command over 1024 characters |
 | CI (`build.ps1 -Verifier`) | every push | `dist/` no longer matching `src/` |
 
 ---

@@ -424,7 +424,7 @@ Invoke-Tweak "Question posée à l'utilisateur ?" -Cle "identifiant-stable" `
   `Start-Menu` / `Fin-De-Menu`, qui s'en chargent, et garder tout `Write-Host` de
   décor derrière `if (-not $script:ProfilActif)`.
 
-### Les quatre filets
+### Les cinq filets
 
 Ils attrapent les erreurs que le silence rendrait invisibles — une clé mal orthographiée
 ne produit aucune erreur, juste un tweak qui ne se déclenche jamais.
@@ -435,6 +435,7 @@ ne produit aucune erreur, juste un tweak qui ne se déclenche jamais.
 | `Test-CoherenceAudit` | démarrage | un audit qui teste une clé qu'aucun tweak ne pose |
 | `Test-Explications` | démarrage | un tweak pilotable **sans explication** (case à cocher nue) |
 | relevé `$script:ClesJouees` | fin de profil **et fin d'application dans l'interface** | une clé valide mais **hors d'atteinte**, parce que son menu manque à `Invoke-TousLesMenus` |
+| `Test-AutounattendXml` | à chaque fichier de réponses généré | un réglage placé dans un passage où Windows l'**ignorerait en silence**, un disque effacé sans cible d'installation, une commande au-delà de 1024 caractères |
 
 Le dernier existe parce que le cas s'est produit : les autres valident qu'une clé
 **existe**, pas qu'elle soit **atteignable**.

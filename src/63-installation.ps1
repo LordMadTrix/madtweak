@@ -33,6 +33,113 @@
 # donc de fonctionner à l'identique — rien n'est dupliqué.
 # ------------------------------------------------------------------------------
 
+function Test-AutounattendXml {
+    <#
+        Relit un fichier de réponses et renvoie la liste de ses problèmes.
+        Liste vide = rien à signaler. Ne modifie rien.
+
+        Pourquoi ce contrôle existe : un réglage placé dans le mauvais passage de
+        configuration ne fait PAS échouer l'installation — Windows l'ignore, en
+        silence. On se retrouve avec un clavier QWERTY ou un écran de compte qui
+        réapparaît, sans le moindre message. C'est exactement le genre de panne
+        qu'un test automatique attrape et qu'une relecture humaine laisse passer.
+
+        Le projet a déjà cinq filets de ce type (Test-ClesProfils, Test-CoherenceAudit,
+        Test-Explications, le décompte des clés jouées, la CI). Celui-ci est le sixième.
+    #>
+    param([Parameter(Mandatory)][string]$Chemin)
+
+    $pbs = New-Object System.Collections.Generic.List[string]
+    if (-not (Test-Path $Chemin)) { $pbs.Add("Fichier introuvable : $Chemin"); return $pbs }
+
+    # Windows Setup lit le fichier en UTF-8 ; un BOM peut le faire échouer.
+    $octets = [System.IO.File]::ReadAllBytes($Chemin)
+    if ($octets.Length -ge 3 -and $octets[0] -eq 0xEF -and $octets[1] -eq 0xBB -and $octets[2] -eq 0xBF) {
+        $pbs.Add("Le fichier commence par un BOM UTF-8 : Windows Setup peut le refuser.")
+    }
+
+    try { $x = [xml](Get-Content $Chemin -Raw) }
+    catch { $pbs.Add("XML mal formé : $($_.Exception.Message)"); return $pbs }
+
+    $ns = New-Object System.Xml.XmlNamespaceManager($x.NameTable)
+    $ns.AddNamespace('u', 'urn:schemas-microsoft-com:unattend')
+    if (-not $x.SelectSingleNode('/u:unattend', $ns)) {
+        $pbs.Add("Racine « unattend » absente ou mauvais espace de noms.")
+        return $pbs
+    }
+
+    # Passages où chaque composant est réellement valide, d'après la documentation
+    # Microsoft. On ne liste que ceux qu'on écrit : inventer une règle serait pire
+    # que ne pas en avoir.
+    $passagesValides = @{
+        'Microsoft-Windows-International-Core-WinPE' = @('windowsPE')
+        'Microsoft-Windows-International-Core'       = @('specialize', 'oobeSystem')
+        'Microsoft-Windows-Setup'                    = @('windowsPE')
+        'Microsoft-Windows-Deployment'               = @('specialize', 'windowsPE', 'auditUser', 'oobeSystem')
+        'Microsoft-Windows-Shell-Setup'              = @('specialize', 'oobeSystem', 'auditSystem', 'generalize')
+    }
+
+    $vus = @{}
+    foreach ($s in $x.SelectNodes('/u:unattend/u:settings', $ns)) {
+        $passage = $s.pass
+        foreach ($c in $s.SelectNodes('u:component', $ns)) {
+            $nom = $c.name
+            $vus["$nom|$passage"] = $true
+            if ($passagesValides.ContainsKey($nom) -and $passage -notin $passagesValides[$nom]) {
+                $pbs.Add("« $nom » est place dans le passage « $passage », ou il sera IGNORE en silence. Passages valides : $($passagesValides[$nom] -join ', ').")
+            }
+        }
+    }
+
+    # Réglages dépréciés : Microsoft demande explicitement de ne pas s'en servir.
+    foreach ($mort in 'SkipMachineOOBE', 'SkipUserOOBE') {
+        if ($x.SelectSingleNode("//u:$mort", $ns)) {
+            $pbs.Add("« $mort » est deprecie depuis Windows 10 1709 et ne doit pas servir a automatiser l'OOBE.")
+        }
+    }
+
+    # Sans ces deux blocs, l'installation « automatique » repose ses questions.
+    if (-not $vus['Microsoft-Windows-International-Core|oobeSystem']) {
+        $pbs.Add("Aucun « Microsoft-Windows-International-Core » en oobeSystem : le Windows INSTALLE gardera la disposition clavier par defaut.")
+    }
+    if (-not $x.SelectSingleNode('//u:settings[@pass="oobeSystem"]//u:UserAccounts', $ns)) {
+        $pbs.Add("Aucun compte declare en oobeSystem : l'ecran de creation de compte reapparaitra.")
+    }
+
+    # Effacer le disque sans dire où installer laisse l'installeur sans cible,
+    # APRÈS avoir tout effacé. C'est la combinaison la plus coûteuse du fichier.
+    if ($x.SelectSingleNode('//u:WillWipeDisk', $ns) -and
+        -not ($x.SelectSingleNode('//u:InstallTo', $ns) -or $x.SelectSingleNode('//u:InstallToAvailablePartition', $ns))) {
+        $pbs.Add("Le disque est efface mais aucune cible d'installation n'est indiquee (InstallTo).")
+    }
+
+    # FirstLogonCommands n'existe qu'en oobeSystem ; ailleurs il ne joue jamais.
+    foreach ($f in $x.SelectNodes('//u:FirstLogonCommands', $ns)) {
+        $p = $f.SelectSingleNode('ancestor::u:settings', $ns)
+        if ($p -and $p.pass -ne 'oobeSystem') {
+            $pbs.Add("FirstLogonCommands se trouve en « $($p.pass) » : il ne s'executera jamais.")
+        }
+    }
+
+    # Limite documentée, et unicité des ordres d'exécution.
+    foreach ($c in $x.SelectNodes('//u:CommandLine', $ns)) {
+        if ($c.InnerText.Length -gt 1024) {
+            $pbs.Add("Une commande depasse 1024 caracteres ($($c.InnerText.Length)) : Windows la refusera.")
+        }
+    }
+    foreach ($groupe in @('FirstLogonCommands', 'RunSynchronous')) {
+        foreach ($parent in $x.SelectNodes("//u:$groupe", $ns)) {
+            $ordres = @($parent.SelectNodes('.//u:Order', $ns) | ForEach-Object { $_.InnerText })
+            $doublons = @($ordres | Group-Object | Where-Object Count -gt 1)
+            if ($doublons) {
+                $pbs.Add("Ordres d'execution en double dans $groupe : $(($doublons.Name) -join ', ').")
+            }
+        }
+    }
+
+    return $pbs
+}
+
 function Get-FuseauxCourants {
     # Les identifiants attendus par Windows Setup sont ceux de .NET (« Romance
     # Standard Time »), pas des noms IANA. Plutôt que de recopier à la main une
@@ -445,10 +552,15 @@ $blocCmds
     # peut le faire echouer. C'est la convention INVERSE des modules du projet.
     [System.IO.File]::WriteAllText($Chemin, $xml, (New-Object System.Text.UTF8Encoding($false)))
 
-    # Verification immediate : un XML mal forme se voit ici, pas devant l'ecran
-    # d'installation d'une machine qu'on vient de formater.
-    try { [xml](Get-Content $Chemin -Raw) | Out-Null }
-    catch { throw "Le fichier genere n'est pas un XML valide : $($_.Exception.Message)" }
+    # Verification immediate. On ne se contente PAS de verifier que le XML est bien
+    # forme : un fichier parfaitement valide peut placer un reglage dans un passage
+    # ou Windows l'ignorera sans rien dire. Test-AutounattendXml relit ce qu'on vient
+    # d'ecrire et le juge sur le fond. Un probleme se voit ici, devant l'utilisateur,
+    # et pas devant l'ecran d'installation d'une machine qu'on vient de formater.
+    $pbs = Test-AutounattendXml -Chemin $Chemin
+    if ($pbs.Count -gt 0) {
+        throw "Le fichier genere est incorrect :`n  - $($pbs -join "`n  - ")"
+    }
 
     return $Chemin
 }
