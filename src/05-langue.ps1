@@ -1,0 +1,207 @@
+﻿# ------------------------------------------------------------------------------
+# LANGUE
+#
+# Le projet est né en français et le reste par défaut : c'est son identité, et les
+# francophones sont mal servis par ce type d'outil. L'anglais s'ajoute pour être
+# utilisable ailleurs, pas pour remplacer.
+#
+# Principe : AUCUN texte affiché n'est écrit en dur ailleurs qu'ici. Un texte se
+# demande par sa clé, `T 'ma-cle'`, et la table décide de la langue. Une clé absente
+# renvoie la clé elle-même plutôt que du vide -- un texte manquant doit se VOIR, pas
+# se traduire par une interface trouée.
+#
+# La langue est détectée depuis Windows, et forçable par -Langue fr|en.
+#
+# NB : la variable d'état s'appelle $script:LangueActive et NON $script:Langue :
+# le paramètre -Langue du script vit lui aussi en portée script, et une variable
+# homonyme l'écraserait au chargement (le paramètre serait silencieusement perdu).
+# ------------------------------------------------------------------------------
+
+function Get-LangueSysteme {
+    # 'fr' si l'interface Windows est francophone, 'en' sinon. On lit l'interface
+    # (UICulture) et non le format régional : un Belge en anglais avec des dates
+    # françaises veut une interface anglaise.
+    try {
+        $c = [System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName
+        if ($c -eq 'fr') { return 'fr' }
+        return 'en'
+    }
+    catch { return 'fr' }
+}
+
+$script:LangueActivesConnues = @('fr', 'en')
+$script:LangueActive = Get-LangueSysteme
+
+function Set-Langue {
+    param([Parameter(Mandatory)][string]$Code)
+    $c = "$Code".ToLower()
+    if ($c -notin $script:LangueActivesConnues) { throw "Langue inconnue : $Code (attendu : $($script:LangueActivesConnues -join ', '))" }
+    $script:LangueActive = $c
+}
+
+function T {
+    # Renvoie le texte de la clé dans la langue courante.
+    # Repli en cascade : langue courante -> français -> la clé elle-même.
+    param([Parameter(Mandatory)][string]$Cle)
+    $e = $script:Textes[$Cle]
+    if (-not $e) { return $Cle }
+    $v = $e[$script:LangueActive]
+    if ($v) { return $v }
+    if ($e['fr']) { return $e['fr'] }
+    return $Cle
+}
+
+function Expand-Textes {
+    # Remplace les marqueurs {{cle}} d'un texte (typiquement le XAML de l'interface)
+    # par leur traduction. Fait AVANT l'analyse du XAML : l'interface est donc
+    # construite directement dans la bonne langue, sans repasser sur les contrôles.
+    param([Parameter(Mandatory)][string]$Texte)
+    return [regex]::Replace($Texte, '\{\{([a-zA-Z0-9_.-]+)\}\}', {
+            param($m)
+            $t = T $m.Groups[1].Value
+            # Le résultat part dans du XAML : les caractères réservés doivent être échappés.
+            $t -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;'
+        })
+}
+
+# ------------------------------------------------------------------------------
+# TABLE DES TEXTES
+#
+# Une entrée = une clé, deux langues. Trié par zone d'affichage pour qu'ajouter un
+# texte reste évident. Les textes des TWEAKS (titres et explications) ne sont pas
+# encore ici : ils suivront, c'est le gros du volume.
+# ------------------------------------------------------------------------------
+$script:Textes = @{
+
+    # --- En-tête de l'interface ---
+    'app.soustitre'        = @{ fr = "Configuration système"; en = "System configuration" }
+    'entete.fond'          = @{ fr = "Fond d'écran : "; en = "Wallpaper: " }
+    'entete.accent'        = @{ fr = "Accent Windows : "; en = "Windows accent: " }
+    'entete.theme'         = @{ fr = "Thème appli : "; en = "App theme: " }
+    'entete.ecran'         = @{ fr = "Écran : "; en = "Screen: " }
+    'entete.score.info'    = @{ fr = "Note de santé de la machine, calculée depuis l'audit : part des réglages applicables ici qui sont déjà en place."
+        en = "Machine health score, computed from the audit: the share of applicable settings already in place." }
+    'entete.fond.info'     = @{ fr = "Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé."
+        en = "Generates a « MadTrix » wallpaper at your real resolution and applies it. Your previous wallpaper is remembered." }
+    'entete.accent.info'   = @{ fr = "Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible."
+        en = "Colours the title bars, taskbar and Start menu, and syncs the ASUS RGB keyboard to the same colour. Reversible." }
+    'entete.theme.info'    = @{ fr = "Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."
+        en = "Changes the colours of THIS window only (not Windows). 6 built-in themes." }
+    'entete.ecran.info'    = @{ fr = "Luminosité de l'écran (0-100 %). Réglage natif Windows."
+        en = "Screen brightness (0-100%). Native Windows setting." }
+
+    # --- Zone des profils ---
+    'profils.entete'       = @{ fr = "PROFILS — un clic coche un lot cohérent. Tu peux ensuite ajuster case par case."
+        en = "PROFILES — one click ticks a coherent batch. You can then adjust box by box." }
+
+    # --- Barre d'outils ---
+    'barre.filtrer'        = @{ fr = "Filtrer : "; en = "Filter: " }
+    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."
+        en = "Filters tweaks by keyword (name or explanation), across every tab." }
+    'menu.analyser'        = @{ fr = "Analyser  ▾"; en = "Analyse  ▾" }
+    'menu.analyser.info'   = @{ fr = "Tout ce qui LIT la machine sans rien modifier."; en = "Everything that READS the machine without changing anything." }
+    'menu.annuler'         = @{ fr = "Annuler  ▾"; en = "Undo  ▾" }
+    'menu.annuler.info'    = @{ fr = "Revenir en arrière, totalement ou en partie."; en = "Roll back, fully or partially." }
+    'menu.config'          = @{ fr = "Configuration  ▾"; en = "Configuration  ▾" }
+    'menu.config.info'     = @{ fr = "Enregistrer, transporter et automatiser ta configuration."; en = "Save, carry over and automate your configuration." }
+    'menu.affichage'       = @{ fr = "Affichage  ▾"; en = "View  ▾" }
+    'menu.affichage.info'  = @{ fr = "Gagner de la place pour la liste des tweaks."; en = "Free up room for the tweak list." }
+
+    'act.etat'             = @{ fr = "État actuel + score de santé"; en = "Current state + health score" }
+    'act.etat.info'        = @{ fr = "Lit l'état réel de la machine et colore en VERT les tweaks déjà appliqués. Calcule la note /100. Ne modifie rien."
+        en = "Reads the machine's real state and colours already-applied tweaks GREEN. Computes the score out of 100. Changes nothing." }
+    'act.derive'           = @{ fr = "Vérifier la dérive (après MAJ Windows)"; en = "Check for drift (after a Windows update)" }
+    'act.derive.info'      = @{ fr = "Coche les réglages que tu avais appliqués mais qu'une mise à jour a fait revenir au défaut."
+        en = "Ticks the settings you had applied but a Windows update reverted to default." }
+    'act.demarrage'        = @{ fr = "Analyse du démarrage"; en = "Startup analysis" }
+    'act.demarrage.info'   = @{ fr = "Durée réelle du démarrage et coût de chaque programme lancé avec Windows."
+        en = "Real boot duration and the cost of each program launched with Windows." }
+    'act.disque'           = @{ fr = "Analyse du disque"; en = "Disk analysis" }
+    'act.disque.info'      = @{ fr = "Pèse chaque poste récupérable AVANT de nettoyer quoi que ce soit."
+        en = "Weighs every reclaimable item BEFORE cleaning anything." }
+    'act.indesirables'     = @{ fr = "Logiciels indésirables"; en = "Unwanted software" }
+    'act.indesirables.info' = @{ fr = "Repère antivirus d'essai OEM, faux optimiseurs et barres d'outils. Signale seulement."
+        en = "Spots OEM trial antivirus, fake optimisers and toolbars. Reports only." }
+    'act.diagnostic'       = @{ fr = "Diagnostic des plantages"; en = "Crash diagnosis" }
+    'act.diagnostic.info'  = @{ fr = "Plantages récents + tweaks d'alimentation suspects. Corrige le pire automatiquement."
+        en = "Recent crashes plus suspect power tweaks. Fixes the worst one automatically." }
+    'act.rapport'          = @{ fr = "Rapport HTML complet"; en = "Full HTML report" }
+    'act.rapport.info'     = @{ fr = "Génère un rapport d'état autonome et l'ouvre dans le navigateur."
+        en = "Generates a self-contained status report and opens it in the browser." }
+    'act.restaurer'        = @{ fr = "Restauration exacte (tout)"; en = "Exact restore (everything)" }
+    'act.restaurer.info'   = @{ fr = "Remet chaque valeur modifiée par ce script telle qu'elle était avant. Demande confirmation."
+        en = "Puts every value this script changed back exactly as it was. Asks for confirmation." }
+    'act.restaurer.sel'    = @{ fr = "Restauration sélective (au choix)"; en = "Selective restore (pick and choose)" }
+    'act.restaurer.sel.info' = @{ fr = "Choisis, valeur par valeur, ce que tu veux remettre à son état d'origine."
+        en = "Choose, value by value, what you want returned to its original state." }
+    'act.points'           = @{ fr = "Points de restauration Windows"; en = "Windows restore points" }
+    'act.points.info'      = @{ fr = "Liste les points de restauration et permet d'y revenir (la machine redémarre)."
+        en = "Lists restore points and lets you roll back to one (the machine reboots)." }
+    'act.profil.enr'       = @{ fr = "Enregistrer la sélection comme profil"; en = "Save selection as a profile" }
+    'act.profil.enr.info'  = @{ fr = "Enregistre les cases cochées comme profil personnalisé nommé, rechargeable en un clic."
+        en = "Saves the ticked boxes as a named custom profile, reloadable in one click." }
+    'act.export'           = @{ fr = "Exporter ma config…"; en = "Export my config…" }
+    'act.export.info'      = @{ fr = "Réunit tweaks appliqués, profils perso et liste d'apps dans un seul fichier."
+        en = "Bundles applied tweaks, custom profiles and app list into a single file." }
+    'act.import'           = @{ fr = "Importer une config…"; en = "Import a config…" }
+    'act.import.info'      = @{ fr = "Charge un fichier de config exporté depuis un autre PC."
+        en = "Loads a config file exported from another PC." }
+    'act.maintenance'      = @{ fr = "Maintenance auto (hebdomadaire)"; en = "Auto maintenance (weekly)" }
+    'act.maintenance.on'   = @{ fr = "Maintenance auto : ACTIVÉE"; en = "Auto maintenance: ENABLED" }
+    'act.maintenance.info' = @{ fr = "Planifie ou retire une tâche hebdomadaire de nettoyage silencieux."
+        en = "Schedules or removes a weekly silent cleanup task." }
+    'act.profils.cacher'   = @{ fr = "Cacher les profils"; en = "Hide profiles" }
+    'act.profils.voir'     = @{ fr = "Afficher les profils"; en = "Show profiles" }
+    'act.profils.info'     = @{ fr = "Replie la zone des profils (en haut)."; en = "Collapses the profiles area (top)." }
+    'act.journal.cacher'   = @{ fr = "Cacher le journal"; en = "Hide log" }
+    'act.journal.voir'     = @{ fr = "Afficher le journal"; en = "Show log" }
+    'act.journal.info'     = @{ fr = "Replie le journal (en bas)."; en = "Collapses the log (bottom)." }
+    'act.gamer'            = @{ fr = "Gamer ROG"; en = "Gamer ROG" }
+    'act.gamer.info'       = @{ fr = "En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."
+        en = "One click: Performance power mode + red keyboard + ticks the Gamer profile (nothing is applied until you click Apply)." }
+
+    # --- Boutons d'action ---
+    'act.cocher'           = @{ fr = "Tout cocher (onglet)"; en = "Tick all (tab)" }
+    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de l'onglet actuellement affiché."; en = "Ticks every tweak in the currently shown tab." }
+    'act.decocher'         = @{ fr = "Tout décocher"; en = "Untick all" }
+    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, tous onglets confondus."; en = "Unticks every tweak, across all tabs." }
+    'act.pointresto'       = @{ fr = "Point de restauration avant d'appliquer"; en = "Restore point before applying" }
+    'act.pointresto.info'  = @{ fr = "Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."
+        en = "Creates a Windows restore point just before applying (30-60 s). A safety net to undo everything at worst." }
+    'act.simuler'          = @{ fr = "Simuler"; en = "Simulate" }
+    'act.simuler.info'     = @{ fr = "Montre, valeur par valeur, ce qui changerait — sans rien écrire. À faire au moins une fois."
+        en = "Shows, value by value, what would change — without writing anything. Do this at least once." }
+    'act.appliquer'        = @{ fr = "Appliquer"; en = "Apply" }
+    'act.appliquer.info'   = @{ fr = "Applique pour de vrai les tweaks cochés. Chaque valeur touchée est sauvegardée avant, donc annulable."
+        en = "Actually applies the ticked tweaks. Every value touched is backed up first, so it stays reversible." }
+    'act.redemarrer'       = @{ fr = "Redémarrer"; en = "Restart" }
+    'act.redemarrer.info'  = @{ fr = "Redémarre le PC maintenant (après confirmation) pour finaliser les tweaks qui l'exigent."
+        en = "Restarts the PC now (after confirmation) to finalise tweaks that require it." }
+
+    # --- Sélecteurs de l'en-tête ---
+    'sel.choisir'          = @{ fr = "— choisir —"; en = "— choose —" }
+    'sel.fond.precedent'   = @{ fr = "Remettre le précédent"; en = "Restore the previous one" }
+    'sel.accent.defaut'    = @{ fr = "Retirer l'accent (défaut Windows)"; en = "Remove accent (Windows default)" }
+    'entete.langue'        = @{ fr = "Langue : "; en = "Language: " }
+    'entete.langue.info'   = @{ fr = "Change la langue de cette fenêtre. Les tweaks eux-mêmes restent en français pour l'instant."
+        en = "Changes this window's language. The tweaks themselves are still in French for now." }
+    'langue.redemarrer'    = @{ fr = "Langue changée. Ferme et rouvre l'outil pour l'appliquer partout."
+        en = "Language changed. Close and reopen the tool to apply it everywhere." }
+
+    # --- Onglets ---
+    'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
+
+    # --- Journal / états ---
+    'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
+    'jrn.conseil'          = @{ fr = "Conseil : commence par « Simuler ». Rien ne sera écrit, et tu verras exactement quelle valeur changerait, et en quoi."
+        en = "Tip: start with Simulate. Nothing will be written, and you'll see exactly which value would change, and how." }
+    'etat.pret'            = @{ fr = "Prêt. Données de session : {0}"; en = "Ready. Session data: {0}" }
+    'etat.audit'           = @{ fr = "Analyse de l'état réel de la machine (quelques secondes)..."; en = "Analysing the machine's real state (a few seconds)..." }
+    'etat.sante'           = @{ fr = "Santé : {0}/100  ·  {1}"; en = "Health: {0}/100  ·  {1}" }
+
+    # --- Mentions de santé ---
+    'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
+    'sante.bon'            = @{ fr = "bon"; en = "good" }
+    'sante.moyen'          = @{ fr = "moyen"; en = "fair" }
+    'sante.faible'         = @{ fr = "à optimiser"; en = "needs work" }
+}

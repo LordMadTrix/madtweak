@@ -21,7 +21,11 @@ param(
     [switch]$Console,
     # Mode non interactif : exécute le nettoyage léger et sort. Utilisé par la tâche
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
-    [switch]$Maintenance
+    [switch]$Maintenance,
+    # Force la langue de l'interface. Sans ce paramètre, elle suit celle de Windows.
+    # Les tweaks eux-mêmes restent en français pour l'instant (traduction en cours).
+    [ValidateSet('fr', 'en')]
+    [string]$Langue
 )
 
 $ErrorActionPreference = 'Stop'

@@ -35,7 +35,11 @@ param(
     [switch]$Console,
     # Mode non interactif : exécute le nettoyage léger et sort. Utilisé par la tâche
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
-    [switch]$Maintenance
+    [switch]$Maintenance,
+    # Force la langue de l'interface. Sans ce paramètre, elle suit celle de Windows.
+    # Les tweaks eux-mêmes restent en français pour l'instant (traduction en cours).
+    [ValidateSet('fr', 'en')]
+    [string]$Langue
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,6 +51,213 @@ $script:Version = "1.0"
 $script:CompteurOK = 0
 $script:CompteurEchec = 0
 
+# ------------------------------------------------------------------------------
+# LANGUE
+#
+# Le projet est né en français et le reste par défaut : c'est son identité, et les
+# francophones sont mal servis par ce type d'outil. L'anglais s'ajoute pour être
+# utilisable ailleurs, pas pour remplacer.
+#
+# Principe : AUCUN texte affiché n'est écrit en dur ailleurs qu'ici. Un texte se
+# demande par sa clé, `T 'ma-cle'`, et la table décide de la langue. Une clé absente
+# renvoie la clé elle-même plutôt que du vide -- un texte manquant doit se VOIR, pas
+# se traduire par une interface trouée.
+#
+# La langue est détectée depuis Windows, et forçable par -Langue fr|en.
+#
+# NB : la variable d'état s'appelle $script:LangueActive et NON $script:Langue :
+# le paramètre -Langue du script vit lui aussi en portée script, et une variable
+# homonyme l'écraserait au chargement (le paramètre serait silencieusement perdu).
+# ------------------------------------------------------------------------------
+
+function Get-LangueSysteme {
+    # 'fr' si l'interface Windows est francophone, 'en' sinon. On lit l'interface
+    # (UICulture) et non le format régional : un Belge en anglais avec des dates
+    # françaises veut une interface anglaise.
+    try {
+        $c = [System.Globalization.CultureInfo]::CurrentUICulture.TwoLetterISOLanguageName
+        if ($c -eq 'fr') { return 'fr' }
+        return 'en'
+    }
+    catch { return 'fr' }
+}
+
+$script:LangueActivesConnues = @('fr', 'en')
+$script:LangueActive = Get-LangueSysteme
+
+function Set-Langue {
+    param([Parameter(Mandatory)][string]$Code)
+    $c = "$Code".ToLower()
+    if ($c -notin $script:LangueActivesConnues) { throw "Langue inconnue : $Code (attendu : $($script:LangueActivesConnues -join ', '))" }
+    $script:LangueActive = $c
+}
+
+function T {
+    # Renvoie le texte de la clé dans la langue courante.
+    # Repli en cascade : langue courante -> français -> la clé elle-même.
+    param([Parameter(Mandatory)][string]$Cle)
+    $e = $script:Textes[$Cle]
+    if (-not $e) { return $Cle }
+    $v = $e[$script:LangueActive]
+    if ($v) { return $v }
+    if ($e['fr']) { return $e['fr'] }
+    return $Cle
+}
+
+function Expand-Textes {
+    # Remplace les marqueurs {{cle}} d'un texte (typiquement le XAML de l'interface)
+    # par leur traduction. Fait AVANT l'analyse du XAML : l'interface est donc
+    # construite directement dans la bonne langue, sans repasser sur les contrôles.
+    param([Parameter(Mandatory)][string]$Texte)
+    return [regex]::Replace($Texte, '\{\{([a-zA-Z0-9_.-]+)\}\}', {
+            param($m)
+            $t = T $m.Groups[1].Value
+            # Le résultat part dans du XAML : les caractères réservés doivent être échappés.
+            $t -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;' -replace '"', '&quot;'
+        })
+}
+
+# ------------------------------------------------------------------------------
+# TABLE DES TEXTES
+#
+# Une entrée = une clé, deux langues. Trié par zone d'affichage pour qu'ajouter un
+# texte reste évident. Les textes des TWEAKS (titres et explications) ne sont pas
+# encore ici : ils suivront, c'est le gros du volume.
+# ------------------------------------------------------------------------------
+$script:Textes = @{
+
+    # --- En-tête de l'interface ---
+    'app.soustitre'        = @{ fr = "Configuration système"; en = "System configuration" }
+    'entete.fond'          = @{ fr = "Fond d'écran : "; en = "Wallpaper: " }
+    'entete.accent'        = @{ fr = "Accent Windows : "; en = "Windows accent: " }
+    'entete.theme'         = @{ fr = "Thème appli : "; en = "App theme: " }
+    'entete.ecran'         = @{ fr = "Écran : "; en = "Screen: " }
+    'entete.score.info'    = @{ fr = "Note de santé de la machine, calculée depuis l'audit : part des réglages applicables ici qui sont déjà en place."
+        en = "Machine health score, computed from the audit: the share of applicable settings already in place." }
+    'entete.fond.info'     = @{ fr = "Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé."
+        en = "Generates a « MadTrix » wallpaper at your real resolution and applies it. Your previous wallpaper is remembered." }
+    'entete.accent.info'   = @{ fr = "Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible."
+        en = "Colours the title bars, taskbar and Start menu, and syncs the ASUS RGB keyboard to the same colour. Reversible." }
+    'entete.theme.info'    = @{ fr = "Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."
+        en = "Changes the colours of THIS window only (not Windows). 6 built-in themes." }
+    'entete.ecran.info'    = @{ fr = "Luminosité de l'écran (0-100 %). Réglage natif Windows."
+        en = "Screen brightness (0-100%). Native Windows setting." }
+
+    # --- Zone des profils ---
+    'profils.entete'       = @{ fr = "PROFILS — un clic coche un lot cohérent. Tu peux ensuite ajuster case par case."
+        en = "PROFILES — one click ticks a coherent batch. You can then adjust box by box." }
+
+    # --- Barre d'outils ---
+    'barre.filtrer'        = @{ fr = "Filtrer : "; en = "Filter: " }
+    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."
+        en = "Filters tweaks by keyword (name or explanation), across every tab." }
+    'menu.analyser'        = @{ fr = "Analyser  ▾"; en = "Analyse  ▾" }
+    'menu.analyser.info'   = @{ fr = "Tout ce qui LIT la machine sans rien modifier."; en = "Everything that READS the machine without changing anything." }
+    'menu.annuler'         = @{ fr = "Annuler  ▾"; en = "Undo  ▾" }
+    'menu.annuler.info'    = @{ fr = "Revenir en arrière, totalement ou en partie."; en = "Roll back, fully or partially." }
+    'menu.config'          = @{ fr = "Configuration  ▾"; en = "Configuration  ▾" }
+    'menu.config.info'     = @{ fr = "Enregistrer, transporter et automatiser ta configuration."; en = "Save, carry over and automate your configuration." }
+    'menu.affichage'       = @{ fr = "Affichage  ▾"; en = "View  ▾" }
+    'menu.affichage.info'  = @{ fr = "Gagner de la place pour la liste des tweaks."; en = "Free up room for the tweak list." }
+
+    'act.etat'             = @{ fr = "État actuel + score de santé"; en = "Current state + health score" }
+    'act.etat.info'        = @{ fr = "Lit l'état réel de la machine et colore en VERT les tweaks déjà appliqués. Calcule la note /100. Ne modifie rien."
+        en = "Reads the machine's real state and colours already-applied tweaks GREEN. Computes the score out of 100. Changes nothing." }
+    'act.derive'           = @{ fr = "Vérifier la dérive (après MAJ Windows)"; en = "Check for drift (after a Windows update)" }
+    'act.derive.info'      = @{ fr = "Coche les réglages que tu avais appliqués mais qu'une mise à jour a fait revenir au défaut."
+        en = "Ticks the settings you had applied but a Windows update reverted to default." }
+    'act.demarrage'        = @{ fr = "Analyse du démarrage"; en = "Startup analysis" }
+    'act.demarrage.info'   = @{ fr = "Durée réelle du démarrage et coût de chaque programme lancé avec Windows."
+        en = "Real boot duration and the cost of each program launched with Windows." }
+    'act.disque'           = @{ fr = "Analyse du disque"; en = "Disk analysis" }
+    'act.disque.info'      = @{ fr = "Pèse chaque poste récupérable AVANT de nettoyer quoi que ce soit."
+        en = "Weighs every reclaimable item BEFORE cleaning anything." }
+    'act.indesirables'     = @{ fr = "Logiciels indésirables"; en = "Unwanted software" }
+    'act.indesirables.info' = @{ fr = "Repère antivirus d'essai OEM, faux optimiseurs et barres d'outils. Signale seulement."
+        en = "Spots OEM trial antivirus, fake optimisers and toolbars. Reports only." }
+    'act.diagnostic'       = @{ fr = "Diagnostic des plantages"; en = "Crash diagnosis" }
+    'act.diagnostic.info'  = @{ fr = "Plantages récents + tweaks d'alimentation suspects. Corrige le pire automatiquement."
+        en = "Recent crashes plus suspect power tweaks. Fixes the worst one automatically." }
+    'act.rapport'          = @{ fr = "Rapport HTML complet"; en = "Full HTML report" }
+    'act.rapport.info'     = @{ fr = "Génère un rapport d'état autonome et l'ouvre dans le navigateur."
+        en = "Generates a self-contained status report and opens it in the browser." }
+    'act.restaurer'        = @{ fr = "Restauration exacte (tout)"; en = "Exact restore (everything)" }
+    'act.restaurer.info'   = @{ fr = "Remet chaque valeur modifiée par ce script telle qu'elle était avant. Demande confirmation."
+        en = "Puts every value this script changed back exactly as it was. Asks for confirmation." }
+    'act.restaurer.sel'    = @{ fr = "Restauration sélective (au choix)"; en = "Selective restore (pick and choose)" }
+    'act.restaurer.sel.info' = @{ fr = "Choisis, valeur par valeur, ce que tu veux remettre à son état d'origine."
+        en = "Choose, value by value, what you want returned to its original state." }
+    'act.points'           = @{ fr = "Points de restauration Windows"; en = "Windows restore points" }
+    'act.points.info'      = @{ fr = "Liste les points de restauration et permet d'y revenir (la machine redémarre)."
+        en = "Lists restore points and lets you roll back to one (the machine reboots)." }
+    'act.profil.enr'       = @{ fr = "Enregistrer la sélection comme profil"; en = "Save selection as a profile" }
+    'act.profil.enr.info'  = @{ fr = "Enregistre les cases cochées comme profil personnalisé nommé, rechargeable en un clic."
+        en = "Saves the ticked boxes as a named custom profile, reloadable in one click." }
+    'act.export'           = @{ fr = "Exporter ma config…"; en = "Export my config…" }
+    'act.export.info'      = @{ fr = "Réunit tweaks appliqués, profils perso et liste d'apps dans un seul fichier."
+        en = "Bundles applied tweaks, custom profiles and app list into a single file." }
+    'act.import'           = @{ fr = "Importer une config…"; en = "Import a config…" }
+    'act.import.info'      = @{ fr = "Charge un fichier de config exporté depuis un autre PC."
+        en = "Loads a config file exported from another PC." }
+    'act.maintenance'      = @{ fr = "Maintenance auto (hebdomadaire)"; en = "Auto maintenance (weekly)" }
+    'act.maintenance.on'   = @{ fr = "Maintenance auto : ACTIVÉE"; en = "Auto maintenance: ENABLED" }
+    'act.maintenance.info' = @{ fr = "Planifie ou retire une tâche hebdomadaire de nettoyage silencieux."
+        en = "Schedules or removes a weekly silent cleanup task." }
+    'act.profils.cacher'   = @{ fr = "Cacher les profils"; en = "Hide profiles" }
+    'act.profils.voir'     = @{ fr = "Afficher les profils"; en = "Show profiles" }
+    'act.profils.info'     = @{ fr = "Replie la zone des profils (en haut)."; en = "Collapses the profiles area (top)." }
+    'act.journal.cacher'   = @{ fr = "Cacher le journal"; en = "Hide log" }
+    'act.journal.voir'     = @{ fr = "Afficher le journal"; en = "Show log" }
+    'act.journal.info'     = @{ fr = "Replie le journal (en bas)."; en = "Collapses the log (bottom)." }
+    'act.gamer'            = @{ fr = "Gamer ROG"; en = "Gamer ROG" }
+    'act.gamer.info'       = @{ fr = "En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."
+        en = "One click: Performance power mode + red keyboard + ticks the Gamer profile (nothing is applied until you click Apply)." }
+
+    # --- Boutons d'action ---
+    'act.cocher'           = @{ fr = "Tout cocher (onglet)"; en = "Tick all (tab)" }
+    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de l'onglet actuellement affiché."; en = "Ticks every tweak in the currently shown tab." }
+    'act.decocher'         = @{ fr = "Tout décocher"; en = "Untick all" }
+    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, tous onglets confondus."; en = "Unticks every tweak, across all tabs." }
+    'act.pointresto'       = @{ fr = "Point de restauration avant d'appliquer"; en = "Restore point before applying" }
+    'act.pointresto.info'  = @{ fr = "Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."
+        en = "Creates a Windows restore point just before applying (30-60 s). A safety net to undo everything at worst." }
+    'act.simuler'          = @{ fr = "Simuler"; en = "Simulate" }
+    'act.simuler.info'     = @{ fr = "Montre, valeur par valeur, ce qui changerait — sans rien écrire. À faire au moins une fois."
+        en = "Shows, value by value, what would change — without writing anything. Do this at least once." }
+    'act.appliquer'        = @{ fr = "Appliquer"; en = "Apply" }
+    'act.appliquer.info'   = @{ fr = "Applique pour de vrai les tweaks cochés. Chaque valeur touchée est sauvegardée avant, donc annulable."
+        en = "Actually applies the ticked tweaks. Every value touched is backed up first, so it stays reversible." }
+    'act.redemarrer'       = @{ fr = "Redémarrer"; en = "Restart" }
+    'act.redemarrer.info'  = @{ fr = "Redémarre le PC maintenant (après confirmation) pour finaliser les tweaks qui l'exigent."
+        en = "Restarts the PC now (after confirmation) to finalise tweaks that require it." }
+
+    # --- Sélecteurs de l'en-tête ---
+    'sel.choisir'          = @{ fr = "— choisir —"; en = "— choose —" }
+    'sel.fond.precedent'   = @{ fr = "Remettre le précédent"; en = "Restore the previous one" }
+    'sel.accent.defaut'    = @{ fr = "Retirer l'accent (défaut Windows)"; en = "Remove accent (Windows default)" }
+    'entete.langue'        = @{ fr = "Langue : "; en = "Language: " }
+    'entete.langue.info'   = @{ fr = "Change la langue de cette fenêtre. Les tweaks eux-mêmes restent en français pour l'instant."
+        en = "Changes this window's language. The tweaks themselves are still in French for now." }
+    'langue.redemarrer'    = @{ fr = "Langue changée. Ferme et rouvre l'outil pour l'appliquer partout."
+        en = "Language changed. Close and reopen the tool to apply it everywhere." }
+
+    # --- Onglets ---
+    'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
+
+    # --- Journal / états ---
+    'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
+    'jrn.conseil'          = @{ fr = "Conseil : commence par « Simuler ». Rien ne sera écrit, et tu verras exactement quelle valeur changerait, et en quoi."
+        en = "Tip: start with Simulate. Nothing will be written, and you'll see exactly which value would change, and how." }
+    'etat.pret'            = @{ fr = "Prêt. Données de session : {0}"; en = "Ready. Session data: {0}" }
+    'etat.audit'           = @{ fr = "Analyse de l'état réel de la machine (quelques secondes)..."; en = "Analysing the machine's real state (a few seconds)..." }
+    'etat.sante'           = @{ fr = "Santé : {0}/100  ·  {1}"; en = "Health: {0}/100  ·  {1}" }
+
+    # --- Mentions de santé ---
+    'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
+    'sante.bon'            = @{ fr = "bon"; en = "good" }
+    'sante.moyen'          = @{ fr = "moyen"; en = "fair" }
+    'sante.faible'         = @{ fr = "à optimiser"; en = "needs work" }
+}
 # ------------------------------------------------------------------------------
 # SOCLE : affichage, questions, écriture registre, exécution sécurisée
 # ------------------------------------------------------------------------------
@@ -5502,26 +5713,29 @@ $script:XamlInterface = @'
           <Border x:Name="BorderScore" Background="{DynamicResource ButtonBgBrush}" BorderBrush="{DynamicResource BorderBrush}"
                   BorderThickness="1" CornerRadius="4" Padding="9,2" Margin="14,0,0,0" VerticalAlignment="Center"
                   Visibility="Collapsed"
-                  ToolTip="Note de santé de la machine, calculée depuis l'audit : part des réglages applicables ici qui sont déjà en place.">
+                  ToolTip="{{entete.score.info}}">
             <TextBlock x:Name="TxtScore" FontSize="13" FontWeight="SemiBold"/>
           </Border>
         </StackPanel>
         <TextBlock x:Name="TxtSysteme" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0"/>
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-        <TextBlock Text="Fond d'écran : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+        <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé (option « Remettre le précédent »)."/>
-        <TextBlock Text="Accent Windows : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+                  ToolTip="{{entete.fond.info}}"/>
+        <TextBlock Text="{{entete.accent}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible via « Restauration exacte »."/>
-        <TextBlock Text="Thème appli : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+                  ToolTip="{{entete.accent.info}}"/>
+        <TextBlock Text="{{entete.theme}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center"
-                  ToolTip="Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."/>
+                  ToolTip="{{entete.theme.info}}"/>
+        <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+        <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center"
+                  ToolTip="{{entete.langue.info}}"/>
         <StackPanel x:Name="PanelEcran" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Écran : " VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
           <Slider x:Name="SliderEcran" Width="110" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                  ToolTip="Luminosité de l'écran (0-100 %). Réglage natif Windows."/>
+                  ToolTip="{{entete.ecran.info}}"/>
           <TextBlock x:Name="TxtEcran" Width="38" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"/>
         </StackPanel>
       </StackPanel>
@@ -5531,7 +5745,7 @@ $script:XamlInterface = @'
     <Border x:Name="BorderProfils" Grid.Row="1" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
             CornerRadius="4" Padding="10" Margin="0,0,0,10">
       <StackPanel>
-        <TextBlock Text="PROFILS — un clic coche un lot cohérent. Tu peux ensuite ajuster case par case."
+        <TextBlock Text="{{profils.entete}}"
                    FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"/>
         <StackPanel x:Name="PanelProfils"/>
       </StackPanel>
@@ -5546,93 +5760,93 @@ $script:XamlInterface = @'
            15 boutons alignés obligeaient à lire toute la barre pour trouver le bon.
            Seuls restent visibles le filtre (usage constant) et « Gamer ROG ». -->
       <WrapPanel Margin="0,0,0,6">
-        <TextBlock Text="Filtrer : " VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+        <TextBlock Text="{{barre.filtrer}}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
         <TextBox x:Name="TxtRecherche" Width="180" Height="28" VerticalContentAlignment="Center"
                  Background="{DynamicResource ButtonBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                  CaretBrush="{DynamicResource TextPrimaryBrush}"
                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0" Margin="0,0,14,0"
-                 ToolTip="Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."/>
+                 ToolTip="{{barre.filtrer.info}}"/>
 
         <Menu Background="Transparent" VerticalAlignment="Center">
-          <MenuItem Header="Analyser  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Tout ce qui LIT la machine sans rien modifier.">
-            <MenuItem x:Name="BtnEtatActuel" Header="État actuel + score de santé"
-                      ToolTip="Lit l'état réel de la machine et colore en VERT les tweaks déjà appliqués. Calcule la note /100. Ne modifie rien."/>
-            <MenuItem x:Name="BtnDerive" Header="Vérifier la dérive (après MAJ Windows)"
-                      ToolTip="Coche les réglages que tu avais appliqués mais qu'une mise à jour a fait revenir au défaut."/>
+          <MenuItem Header="{{menu.analyser}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.analyser.info}}">
+            <MenuItem x:Name="BtnEtatActuel" Header="{{act.etat}}"
+                      ToolTip="{{act.etat.info}}"/>
+            <MenuItem x:Name="BtnDerive" Header="{{act.derive}}"
+                      ToolTip="{{act.derive.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnDemarrage" Header="Analyse du démarrage"
-                      ToolTip="Durée réelle du démarrage et coût de chaque programme lancé avec Windows."/>
-            <MenuItem x:Name="BtnDisque" Header="Analyse du disque"
-                      ToolTip="Pèse chaque poste récupérable AVANT de nettoyer quoi que ce soit."/>
-            <MenuItem x:Name="BtnIndesirables" Header="Logiciels indésirables"
-                      ToolTip="Repère antivirus d'essai OEM, faux optimiseurs et barres d'outils. Signale seulement."/>
+            <MenuItem x:Name="BtnDemarrage" Header="{{act.demarrage}}"
+                      ToolTip="{{act.demarrage.info}}"/>
+            <MenuItem x:Name="BtnDisque" Header="{{act.disque}}"
+                      ToolTip="{{act.disque.info}}"/>
+            <MenuItem x:Name="BtnIndesirables" Header="{{act.indesirables}}"
+                      ToolTip="{{act.indesirables.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnDiagnostic" Header="Diagnostic des plantages"
-                      ToolTip="Plantages récents + tweaks d'alimentation suspects. Corrige le pire automatiquement."/>
-            <MenuItem x:Name="BtnRapport" Header="Rapport HTML complet"
-                      ToolTip="Génère un rapport d'état autonome et l'ouvre dans le navigateur."/>
+            <MenuItem x:Name="BtnDiagnostic" Header="{{act.diagnostic}}"
+                      ToolTip="{{act.diagnostic.info}}"/>
+            <MenuItem x:Name="BtnRapport" Header="{{act.rapport}}"
+                      ToolTip="{{act.rapport.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Annuler  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Revenir en arrière, totalement ou en partie.">
-            <MenuItem x:Name="BtnRestaurer" Header="Restauration exacte (tout)"
-                      ToolTip="Remet chaque valeur modifiée par ce script telle qu'elle était avant. Demande confirmation."/>
-            <MenuItem x:Name="BtnRestaurerSelectif" Header="Restauration sélective (au choix)"
-                      ToolTip="Choisis, valeur par valeur, ce que tu veux remettre à son état d'origine."/>
+          <MenuItem Header="{{menu.annuler}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.annuler.info}}">
+            <MenuItem x:Name="BtnRestaurer" Header="{{act.restaurer}}"
+                      ToolTip="{{act.restaurer.info}}"/>
+            <MenuItem x:Name="BtnRestaurerSelectif" Header="{{act.restaurer.sel}}"
+                      ToolTip="{{act.restaurer.sel.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnPointsResto" Header="Points de restauration Windows"
-                      ToolTip="Liste les points de restauration et permet d'y revenir (la machine redémarre)."/>
+            <MenuItem x:Name="BtnPointsResto" Header="{{act.points}}"
+                      ToolTip="{{act.points.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Configuration  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Enregistrer, transporter et automatiser ta configuration.">
-            <MenuItem x:Name="BtnEnregistrerProfil" Header="Enregistrer la sélection comme profil"
-                      ToolTip="Enregistre les cases cochées comme profil personnalisé nommé, rechargeable en un clic."/>
+          <MenuItem Header="{{menu.config}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.config.info}}">
+            <MenuItem x:Name="BtnEnregistrerProfil" Header="{{act.profil.enr}}"
+                      ToolTip="{{act.profil.enr.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnExportConfig" Header="Exporter ma config…"
-                      ToolTip="Réunit tweaks appliqués, profils perso et liste d'apps dans un seul fichier."/>
-            <MenuItem x:Name="BtnImportConfig" Header="Importer une config…"
-                      ToolTip="Charge un fichier de config exporté depuis un autre PC."/>
+            <MenuItem x:Name="BtnExportConfig" Header="{{act.export}}"
+                      ToolTip="{{act.export.info}}"/>
+            <MenuItem x:Name="BtnImportConfig" Header="{{act.import}}"
+                      ToolTip="{{act.import.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnMaintenance" Header="Maintenance auto (hebdomadaire)"
-                      ToolTip="Planifie ou retire une tâche hebdomadaire de nettoyage silencieux."/>
+            <MenuItem x:Name="BtnMaintenance" Header="{{act.maintenance}}"
+                      ToolTip="{{act.maintenance.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Affichage  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Gagner de la place pour la liste des tweaks.">
-            <MenuItem x:Name="BtnToggleProfils" Header="Cacher les profils"
-                      ToolTip="Replie la zone des profils (en haut)."/>
-            <MenuItem x:Name="BtnToggleJournal" Header="Cacher le journal"
-                      ToolTip="Replie le journal (en bas)."/>
+          <MenuItem Header="{{menu.affichage}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.affichage.info}}">
+            <MenuItem x:Name="BtnToggleProfils" Header="{{act.profils.cacher}}"
+                      ToolTip="{{act.profils.info}}"/>
+            <MenuItem x:Name="BtnToggleJournal" Header="{{act.journal.cacher}}"
+                      ToolTip="{{act.journal.info}}"/>
           </MenuItem>
         </Menu>
 
-        <Button x:Name="BtnGamerRog" Content="Gamer ROG" Background="#FF5A1220" BorderBrush="#FF8A1E33"
+        <Button x:Name="BtnGamerRog" Content="{{act.gamer}}" Background="#FF5A1220" BorderBrush="#FF8A1E33"
                 FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"
-                ToolTip="En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."/>
+                ToolTip="{{act.gamer.info}}"/>
       </WrapPanel>
       <Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-          <Button x:Name="BtnToutCocher" Content="Tout cocher (onglet)"
-                  ToolTip="Coche tous les tweaks de l'onglet actuellement affiché."/>
-          <Button x:Name="BtnToutDecocher" Content="Tout décocher"
-                  ToolTip="Décoche tous les tweaks, tous onglets confondus."/>
-          <CheckBox x:Name="ChkPointRestauration" Content="Point de restauration avant d'appliquer"
+          <Button x:Name="BtnToutCocher" Content="{{act.cocher}}"
+                  ToolTip="{{act.cocher.info}}"/>
+          <Button x:Name="BtnToutDecocher" Content="{{act.decocher}}"
+                  ToolTip="{{act.decocher.info}}"/>
+          <CheckBox x:Name="ChkPointRestauration" Content="{{act.pointresto}}"
                     IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0"
-                    ToolTip="Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."/>
+                    ToolTip="{{act.pointresto.info}}"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
           <TextBlock x:Name="TxtSelection" VerticalAlignment="Center" Margin="0,0,14,0"
                      FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-          <Button x:Name="BtnSimuler" Content="Simuler" Background="#FF1F4A63" BorderBrush="#FF2E6F94"
-                  ToolTip="Montre, valeur par valeur, ce qui changerait — sans rien écrire. À faire au moins une fois."/>
-          <Button x:Name="BtnAppliquer" Content="Appliquer" Background="#FF16603A" BorderBrush="#FF1F8A52"
+          <Button x:Name="BtnSimuler" Content="{{act.simuler}}" Background="#FF1F4A63" BorderBrush="#FF2E6F94"
+                  ToolTip="{{act.simuler.info}}"/>
+          <Button x:Name="BtnAppliquer" Content="{{act.appliquer}}" Background="#FF16603A" BorderBrush="#FF1F8A52"
                   FontWeight="SemiBold" Margin="0,0,8,0"
-                  ToolTip="Applique pour de vrai les tweaks cochés. Chaque valeur touchée est sauvegardée avant, donc annulable."/>
-          <Button x:Name="BtnRedemarrer" Content="Redémarrer" Background="#FF7D2323" BorderBrush="#FFA32E2E"
+                  ToolTip="{{act.appliquer.info}}"/>
+          <Button x:Name="BtnRedemarrer" Content="{{act.redemarrer}}" Background="#FF7D2323" BorderBrush="#FFA32E2E"
                   FontWeight="SemiBold" Margin="0"
-                  ToolTip="Redémarre le PC maintenant (après confirmation) pour finaliser les tweaks qui l'exigent."/>
+                  ToolTip="{{act.redemarrer.info}}"/>
         </StackPanel>
       </Grid>
     </StackPanel>
@@ -6040,7 +6254,7 @@ function Add-PageMateriel {
     $def.VerticalScrollBarVisibility = "Auto"
     $def.Content = $pile
     $onglet = New-Object System.Windows.Controls.TabItem
-    $onglet.Header = "Matériel"
+    $onglet.Header = T 'onglet.materiel'
     $onglet.Content = $def
     $script:GuiTabs.Items.Add($onglet) | Out-Null
 }
@@ -6154,17 +6368,38 @@ function Show-Gui {
     Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
     Add-Type -AssemblyName PresentationCore, WindowsBase -ErrorAction Stop
 
-    $fenetre = [System.Windows.Markup.XamlReader]::Parse($script:XamlInterface)
+    $fenetre = [System.Windows.Markup.XamlReader]::Parse((Expand-Textes $script:XamlInterface))
 
     # Finition « produit » : icône dessinée, titre et en-tête versionnés.
     try { $fenetre.Icon = New-IconeApp 64 } catch { }
-    $fenetre.Title = "MadTweak v$($script:Version) — Configuration système"
+    $fenetre.Title = "MadTweak v$($script:Version) — $(T 'app.soustitre')"
     $titreHaut = $fenetre.FindName("TxtTitre")
     if ($titreHaut) { $titreHaut.Text = "MADTWEAK  v$($script:Version)" }
     # Le score reste caché tant que l'audit n'a pas tourné : afficher « 0/100 » avant
     # d'avoir mesuré serait un mensonge.
     $script:GuiTxtScore = $fenetre.FindName("TxtScore")
     $script:GuiBorderScore = $fenetre.FindName("BorderScore")
+
+    # --- Sélecteur de langue. Le choix est ENREGISTRÉ (il survit à la fermeture) mais
+    # ne redessine pas la fenêtre : reconstruire tout l'arbre WPF à chaud coûterait
+    # bien plus qu'un redémarrage de l'outil, pour un réglage qu'on change une fois.
+    $script:GuiComboLangue = $fenetre.FindName("ComboLangue")
+    $noms = [ordered]@{ 'fr' = 'Français'; 'en' = 'English' }
+    foreach ($n in $noms.Values) { $script:GuiComboLangue.Items.Add($n) | Out-Null }
+    $script:GuiComboLangue.SelectedIndex = @($noms.Keys).IndexOf($script:LangueActive)
+    $script:GuiComboLangue.Add_SelectionChanged({
+        $codes = @('fr', 'en')
+        $c = $codes[$script:GuiComboLangue.SelectedIndex]
+        if (-not $c -or $c -eq $script:LangueActive) { return }
+        try {
+            Set-Langue $c
+            $f = Join-Path $script:DossierDonnees "langue.txt"
+            [System.IO.File]::WriteAllText($f, $c, [System.Text.Encoding]::UTF8)
+            $script:JournalGui.AppendText("`r`n" + (T 'langue.redemarrer') + "`r`n")
+            $script:JournalGui.ScrollToEnd()
+        }
+        catch { }
+    }) | Out-Null
 
     $comboTheme = $fenetre.FindName("ComboTheme")
     foreach ($tName in $script:Themes.Keys) {
@@ -6197,8 +6432,8 @@ function Show-Gui {
     # via « Annuler » (chaque valeur passe par Save-EtatAvant). L'application est
     # rapide (registre + diffusion), donc directe sur le thread de l'interface.
     $script:GuiComboAccent = $fenetre.FindName("ComboAccent")
-    $script:AccentPlaceholder = "— choisir —"
-    $script:AccentDefaut = "Défaut Windows (retirer)"
+    $script:AccentPlaceholder = T 'sel.choisir'
+    $script:AccentDefaut = T 'sel.accent.defaut'
     $script:GuiComboAccent.Items.Add($script:AccentPlaceholder) | Out-Null
     foreach ($nomAcc in $script:AccentsWindows.Keys) { $script:GuiComboAccent.Items.Add($nomAcc) | Out-Null }
     $script:GuiComboAccent.Items.Add($script:AccentDefaut) | Out-Null
@@ -6252,8 +6487,8 @@ function Show-Gui {
     # Neon). Régénéré à la résolution réelle et appliqué directement. Réversible :
     # Set-FondEcran mémorise le fond précédent (Save-EtatAvant + fichier).
     $script:GuiComboFond = $fenetre.FindName("ComboFond")
-    $script:FondPlaceholder = "— choisir —"
-    $script:FondPrecedent = "Remettre le précédent"
+    $script:FondPlaceholder = T 'sel.choisir'
+    $script:FondPrecedent = T 'sel.fond.precedent'
     $script:GuiComboFond.Items.Add($script:FondPlaceholder) | Out-Null
     $script:GuiComboFond.Items.Add("MadTrix — Matrix") | Out-Null
     $script:GuiComboFond.Items.Add("MadTrix — HUD") | Out-Null
@@ -7016,6 +7251,16 @@ function Show-Gui {
 # LANCEMENT
 # ------------------------------------------------------------------------------
 if ($script:BypassLancement) { return }
+
+# La langue suit Windows, sauf si -Langue la force. Une préférence enregistrée depuis
+# l'interface l'emporte sur la détection, mais pas sur le paramètre explicite.
+if ($Langue) { Set-Langue $Langue }
+elseif ($env:LOCALAPPDATA) {
+    $fLangue = Join-Path $env:LOCALAPPDATA "MadTweak\langue.txt"
+    if (Test-Path $fLangue) {
+        try { Set-Langue ([System.IO.File]::ReadAllText($fLangue).Trim()) } catch { }
+    }
+}
 
 # Mode maintenance (tâche planifiée) : nettoyage léger, silencieux, puis on sort.
 # Ni interface, ni menu, ni journal -- c'est une tâche de fond.

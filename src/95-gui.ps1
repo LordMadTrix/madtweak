@@ -459,26 +459,29 @@ $script:XamlInterface = @'
           <Border x:Name="BorderScore" Background="{DynamicResource ButtonBgBrush}" BorderBrush="{DynamicResource BorderBrush}"
                   BorderThickness="1" CornerRadius="4" Padding="9,2" Margin="14,0,0,0" VerticalAlignment="Center"
                   Visibility="Collapsed"
-                  ToolTip="Note de santé de la machine, calculée depuis l'audit : part des réglages applicables ici qui sont déjà en place.">
+                  ToolTip="{{entete.score.info}}">
             <TextBlock x:Name="TxtScore" FontSize="13" FontWeight="SemiBold"/>
           </Border>
         </StackPanel>
         <TextBlock x:Name="TxtSysteme" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0"/>
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-        <TextBlock Text="Fond d'écran : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+        <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé (option « Remettre le précédent »)."/>
-        <TextBlock Text="Accent Windows : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+                  ToolTip="{{entete.fond.info}}"/>
+        <TextBlock Text="{{entete.accent}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible via « Restauration exacte »."/>
-        <TextBlock Text="Thème appli : " VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+                  ToolTip="{{entete.accent.info}}"/>
+        <TextBlock Text="{{entete.theme}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
         <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center"
-                  ToolTip="Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."/>
+                  ToolTip="{{entete.theme.info}}"/>
+        <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+        <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center"
+                  ToolTip="{{entete.langue.info}}"/>
         <StackPanel x:Name="PanelEcran" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="Écran : " VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
           <Slider x:Name="SliderEcran" Width="110" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                  ToolTip="Luminosité de l'écran (0-100 %). Réglage natif Windows."/>
+                  ToolTip="{{entete.ecran.info}}"/>
           <TextBlock x:Name="TxtEcran" Width="38" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"/>
         </StackPanel>
       </StackPanel>
@@ -488,7 +491,7 @@ $script:XamlInterface = @'
     <Border x:Name="BorderProfils" Grid.Row="1" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
             CornerRadius="4" Padding="10" Margin="0,0,0,10">
       <StackPanel>
-        <TextBlock Text="PROFILS — un clic coche un lot cohérent. Tu peux ensuite ajuster case par case."
+        <TextBlock Text="{{profils.entete}}"
                    FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"/>
         <StackPanel x:Name="PanelProfils"/>
       </StackPanel>
@@ -503,93 +506,93 @@ $script:XamlInterface = @'
            15 boutons alignés obligeaient à lire toute la barre pour trouver le bon.
            Seuls restent visibles le filtre (usage constant) et « Gamer ROG ». -->
       <WrapPanel Margin="0,0,0,6">
-        <TextBlock Text="Filtrer : " VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
+        <TextBlock Text="{{barre.filtrer}}" VerticalAlignment="Center" Foreground="{DynamicResource TextMutedBrush}"/>
         <TextBox x:Name="TxtRecherche" Width="180" Height="28" VerticalContentAlignment="Center"
                  Background="{DynamicResource ButtonBgBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
                  CaretBrush="{DynamicResource TextPrimaryBrush}"
                  BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="6,0" Margin="0,0,14,0"
-                 ToolTip="Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."/>
+                 ToolTip="{{barre.filtrer.info}}"/>
 
         <Menu Background="Transparent" VerticalAlignment="Center">
-          <MenuItem Header="Analyser  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Tout ce qui LIT la machine sans rien modifier.">
-            <MenuItem x:Name="BtnEtatActuel" Header="État actuel + score de santé"
-                      ToolTip="Lit l'état réel de la machine et colore en VERT les tweaks déjà appliqués. Calcule la note /100. Ne modifie rien."/>
-            <MenuItem x:Name="BtnDerive" Header="Vérifier la dérive (après MAJ Windows)"
-                      ToolTip="Coche les réglages que tu avais appliqués mais qu'une mise à jour a fait revenir au défaut."/>
+          <MenuItem Header="{{menu.analyser}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.analyser.info}}">
+            <MenuItem x:Name="BtnEtatActuel" Header="{{act.etat}}"
+                      ToolTip="{{act.etat.info}}"/>
+            <MenuItem x:Name="BtnDerive" Header="{{act.derive}}"
+                      ToolTip="{{act.derive.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnDemarrage" Header="Analyse du démarrage"
-                      ToolTip="Durée réelle du démarrage et coût de chaque programme lancé avec Windows."/>
-            <MenuItem x:Name="BtnDisque" Header="Analyse du disque"
-                      ToolTip="Pèse chaque poste récupérable AVANT de nettoyer quoi que ce soit."/>
-            <MenuItem x:Name="BtnIndesirables" Header="Logiciels indésirables"
-                      ToolTip="Repère antivirus d'essai OEM, faux optimiseurs et barres d'outils. Signale seulement."/>
+            <MenuItem x:Name="BtnDemarrage" Header="{{act.demarrage}}"
+                      ToolTip="{{act.demarrage.info}}"/>
+            <MenuItem x:Name="BtnDisque" Header="{{act.disque}}"
+                      ToolTip="{{act.disque.info}}"/>
+            <MenuItem x:Name="BtnIndesirables" Header="{{act.indesirables}}"
+                      ToolTip="{{act.indesirables.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnDiagnostic" Header="Diagnostic des plantages"
-                      ToolTip="Plantages récents + tweaks d'alimentation suspects. Corrige le pire automatiquement."/>
-            <MenuItem x:Name="BtnRapport" Header="Rapport HTML complet"
-                      ToolTip="Génère un rapport d'état autonome et l'ouvre dans le navigateur."/>
+            <MenuItem x:Name="BtnDiagnostic" Header="{{act.diagnostic}}"
+                      ToolTip="{{act.diagnostic.info}}"/>
+            <MenuItem x:Name="BtnRapport" Header="{{act.rapport}}"
+                      ToolTip="{{act.rapport.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Annuler  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Revenir en arrière, totalement ou en partie.">
-            <MenuItem x:Name="BtnRestaurer" Header="Restauration exacte (tout)"
-                      ToolTip="Remet chaque valeur modifiée par ce script telle qu'elle était avant. Demande confirmation."/>
-            <MenuItem x:Name="BtnRestaurerSelectif" Header="Restauration sélective (au choix)"
-                      ToolTip="Choisis, valeur par valeur, ce que tu veux remettre à son état d'origine."/>
+          <MenuItem Header="{{menu.annuler}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.annuler.info}}">
+            <MenuItem x:Name="BtnRestaurer" Header="{{act.restaurer}}"
+                      ToolTip="{{act.restaurer.info}}"/>
+            <MenuItem x:Name="BtnRestaurerSelectif" Header="{{act.restaurer.sel}}"
+                      ToolTip="{{act.restaurer.sel.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnPointsResto" Header="Points de restauration Windows"
-                      ToolTip="Liste les points de restauration et permet d'y revenir (la machine redémarre)."/>
+            <MenuItem x:Name="BtnPointsResto" Header="{{act.points}}"
+                      ToolTip="{{act.points.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Configuration  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Enregistrer, transporter et automatiser ta configuration.">
-            <MenuItem x:Name="BtnEnregistrerProfil" Header="Enregistrer la sélection comme profil"
-                      ToolTip="Enregistre les cases cochées comme profil personnalisé nommé, rechargeable en un clic."/>
+          <MenuItem Header="{{menu.config}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.config.info}}">
+            <MenuItem x:Name="BtnEnregistrerProfil" Header="{{act.profil.enr}}"
+                      ToolTip="{{act.profil.enr.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnExportConfig" Header="Exporter ma config…"
-                      ToolTip="Réunit tweaks appliqués, profils perso et liste d'apps dans un seul fichier."/>
-            <MenuItem x:Name="BtnImportConfig" Header="Importer une config…"
-                      ToolTip="Charge un fichier de config exporté depuis un autre PC."/>
+            <MenuItem x:Name="BtnExportConfig" Header="{{act.export}}"
+                      ToolTip="{{act.export.info}}"/>
+            <MenuItem x:Name="BtnImportConfig" Header="{{act.import}}"
+                      ToolTip="{{act.import.info}}"/>
             <Separator/>
-            <MenuItem x:Name="BtnMaintenance" Header="Maintenance auto (hebdomadaire)"
-                      ToolTip="Planifie ou retire une tâche hebdomadaire de nettoyage silencieux."/>
+            <MenuItem x:Name="BtnMaintenance" Header="{{act.maintenance}}"
+                      ToolTip="{{act.maintenance.info}}"/>
           </MenuItem>
 
-          <MenuItem Header="Affichage  ▾" Style="{StaticResource MenuTop}"
-                    ToolTip="Gagner de la place pour la liste des tweaks.">
-            <MenuItem x:Name="BtnToggleProfils" Header="Cacher les profils"
-                      ToolTip="Replie la zone des profils (en haut)."/>
-            <MenuItem x:Name="BtnToggleJournal" Header="Cacher le journal"
-                      ToolTip="Replie le journal (en bas)."/>
+          <MenuItem Header="{{menu.affichage}}" Style="{StaticResource MenuTop}"
+                    ToolTip="{{menu.affichage.info}}">
+            <MenuItem x:Name="BtnToggleProfils" Header="{{act.profils.cacher}}"
+                      ToolTip="{{act.profils.info}}"/>
+            <MenuItem x:Name="BtnToggleJournal" Header="{{act.journal.cacher}}"
+                      ToolTip="{{act.journal.info}}"/>
           </MenuItem>
         </Menu>
 
-        <Button x:Name="BtnGamerRog" Content="Gamer ROG" Background="#FF5A1220" BorderBrush="#FF8A1E33"
+        <Button x:Name="BtnGamerRog" Content="{{act.gamer}}" Background="#FF5A1220" BorderBrush="#FF8A1E33"
                 FontWeight="SemiBold" Margin="8,0,0,0" VerticalAlignment="Center"
-                ToolTip="En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."/>
+                ToolTip="{{act.gamer.info}}"/>
       </WrapPanel>
       <Grid>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-          <Button x:Name="BtnToutCocher" Content="Tout cocher (onglet)"
-                  ToolTip="Coche tous les tweaks de l'onglet actuellement affiché."/>
-          <Button x:Name="BtnToutDecocher" Content="Tout décocher"
-                  ToolTip="Décoche tous les tweaks, tous onglets confondus."/>
-          <CheckBox x:Name="ChkPointRestauration" Content="Point de restauration avant d'appliquer"
+          <Button x:Name="BtnToutCocher" Content="{{act.cocher}}"
+                  ToolTip="{{act.cocher.info}}"/>
+          <Button x:Name="BtnToutDecocher" Content="{{act.decocher}}"
+                  ToolTip="{{act.decocher.info}}"/>
+          <CheckBox x:Name="ChkPointRestauration" Content="{{act.pointresto}}"
                     IsChecked="True" VerticalAlignment="Center" Margin="12,0,0,0"
-                    ToolTip="Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."/>
+                    ToolTip="{{act.pointresto.info}}"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
           <TextBlock x:Name="TxtSelection" VerticalAlignment="Center" Margin="0,0,14,0"
                      FontSize="12" Foreground="{DynamicResource TextMutedBrush}"/>
-          <Button x:Name="BtnSimuler" Content="Simuler" Background="#FF1F4A63" BorderBrush="#FF2E6F94"
-                  ToolTip="Montre, valeur par valeur, ce qui changerait — sans rien écrire. À faire au moins une fois."/>
-          <Button x:Name="BtnAppliquer" Content="Appliquer" Background="#FF16603A" BorderBrush="#FF1F8A52"
+          <Button x:Name="BtnSimuler" Content="{{act.simuler}}" Background="#FF1F4A63" BorderBrush="#FF2E6F94"
+                  ToolTip="{{act.simuler.info}}"/>
+          <Button x:Name="BtnAppliquer" Content="{{act.appliquer}}" Background="#FF16603A" BorderBrush="#FF1F8A52"
                   FontWeight="SemiBold" Margin="0,0,8,0"
-                  ToolTip="Applique pour de vrai les tweaks cochés. Chaque valeur touchée est sauvegardée avant, donc annulable."/>
-          <Button x:Name="BtnRedemarrer" Content="Redémarrer" Background="#FF7D2323" BorderBrush="#FFA32E2E"
+                  ToolTip="{{act.appliquer.info}}"/>
+          <Button x:Name="BtnRedemarrer" Content="{{act.redemarrer}}" Background="#FF7D2323" BorderBrush="#FFA32E2E"
                   FontWeight="SemiBold" Margin="0"
-                  ToolTip="Redémarre le PC maintenant (après confirmation) pour finaliser les tweaks qui l'exigent."/>
+                  ToolTip="{{act.redemarrer.info}}"/>
         </StackPanel>
       </Grid>
     </StackPanel>
@@ -997,7 +1000,7 @@ function Add-PageMateriel {
     $def.VerticalScrollBarVisibility = "Auto"
     $def.Content = $pile
     $onglet = New-Object System.Windows.Controls.TabItem
-    $onglet.Header = "Matériel"
+    $onglet.Header = T 'onglet.materiel'
     $onglet.Content = $def
     $script:GuiTabs.Items.Add($onglet) | Out-Null
 }
@@ -1111,17 +1114,38 @@ function Show-Gui {
     Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
     Add-Type -AssemblyName PresentationCore, WindowsBase -ErrorAction Stop
 
-    $fenetre = [System.Windows.Markup.XamlReader]::Parse($script:XamlInterface)
+    $fenetre = [System.Windows.Markup.XamlReader]::Parse((Expand-Textes $script:XamlInterface))
 
     # Finition « produit » : icône dessinée, titre et en-tête versionnés.
     try { $fenetre.Icon = New-IconeApp 64 } catch { }
-    $fenetre.Title = "MadTweak v$($script:Version) — Configuration système"
+    $fenetre.Title = "MadTweak v$($script:Version) — $(T 'app.soustitre')"
     $titreHaut = $fenetre.FindName("TxtTitre")
     if ($titreHaut) { $titreHaut.Text = "MADTWEAK  v$($script:Version)" }
     # Le score reste caché tant que l'audit n'a pas tourné : afficher « 0/100 » avant
     # d'avoir mesuré serait un mensonge.
     $script:GuiTxtScore = $fenetre.FindName("TxtScore")
     $script:GuiBorderScore = $fenetre.FindName("BorderScore")
+
+    # --- Sélecteur de langue. Le choix est ENREGISTRÉ (il survit à la fermeture) mais
+    # ne redessine pas la fenêtre : reconstruire tout l'arbre WPF à chaud coûterait
+    # bien plus qu'un redémarrage de l'outil, pour un réglage qu'on change une fois.
+    $script:GuiComboLangue = $fenetre.FindName("ComboLangue")
+    $noms = [ordered]@{ 'fr' = 'Français'; 'en' = 'English' }
+    foreach ($n in $noms.Values) { $script:GuiComboLangue.Items.Add($n) | Out-Null }
+    $script:GuiComboLangue.SelectedIndex = @($noms.Keys).IndexOf($script:LangueActive)
+    $script:GuiComboLangue.Add_SelectionChanged({
+        $codes = @('fr', 'en')
+        $c = $codes[$script:GuiComboLangue.SelectedIndex]
+        if (-not $c -or $c -eq $script:LangueActive) { return }
+        try {
+            Set-Langue $c
+            $f = Join-Path $script:DossierDonnees "langue.txt"
+            [System.IO.File]::WriteAllText($f, $c, [System.Text.Encoding]::UTF8)
+            $script:JournalGui.AppendText("`r`n" + (T 'langue.redemarrer') + "`r`n")
+            $script:JournalGui.ScrollToEnd()
+        }
+        catch { }
+    }) | Out-Null
 
     $comboTheme = $fenetre.FindName("ComboTheme")
     foreach ($tName in $script:Themes.Keys) {
@@ -1154,8 +1178,8 @@ function Show-Gui {
     # via « Annuler » (chaque valeur passe par Save-EtatAvant). L'application est
     # rapide (registre + diffusion), donc directe sur le thread de l'interface.
     $script:GuiComboAccent = $fenetre.FindName("ComboAccent")
-    $script:AccentPlaceholder = "— choisir —"
-    $script:AccentDefaut = "Défaut Windows (retirer)"
+    $script:AccentPlaceholder = T 'sel.choisir'
+    $script:AccentDefaut = T 'sel.accent.defaut'
     $script:GuiComboAccent.Items.Add($script:AccentPlaceholder) | Out-Null
     foreach ($nomAcc in $script:AccentsWindows.Keys) { $script:GuiComboAccent.Items.Add($nomAcc) | Out-Null }
     $script:GuiComboAccent.Items.Add($script:AccentDefaut) | Out-Null
@@ -1209,8 +1233,8 @@ function Show-Gui {
     # Neon). Régénéré à la résolution réelle et appliqué directement. Réversible :
     # Set-FondEcran mémorise le fond précédent (Save-EtatAvant + fichier).
     $script:GuiComboFond = $fenetre.FindName("ComboFond")
-    $script:FondPlaceholder = "— choisir —"
-    $script:FondPrecedent = "Remettre le précédent"
+    $script:FondPlaceholder = T 'sel.choisir'
+    $script:FondPrecedent = T 'sel.fond.precedent'
     $script:GuiComboFond.Items.Add($script:FondPlaceholder) | Out-Null
     $script:GuiComboFond.Items.Add("MadTrix — Matrix") | Out-Null
     $script:GuiComboFond.Items.Add("MadTrix — HUD") | Out-Null

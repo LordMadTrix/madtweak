@@ -3,6 +3,16 @@
 # ------------------------------------------------------------------------------
 if ($script:BypassLancement) { return }
 
+# La langue suit Windows, sauf si -Langue la force. Une préférence enregistrée depuis
+# l'interface l'emporte sur la détection, mais pas sur le paramètre explicite.
+if ($Langue) { Set-Langue $Langue }
+elseif ($env:LOCALAPPDATA) {
+    $fLangue = Join-Path $env:LOCALAPPDATA "MadTweak\langue.txt"
+    if (Test-Path $fLangue) {
+        try { Set-Langue ([System.IO.File]::ReadAllText($fLangue).Trim()) } catch { }
+    }
+}
+
 # Mode maintenance (tâche planifiée) : nettoyage léger, silencieux, puis on sort.
 # Ni interface, ni menu, ni journal -- c'est une tâche de fond.
 if ($Maintenance) {
