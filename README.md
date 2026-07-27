@@ -1,9 +1,71 @@
-# MadTweak — utilitaire d'optimisation de Windows 10 et 11
+<div align="center" markdown="1">
+  <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-Script PowerShell interactif d'optimisation, de confidentialité, d'apparence et de
-maintenance pour Windows 10 et 11. En français, avec **annulation réelle** : chaque valeur
-touchée est sauvegardée avant d'être écrite, et peut être remise exactement dans
-l'état où le script l'a trouvée.
+  # 🔴 MadTweak v1.0
+
+  **L'optimisation maîtrisée de votre Windows 10 / 11**
+
+  *Utilitaire PowerShell d'optimisation, de confidentialité, d'apparence et de maintenance — en français, avec annulation réelle.*
+
+  [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+  [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
+  [![Version](https://img.shields.io/badge/Version-1.0-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
+</div>
+
+---
+
+## ⚡ Fonctionnalités principales
+
+### 🛡️ **Confidentialité & nettoyage**
+- ✅ **127 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
+- ✅ **5 profils** prêts à l'emploi (Minimal, Interface épurée, Vie privée, Gamer, Portable)
+- ✅ **Nettoyage mesuré** : chaque poste est pesé avant d'être purgé
+
+### 🔍 **Analyser sa machine**
+- ✅ **Score de santé /100** avec le détail par catégorie
+- ✅ **Analyse du démarrage** : durée réelle et coût de chaque programme
+- ✅ **Diagnostic des plantages** : croise les arrêts inattendus avec les tweaks actifs
+- ✅ **Détection de dérive** : repère ce qu'une mise à jour Windows a réactivé
+
+### ↩️ **Annulation réelle**
+- ✅ **Sauvegarde avant écriture** : chaque valeur touchée est mémorisée
+- ✅ **Restauration exacte**, totale ou tweak par tweak
+- ✅ **Mode simulation** : tout voir sans rien écrire
+
+### 🎨 **Interface & personnalisation**
+- ✅ **Interface graphique** thémable (6 thèmes) ou 15 menus console
+- ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code
+- ✅ **Bonus ASUS ROG** : clavier RGB en HID direct, capteurs GPU et ventilateurs
+
+---
+
+## 🚀 Installation
+
+Télécharge **[`MadTweak.ps1`](https://github.com/LordMadTrix/madtweak/releases/latest)** (un seul fichier, autonome) puis, dans un terminal **administrateur** :
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\MadTweak.ps1
+```
+
+> Windows peut afficher un avertissement SmartScreen : le script n'est pas signé numériquement. Tout le code source est dans ce dépôt.
+
+---
+
+## 🐧 Sur Linux ? Voir **MadOS ROG Edition**
+
+MadTweak a un grand frère pour l'autre moitié du dual-boot : **[MadOS ROG Edition](https://github.com/LordMadTrix/MadOS_ROG_Edition)** transforme un Kubuntu 24.04 en station de jeu optimisée pour ASUS ROG (noyau XanMod, pilotes GPU, `asusctl`, KDE thématisé).
+
+| | [MadOS ROG Edition](https://github.com/LordMadTrix/MadOS_ROG_Edition) | MadTweak |
+|---|---|---|
+| **Système** | Kubuntu 24.04 LTS | Windows 10 / 11 |
+| **Rôle** | **Installe et transforme** un système neuf | **Ajuste et nettoie** un système existant |
+
+*Même philosophie, même identité ROG — deux systèmes, deux outils.*
+
+---
+
+## 📋 En bref
 
 | | |
 |---|---|
@@ -12,7 +74,7 @@ l'état où le script l'a trouvée.
 | **Contenu** | Interface graphique thémable · 15 menus console · 127 tweaks · 5 profils · 104 tests d'audit |
 | **Personnalisation** | 6 thèmes d'interface · 7 accents Windows ROG · fonds d'écran « MadTrix » générés à la couleur du thème · clavier RGB ASUS synchronisé sur l'accent |
 
-## Utilisation
+## Utilisation depuis les sources
 
 **Double-clique sur `Lancer.bat`.** Il demande l'élévation UAC, contourne
 l'ExecutionPolicy pour ce processus uniquement, construit `dist\` s'il manque, et
@@ -382,3 +444,11 @@ par construction.
   export/import winget, désinstallation d'Edge/OneDrive), pour lesquels « est-ce
   appliqué ? » n'a pas de sens : ils ne laissent pas une valeur à relire. Les tweaks de
   réglage, eux, sont audités.
+
+---
+
+## 📜 Licence
+
+**MIT License** — Libre et Open Source. Fait avec ❤️ par LordMadTrix.
+
+> Sur Linux ? Voir **[MadOS ROG Edition](https://github.com/LordMadTrix/MadOS_ROG_Edition)**, le pendant Kubuntu de ce projet.

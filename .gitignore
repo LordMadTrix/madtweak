@@ -7,6 +7,9 @@ signatures-themes/
 *.png
 theme.txt
 
+# ...sauf les visuels du dépôt (logo du README), eux versionnés.
+!assets/*.png
+
 # Données de session (elles vivent normalement dans %LOCALAPPDATA%\MadTweak,
 # mais un repli les écrit à côté du script si ce dossier manque).
 madtweak-donnees/
