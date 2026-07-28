@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.4
+  # 🔴 MadTweak v1.5
 
   **L'optimisation maîtrisée de votre Windows 10 / 11**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.4-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.5-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **Français** · [English](README.en.md)
@@ -27,7 +27,14 @@
 ### 🛡️ **Confidentialité & nettoyage**
 - ✅ **150 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
 - ✅ **5 profils** prêts à l'emploi (Minimal, Interface épurée, Vie privée, Gamer, Portable)
-- ✅ **Nettoyage mesuré** : pesée des temporaires, caches d'applications (Discord, Spotify, Chrome/Edge) et Shader GPU (NVIDIA/AMD/DirectX)
+- ✅ **Nettoyage mesuré** : pesée des temporaires, caches d'applications (Discord, Spotify, Chrome/Edge), registre orphelin et Shader GPU (NVIDIA/AMD/DirectX)
+
+### 🚀 **Performances Gaming & Matériel (v1.5)**
+- ✅ **Optimisations réseau Gaming** : réduction du ping via `TcpAckFrequency` = 1, `TCPNoDelay` = 1 et DNS sécurisé Cloudflare (1.1.1.1) / Google DoH
+- ✅ **Déblocage CPU (Unpark Cores)** : suppression du parquage d'énergie agressif et déverrouillage de la fréquence maximale des cœurs
+- ✅ **Nettoyage RAM & Benchmark** : purge instantanée de la mémoire standby et benchmark global des performances système
+- ✅ **Optimisation Stockage SSD/NVMe** : commande ReTrim forcée et purge du magasin de composants Windows Update (`DISM /startcomponentcleanup /resetbase`)
+- ✅ **Générateur de Script Autonome** : exportation en 1 clic d'un script `.ps1` léger et exécutable sans interface ni dépendance
 
 ### 🔍 **Analyser sa machine & Rapports**
 - ✅ **Score de santé /100** avec le détail par catégorie
@@ -55,6 +62,7 @@
 - ✅ **Suite de tests automatisés Pester** et intégration CI/CD GitHub Actions
 - ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code
 - ✅ **Bonus ASUS ROG** : clavier RGB en HID direct, capteurs GPU et ventilateurs
+
 
 
 ---
