@@ -1174,6 +1174,11 @@ function Menu-Installation {
         catch { Write-Host "    (liste indisponible)" -ForegroundColor DarkGray }
         Write-Host "  ATTENTION : la numérotation de la machine à installer peut être" -ForegroundColor Yellow
         Write-Host "  différente. Vérifie-la là-bas (Maj+F10, puis diskpart, list disk)." -ForegroundColor Yellow
+        Write-Host "  Et surtout : selon le micrologiciel, la CLÉ USB elle-même peut" -ForegroundColor Yellow
+        Write-Host "  apparaître comme disque 0. L'effacer effacerait le support depuis" -ForegroundColor Yellow
+        Write-Host "  lequel l'installation tourne. Dans le doute, laisse cette option de" -ForegroundColor Yellow
+        Write-Host "  côté : l'installeur posera simplement la question, ce qui ne coûte" -ForegroundColor Yellow
+        Write-Host "  qu'un clic et supprime tout risque de se tromper de disque." -ForegroundColor Yellow
         $rep = (Read-Host "  Numéro du disque à effacer [0]").Trim()
         if ($rep -and -not [int]::TryParse($rep, [ref]$numDisque)) { $numDisque = 0 }
         if (-not $rep) { $numDisque = 0 }
