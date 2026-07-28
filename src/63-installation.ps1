@@ -926,7 +926,14 @@ $(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </Run
         </component>
     </settings>
 
-    <settings pass="specialize">
+    <!-- wasPassProcessed="false" : une image DEJA personnalisee et sysprepee
+         embarque son propre unattend.xml dans C:\Windows\Panther, avec ses
+         passages marques comme traites. Le fichier pose sur le support ne
+         reprend alors pas la main : constate sur une vraie installation, ou
+         les FirstLogonCommands n'ont jamais tourne. Cet attribut redit a
+         Windows que ces passages restent a jouer. Il vient de la pratique,
+         pas de la documentation, et il est sans effet sur une image vierge. -->
+    <settings pass="specialize" wasPassProcessed="false">
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
             <ComputerName>$(& $esc $NomMachine)</ComputerName>
             <TimeZone>$(& $esc $Fuseau)</TimeZone>
@@ -957,7 +964,7 @@ $blocQuestions
         </component>
     </settings>
 
-    <settings pass="oobeSystem">
+    <settings pass="oobeSystem" wasPassProcessed="false">
         <!-- Langue du Windows INSTALLE. Le composant « -WinPE » plus haut ne regle
              que l'installeur : sans ce bloc-ci, la machine installee repart en
              disposition par defaut, et on decouvre son clavier en QWERTY. -->
