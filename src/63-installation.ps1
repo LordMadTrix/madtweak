@@ -185,6 +185,64 @@ function Get-DisquesUSB {
     return $liste
 }
 
+function Convert-EsdVersWim {
+    <#
+        Convertit une image .esd en .wim en n'en extrayant qu'UNE édition.
+        Retourne le chemin du .wim produit. Ne touche pas à la source.
+
+        Pourquoi cette fonction existe seule : c'est l'étape longue et risquée de
+        la préparation d'une clé, et elle était jusqu'ici enfouie dans une fonction
+        destructive — donc impossible à éprouver sans effacer un disque. Ici, elle
+        s'exécute seule, en lecture sur la source et en écriture dans un dossier
+        temporaire.
+
+        Un .esd ne se découpe pas ; un .wim, si. C'est le seul chemin pour poser
+        une image de plus de 4 Go sur du FAT32, seul système de fichiers que tout
+        micrologiciel UEFI sait lire au démarrage. Bénéfice secondaire : on
+        n'emporte qu'une édition au lieu des onze, donc un fichier bien plus petit.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$CheminEsd,
+        [string]$Edition = '',
+        [string]$DossierSortie
+    )
+
+    if (-not (Test-Path -LiteralPath $CheminEsd)) { throw "Image introuvable : $CheminEsd" }
+
+    $images = @(Get-WindowsImage -ImagePath $CheminEsd -ErrorAction Stop)
+    $index = 1
+    if ($Edition) {
+        $trouve = $images | Where-Object { $_.ImageName -eq $Edition } | Select-Object -First 1
+        if (-not $trouve) {
+            throw "L'édition « $Edition » n'est pas dans cette image. Présentes : $(($images.ImageName) -join ' | ')."
+        }
+        $index = $trouve.ImageIndex
+    }
+    else {
+        Write-Etat "Aucune édition précisée : l'index 1 (« $($images[0].ImageName) ») sera extrait." -Niveau Avert
+    }
+    $nomGarde = ($images | Where-Object { $_.ImageIndex -eq $index }).ImageName
+
+    if (-not $DossierSortie) {
+        $DossierSortie = Join-Path $env:TEMP "madtweak-image-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+    }
+    if (-not (Test-Path $DossierSortie)) { New-Item -ItemType Directory -Path $DossierSortie -Force | Out-Null }
+
+    # La place se vérifie AVANT, pas au bout de vingt minutes de travail.
+    $libre = (Get-PSDrive -Name ($DossierSortie.Substring(0, 1))).Free
+    $taille = (Get-Item $CheminEsd).Length
+    if ($libre -lt $taille) {
+        throw "Place insuffisante sur $($DossierSortie.Substring(0,2)) : $([math]::Round($libre/1GB,1)) Go libres, $([math]::Round($taille/1GB,1)) Go nécessaires."
+    }
+
+    $sortie = Join-Path $DossierSortie 'install.wim'
+    Write-Etat "Conversion vers .wim, édition « $nomGarde » (long : 10 à 25 minutes)..." -Niveau Info
+    Export-WindowsImage -SourceImagePath $CheminEsd -SourceIndex $index `
+        -DestinationImagePath $sortie -CompressionType Max -ErrorAction Stop | Out-Null
+    Write-Etat "Converti : $([math]::Round((Get-Item $sortie).Length/1GB,2)) Go (source : $([math]::Round($taille/1GB,2)) Go)." -Niveau OK
+    return $sortie
+}
+
 function New-CleInstallation {
     <#
         Efface un disque USB, le formate et y écrit une ISO Windows officielle,
@@ -213,6 +271,9 @@ function New-CleInstallation {
         [string]$CheminXml,
         [string]$CheminMadTweak,
         [string]$Etiquette = 'MADTWEAK',
+        # Édition à conserver quand une image .esd doit être convertie : on n'en
+        # extrait qu'une, pas les onze. Nom exact, tel que Get-EditionsImage le rend.
+        [string]$Edition = '',
         # FAT32 : démarre sur tous les UEFI, mais plafonne les fichiers à 4 Go, d'où
         # le découpage de install.wim. NTFS : aucun découpage, préparation bien plus
         # rapide — mais la plupart des micrologiciels UEFI n'ont pas de pilote NTFS
@@ -259,16 +320,25 @@ function New-CleInstallation {
         # découvrir maintenant que la clé une fois effacée.
         $wim = Join-Path $srcRacine 'sources\install.wim'
         $esd = Join-Path $srcRacine 'sources\install.esd'
-        $gros = $null; $decouper = $false
-        if (Test-Path $wim) { $gros = $wim } elseif (Test-Path $esd) { $gros = $esd }
+        $gros = $null; $decouper = $false; $wimTemp = $null; $nomExclu = $null
+        if (Test-Path $wim) { $gros = $wim; $nomExclu = 'install.wim' }
+        elseif (Test-Path $esd) { $gros = $esd; $nomExclu = 'install.esd' }
+
         if ($gros) {
             $tailleGo = (Get-Item $gros).Length / 1GB
             if ($tailleGo -gt 3.9 -and $SystemeFichiers -eq 'FAT32') {
-                if ($gros -eq $esd) {
-                    throw "sources\install.esd fait $([math]::Round($tailleGo,1)) Go et ne peut pas être découpé pour du FAT32. Utilise Rufus pour cette image."
-                }
                 $decouper = $true
-                Write-Etat "install.wim fait $([math]::Round($tailleGo,1)) Go : il sera découpé en .swm (FAT32 plafonne à 4 Go par fichier)." -Niveau Info
+                $aDecouper = $gros
+
+                if ($gros -eq $esd) {
+                    # Un .esd ne se découpe pas, mais il se convertit. Toute la
+                    # mécanique est dans Convert-EsdVersWim, éprouvable seule.
+                    $wimTemp = Convert-EsdVersWim -CheminEsd $esd -Edition $Edition
+                    $aDecouper = $wimTemp
+                }
+                else {
+                    Write-Etat "install.wim fait $([math]::Round($tailleGo,1)) Go : il sera découpé en .swm (FAT32 plafonne à 4 Go par fichier)." -Niveau Info
+                }
             }
         }
 
@@ -293,13 +363,14 @@ function New-CleInstallation {
         Write-Etat "Copie de l'image vers $dst (plusieurs minutes)..." -Niveau Info
         # robocopy plutôt que Copy-Item : il reprend, il journalise, et il sait
         # exclure un fichier. Ses codes de sortie sous 8 signalent un succès.
-        $exclu = if ($decouper) { @('/XF', 'install.wim') } else { @() }
+        $exclu = if ($decouper) { @('/XF', $nomExclu) } else { @() }
         & robocopy $srcRacine $dst /E /NFL /NDL /NJH /NJS /NP @exclu | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "La copie a échoué (robocopy code $LASTEXITCODE)." }
 
         if ($decouper) {
-            Write-Etat "Découpage de install.wim en .swm (long)..." -Niveau Info
-            Split-WindowsImage -ImagePath $wim -SplitImagePath (Join-Path $dst 'sources\install.swm') -FileSize 3800 -ErrorAction Stop | Out-Null
+            Write-Etat "Découpage en .swm (long)..." -Niveau Info
+            Split-WindowsImage -ImagePath $aDecouper -SplitImagePath (Join-Path $dst 'sources\install.swm') -FileSize 3800 -ErrorAction Stop | Out-Null
+            Write-Etat "$((Get-ChildItem (Join-Path $dst 'sources') -Filter *.swm).Count) fichier(s) .swm posé(s)." -Niveau OK
         }
 
         if ($CheminXml) {
@@ -316,6 +387,12 @@ function New-CleInstallation {
     }
     finally {
         if ($monte) { try { Dismount-DiskImage -ImagePath $CheminIso | Out-Null } catch { } }
+        # Le .wim converti peut peser plusieurs gigaoctets : le laisser dans %TEMP%
+        # serait un cadeau empoisonné.
+        if ($wimTemp -and (Test-Path $wimTemp)) {
+            try { Remove-Item (Split-Path $wimTemp -Parent) -Recurse -Force -ErrorAction Stop }
+            catch { Write-Etat "Fichier temporaire à supprimer soi-même : $wimTemp" -Niveau Avert }
+        }
     }
 }
 
@@ -1142,7 +1219,7 @@ function Menu-Installation {
                 }
                 try {
                     New-CleInstallation -NumeroDisque $cible.Numero -CheminIso $iso `
-                        -CheminXml $chemin -CheminMadTweak $srcMt -Confirme | Out-Null
+                        -CheminXml $chemin -CheminMadTweak $srcMt -Edition $edition -Confirme | Out-Null
                     Write-Etat "La clé est prête : ISO, fichier de réponses et MadTweak sont dessus." -Niveau OK
                 }
                 catch { Write-Etat "Préparation impossible : $($_.Exception.Message)" -Niveau Echec }
