@@ -5095,6 +5095,76 @@ function Start-MediaCreationTool {
     return $true
 }
 
+function Wait-IsoTelechargee {
+    <#
+        Surveille l'apparition d'une ISO Windows et renvoie son chemin.
+        Rend la main tout seul des que le fichier a fini de grossir.
+
+        Pourquoi cette fonction plutot qu'un telechargement automatique : l'API
+        de telechargement de Microsoft est protegee par un anti-robot (elle
+        repond « Sentinel marked this request as rejected »). Le contourner
+        demanderait une course perpetuelle, et casserait chez les utilisateurs a
+        chaque changement cote Microsoft. Quant a telecharger un script tiers
+        pour le faire, MadTweak tourne en administrateur sur des machines qui ne
+        sont pas les miennes : executer du code recupere sur internet au moment
+        ou il tourne n'est pas une option.
+
+        On laisse donc l'outil officiel faire son travail, et on reprend la main
+        automatiquement des que le fichier existe. L'utilisateur ne fait que
+        quelques clics chez Microsoft ; MadTweak s'occupe de tout le reste.
+    #>
+    param(
+        [string[]]$Dossiers = @(),
+        [int]$MinutesMax = 90
+    )
+
+    if ($Dossiers.Count -eq 0) {
+        $Dossiers = @(
+            (Join-Path $env:USERPROFILE 'Downloads'),
+            [Environment]::GetFolderPath('Desktop'),
+            'D:', 'C:'
+        ) | Where-Object { Test-Path $_ }
+    }
+
+    # On ne retient que les ISO APPARUES apres le debut de l'attente : une image
+    # deja presente n'est pas celle que l'utilisateur telecharge maintenant.
+    $connues = @{}
+    foreach ($d in $Dossiers) {
+        foreach ($f in (Get-ChildItem $d -Filter *.iso -File -ErrorAction SilentlyContinue)) {
+            $connues[$f.FullName] = $true
+        }
+    }
+
+    Write-Etat "En attente d'une ISO dans : $($Dossiers -join ' | ')" -Niveau Info
+    Write-Etat "Choisis « Creer un support d'installation » puis « Fichier ISO »." -Niveau Info
+
+    $fin = (Get-Date).AddMinutes($MinutesMax)
+    while ((Get-Date) -lt $fin) {
+        foreach ($d in $Dossiers) {
+            foreach ($f in (Get-ChildItem $d -Filter *.iso -File -ErrorAction SilentlyContinue)) {
+                if ($connues.ContainsKey($f.FullName)) { continue }
+                if ($f.Length -lt 1GB) { continue }
+
+                # Le fichier existe, mais il grossit peut-etre encore. On attend
+                # qu'il cesse de bouger : copier une ISO a moitie ecrite
+                # produirait un support silencieusement inutilisable.
+                $t1 = $f.Length
+                Start-Sleep -Seconds 15
+                $t2 = (Get-Item $f.FullName -ErrorAction SilentlyContinue).Length
+                if ($t1 -ne $t2) {
+                    Write-Etat "Telechargement en cours : $([math]::Round($t2/1GB,2)) Go..." -Niveau Info
+                    continue
+                }
+                Write-Etat "ISO detectee : $($f.FullName) ($([math]::Round($t2/1GB,2)) Go)" -Niveau OK
+                return $f.FullName
+            }
+        }
+        Start-Sleep -Seconds 10
+    }
+    Write-Etat "Aucune ISO apparue en $MinutesMax minutes." -Niveau Avert
+    return $null
+}
+
 function New-CleInstallation {
     <#
         Efface un disque USB, le formate et y écrit une ISO Windows officielle,
