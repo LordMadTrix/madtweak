@@ -10112,14 +10112,23 @@ try {
             Write-Etat "Profils disponibles : $($script:Profils.Keys -join ' | ')" -Niveau Info
         }
         else {
+            # Le mode silencieux vaut pour TOUT le passage, question de redémarrage
+            # comprise. Une première version le relâchait juste avant, pour laisser
+            # le choix à l'utilisateur : bonne intention, mauvais endroit. Cette
+            # commande est appelée par FirstLogonCommands, donc de façon SYNCHRONE,
+            # derrière l'écran « Nous travaillons encore sur certaines choses ».
+            # Personne ne voit la console, personne ne peut répondre, et l'OOBE
+            # reste bloqué indéfiniment. Constaté sur une vraie installation.
             $script:SansQuestion = $true
-            try { Invoke-Profil $nomExact }
-            finally {
-                # On rend la parole AVANT de parler de redémarrage : quelqu'un vient
-                # d'ouvrir sa session, il est devant l'écran. Redémarrer sa machine
-                # neuve sans le lui demander serait le pire accueil possible.
-                $script:SansQuestion = $false
+            Invoke-Profil $nomExact
+            # On ne propose PAS le redémarrage ici, et on ne le déclenche pas non
+            # plus : couper une installation qui n'a pas fini de se configurer
+            # serait pire que d'attendre. Les tweaks qui l'exigent prendront effet
+            # au premier redémarrage volontaire.
+            if ($script:RedemarrageRequis) {
+                Write-Etat "Certains réglages prendront effet au prochain redémarrage." -Niveau Info
             }
+            return
         }
     }
     else {
