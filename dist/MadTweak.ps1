@@ -5748,6 +5748,11 @@ function New-AutounattendXml {
         [string]$Profil,
         [string[]]$Apps = @(),
         [switch]$SansTPM,
+        # Ne sert QUE si l'image source embarque déjà son propre fichier de réponses
+        # (build « maison » sysprepée). Ajoute wasPassProcessed="false" et recopie le
+        # fichier vers C:\Windows\Panther. Sur une image d'origine, cela casse
+        # l'installation — constaté. À n'activer qu'en connaissance de cause.
+        [switch]$ForcerPassages,
         [switch]$EffacerDisque,
         # Numéro du disque à effacer. 0 est le défaut habituel, mais PAS une garantie :
         # sur une machine à plusieurs disques, le 0 peut être celui des données. Ce
@@ -5784,9 +5789,31 @@ function New-AutounattendXml {
 "@
     }
 
-    # Recopie du fichier de réponses vers Panther (voir le passage specialize).
-    # On le cherche sur TOUS les lecteurs : une clé USB n'a aucune lettre garantie.
-    $copiePanther = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter autounattend.xml -ErrorAction SilentlyContinue | Select-Object -First 1; if ($f) { Copy-Item $f.FullName ''C:\Windows\Panther\unattend.xml'' -Force }"'
+    # --- Contournements pour images DÉJÀ personnalisées ---------------------------
+    #
+    # Ces deux ajouts ne servent QUE lorsque l'image source embarque déjà son propre
+    # fichier de réponses (une build sysprepée « maison »). Sur une image Microsoft
+    # d'origine ils sont au mieux inutiles, au pire nuisibles : recopier le fichier
+    # vers C:\Windows\Panther\unattend.xml écrase celui que Windows Setup est en
+    # train d'utiliser, en plein passage specialize. Un essai réel s'est solde par
+    # « L'ordinateur a redémarré de manière inattendue ou a rencontré une erreur
+    # inattendue » — l'echec classique d'un specialize qui casse.
+    #
+    # Ils sont donc DESACTIVES par defaut. On ne degrade pas le cas courant pour un
+    # cas particulier ; -ForcerPassages les remet, en connaissance de cause.
+    $attrPassage = if ($ForcerPassages) { ' wasPassProcessed="false"' } else { '' }
+    $blocPanther = ''
+    if ($ForcerPassages) {
+        # On cherche le fichier sur TOUS les lecteurs : une clé USB n'a aucune
+        # lettre garantie.
+        $copiePanther = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "$f=Get-ChildItem -Path (Get-PSDrive -PSProvider FileSystem).Root -Filter autounattend.xml -ErrorAction SilentlyContinue | Select-Object -First 1; if ($f) { Copy-Item $f.FullName ''C:\Windows\Panther\unattend.xml'' -Force }"'
+        $blocPanther = @"
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <Path>$(& $esc $copiePanther)</Path>
+                </RunSynchronousCommand>
+"@
+    }
 
     # --- Commandes de première ouverture de session -------------------------------
     # Elles s'exécutent une fois, en tant que l'utilisateur créé, session ouverte.
@@ -6032,14 +6059,7 @@ $(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </Run
         </component>
     </settings>
 
-    <!-- wasPassProcessed="false" : une image DEJA personnalisee et sysprepee
-         embarque son propre unattend.xml dans C:\Windows\Panther, avec ses
-         passages marques comme traites. Le fichier pose sur le support ne
-         reprend alors pas la main : constate sur une vraie installation, ou
-         les FirstLogonCommands n'ont jamais tourne. Cet attribut redit a
-         Windows que ces passages restent a jouer. Il vient de la pratique,
-         pas de la documentation, et il est sans effet sur une image vierge. -->
-    <settings pass="specialize" wasPassProcessed="false">
+    <settings pass="specialize"$attrPassage>
         <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
             <ComputerName>$(& $esc $NomMachine)</ComputerName>
             <TimeZone>$(& $esc $Fuseau)</TimeZone>
@@ -6054,23 +6074,13 @@ $(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </Run
                     <Order>1</Order>
                     <Path>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE /v BypassNRO /t REG_DWORD /d 1 /f</Path>
                 </RunSynchronousCommand>
-                <!-- Recopie du fichier de reponses dans Panther. Depuis 24H2, et
-                     surtout en 25H2, le nouvel installeur (SetupPrep.exe, dit
-                     « ConX ») lit bien le passage windowsPE mais ignore souvent
-                     oobeSystem : le compte local n'est alors pas cree et l'OOBE
-                     repose ses questions. Relire le fichier depuis Panther est le
-                     chemin historique, et cette copie ne coute rien la ou l'ancien
-                     installeur fonctionnait deja. -->
-                <RunSynchronousCommand wcm:action="add">
-                    <Order>2</Order>
-                    <Path>$(& $esc $copiePanther)</Path>
-                </RunSynchronousCommand>
+$blocPanther
 $blocQuestions
             </RunSynchronous>
         </component>
     </settings>
 
-    <settings pass="oobeSystem" wasPassProcessed="false">
+    <settings pass="oobeSystem"$attrPassage>
         <!-- Langue du Windows INSTALLE. Le composant « -WinPE » plus haut ne regle
              que l'installeur : sans ce bloc-ci, la machine installee repart en
              disposition par defaut, et on decouvre son clavier en QWERTY. -->
