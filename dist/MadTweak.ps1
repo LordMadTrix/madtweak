@@ -5079,6 +5079,25 @@ function New-CleInstallation {
         throw "Fichier de réponses introuvable : $CheminXml"
     }
 
+    # Cohérence entre les deux usages du nom d'édition. Quand une image .esd est
+    # convertie, le .wim produit ne contient QUE l'édition extraite ; si le fichier
+    # de réponses en réclame une autre, Windows Setup ne la trouvera pas et
+    # l'installation s'arrêtera — après le formatage de la clé, et devant une
+    # machine qu'on vient peut-être d'effacer.
+    if ($CheminXml -and $Edition) {
+        try {
+            $xv = [xml](Get-Content $CheminXml -Raw)
+            $nsv = New-Object System.Xml.XmlNamespaceManager($xv.NameTable)
+            $nsv.AddNamespace('u', 'urn:schemas-microsoft-com:unattend')
+            $voulu = $xv.SelectSingleNode('//u:MetaData/u:Value', $nsv)
+            if ($voulu -and $voulu.InnerText -ne $Edition) {
+                throw "Incohérence : le fichier de réponses demande « $($voulu.InnerText) » alors que la clé recevra « $Edition »."
+            }
+        }
+        catch [System.Management.Automation.RuntimeException] { throw }
+        catch { }
+    }
+
     $disque = Get-Disk -Number $NumeroDisque -ErrorAction SilentlyContinue
     if (-not $disque) { throw "Aucun disque numéro $NumeroDisque." }
     if ($disque.BusType -ne 'USB') {
@@ -5567,6 +5586,12 @@ function New-AutounattendXml {
     # le disque laisse l'installeur sans cible : il efface, puis se bloque.
     $blocMeta = ""
     if ($Edition) {
+        # ATTENTION aux trois raccourcis : ils fabriquent des noms ANGLAIS, et les
+        # ISO localisées traduisent les noms d'édition. Une image française contient
+        # « Windows 11 Professionnel », pas « Windows 11 Pro » — constaté sur une
+        # vraie image. Le nom fabriqué ne correspondrait alors à rien et
+        # l'installation échouerait. Les raccourcis ne valent que pour une image en
+        # anglais ; partout ailleurs, il faut lire l'image (Get-EditionsImage).
         $nomEdition = switch ($Edition) {
             'Pro' { "Windows $Version Pro" }
             'Famille' { "Windows $Version Home" }
@@ -5983,6 +6008,30 @@ function Menu-Installation {
             }
             $cible = $choixUsb[(Read-ChoixListe $choixUsb "Quelle clé préparer ?" 1)]
             $iso = (Read-Host "  Chemin de l'ISO Windows officielle").Trim().Trim('"')
+
+            # Si l'édition n'a pas encore été fixée, c'est le moment : on tient l'ISO,
+            # autant lui demander ce qu'elle contient plutôt que de le supposer. Les
+            # noms sont traduits dans les images localisées (« Windows 11 Professionnel »
+            # et non « Windows 11 Pro »), donc les deviner ne marche pas.
+            if (-not $edition -and (Test-Path -LiteralPath $iso)) {
+                try {
+                    Write-Etat "Lecture des éditions de l'image..." -Niveau Info
+                    $dispo = Get-EditionsImage -Chemin $iso
+                    $choixEd = [ordered]@{}
+                    foreach ($e in $dispo) { $choixEd["$($e.Nom)  (index $($e.Index))"] = $e.Nom }
+                    $edition = $choixEd[(Read-ChoixListe $choixEd "Quelle édition installer ?" 1 -Apercu 12)]
+
+                    # Le fichier de réponses a été écrit sans édition : on le régénère
+                    # avec celle-ci, sinon la clé et le fichier ne diraient pas la
+                    # même chose et l'installation s'arrêterait.
+                    New-AutounattendXml -Chemin $chemin -NomUtilisateur $utilisateur -MotDePasse $motDePasse `
+                        -NomMachine $machine -Langue $langue -Fuseau $fuseau -Version $version `
+                        -Edition $edition -Apps $apps -Profil $profil `
+                        -SansTPM:$sansTpm -EffacerDisque:$effacer -Disque $numDisque | Out-Null
+                    Write-Etat "Fichier de réponses réaligné sur « $edition »." -Niveau OK
+                }
+                catch { Write-Etat "Lecture des éditions impossible : $($_.Exception.Message)" -Niveau Avert }
+            }
 
             Write-Host ""
             Write-Host "  ═══════════════════════════════════════════════════════════════" -ForegroundColor Red
