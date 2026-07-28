@@ -8,9 +8,10 @@ $srcDir = Join-Path $racine "src"
 
 Describe "Build Verification" {
     It "Doit valider que dist\MadTweak.ps1 est parfaitement à jour avec src\" {
-        $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $buildScript -Verifier
+        $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$buildScript' -Verifier"
         $LASTEXITCODE | Should Be 0
     }
+
 
     It "Chaque module src\*.ps1 doit posséder un BOM UTF-8 (0xEF, 0xBB, 0xBF)" {
         $modules = Get-ChildItem -Path $srcDir -Filter "*.ps1"

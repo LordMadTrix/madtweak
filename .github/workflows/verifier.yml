@@ -35,8 +35,9 @@ jobs:
       - name: dist correspond-il à src ?
         shell: powershell
         run: |
-          .\build.ps1 -Verifier
+          & .\build.ps1 -Verifier
           if ($LASTEXITCODE -ne 0) {
+
             Write-Host "::error::dist\MadTweak.ps1 ne correspond plus aux modules de src\. Lance .\build.ps1 puis recommite le resultat."
             exit 1
           }

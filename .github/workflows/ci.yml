@@ -16,7 +16,7 @@ jobs:
       - name: Verify dist/MadTweak.ps1 is Up-To-Date
         shell: powershell
         run: |
-          .\build.ps1 -Verifier
+          & .\build.ps1 -Verifier
 
       - name: Run Pester Tests
         shell: powershell
@@ -25,3 +25,4 @@ jobs:
               Install-Module Pester -Force -Scope CurrentUser
           }
           Invoke-Pester .\tests\MadTweak.Tests.ps1 -Passthru
+
