@@ -32,8 +32,32 @@ function Clear-Contenu {
     # et ce n'est pas un échec. On compte ce qui résiste au lieu de lever.
     param([Parameter(Mandatory)][string]$Chemin)
     if (-not (Test-Path $Chemin)) { return @{ Supprimes = 0; Resistants = 0 } }
+
+    # LA SIMULATION SE TRAITE ICI, ET NON PAR Invoke-Action fichier par fichier :
+    # un dossier Temp contient des milliers d'entrées, et une ligne par fichier
+    # noierait le journal au lieu d'informer. On annonce le volume, on ne touche
+    # à rien, et on rend le compte qu'aurait donné la suppression.
+    #
+    # Sans ce garde-fou, cocher « simuler avant d'appliquer » puis lancer le
+    # nettoyage supprimait RÉELLEMENT les fichiers. Mesuré : cinq fichiers sur
+    # cinq effacés en mode simulation, sans une seule ligne de simulation émise.
+    # C'était le contraire exact de la promesse de l'outil.
+    $entrees = @(Get-ChildItem -Path $Chemin -Force -ErrorAction SilentlyContinue)
+    if ($script:Simulation) {
+        $taille = 0
+        foreach ($e in $entrees) {
+            if ($e.PSIsContainer) {
+                $taille += (Get-ChildItem $e.FullName -Recurse -File -Force -ErrorAction SilentlyContinue |
+                    Measure-Object Length -Sum).Sum
+            }
+            else { $taille += $e.Length }
+        }
+        Write-Simu "viderait $Chemin : $($entrees.Count) élément(s), $(Format-Taille $taille)"
+        return @{ Supprimes = $entrees.Count; Resistants = 0 }
+    }
+
     $ok = 0; $ko = 0
-    foreach ($e in (Get-ChildItem -Path $Chemin -Force -ErrorAction SilentlyContinue)) {
+    foreach ($e in $entrees) {
         try {
             Remove-Item -Path $e.FullName -Recurse -Force -ErrorAction Stop
             $ok++
@@ -285,9 +309,15 @@ function Clear-RegistreOrphelin {
     foreach ($m in $mrus) {
         if (Test-Path $m) {
             try {
-                Remove-ItemProperty -Path $m -Name * -ErrorAction SilentlyContinue
+                # Passage obligé par Invoke-Action : en simulation, cette purge
+                # doit être annoncée et NON exécutée. Sans cette porte, un « mode
+                # simulation » effacerait réellement les historiques.
+                Invoke-Action "viderait les valeurs de $m" {
+                    Remove-ItemProperty -Path $m -Name * -ErrorAction SilentlyContinue
+                }
                 $purges++
-            } catch { }
+            }
+            catch { }
         }
     }
 
@@ -312,9 +342,16 @@ function Clear-TelechargementsAnciens {
     foreach ($f in $fichiers) {
         try {
             $octets += $f.Length
-            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            # Ce dossier appartient à l'utilisateur, pas au système : on ne supprime
+            # RIEN sans passer par la porte. Une simulation qui viderait les
+            # Téléchargements pour de bon serait la pire trahison possible de la
+            # promesse « tout voir sans rien écrire ».
+            Invoke-Action "supprimerait $($f.Name) ($([math]::Round($f.Length/1MB,1)) Mo, modifié le $($f.LastWriteTime.ToString('yyyy-MM-dd')))" {
+                Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            }
             $suppr++
-        } catch { }
+        }
+        catch { }
     }
 
     $mo = [math]::Round($octets / 1MB, 1)
@@ -330,13 +367,23 @@ function Clear-FichiersMajWindowsOld {
         $fichiers = Get-ChildItem -Path $dossierDl -Recurse -File -ErrorAction SilentlyContinue
         foreach ($f in $fichiers) {
             $octets += $f.Length
-            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            Invoke-Action "supprimerait le fichier de mise à jour $($f.Name)" {
+                Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
+    # /resetbase est IRRÉVERSIBLE : il supprime les versions précédentes des
+    # composants, donc la possibilité de désinstaller les mises à jour Windows
+    # déjà installées. Il gagne quelques centaines de mégaoctets et coûte un
+    # retour en arrière. On prévient, et on passe par la porte comme le reste.
+    Write-Etat "Le nettoyage /resetbase retire la possibilité de désinstaller les mises à jour déjà installées. C'est définitif." -Niveau Avert
     try {
-        dism.exe /online /cleanup-image /startcomponentcleanup /resetbase | Out-Null
-    } catch { }
+        Invoke-Action "exécuterait DISM /startcomponentcleanup /resetbase (irréversible)" {
+            dism.exe /online /cleanup-image /startcomponentcleanup /resetbase | Out-Null
+        }
+    }
+    catch { }
 
     $mo = [math]::Round($octets / 1MB, 1)
     Write-Etat ((T 'winupdate.purge.ok') -f $mo) -Niveau OK
