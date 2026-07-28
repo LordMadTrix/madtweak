@@ -5465,13 +5465,37 @@ function New-CleInstallation {
         # --- À partir d'ici, on écrit. Tout ce qui pouvait être vérifié l'a été. ---
         Write-Etat "Effacement du disque $NumeroDisque ($($disque.FriendlyName))..." -Niveau Info
         Clear-Disk -Number $NumeroDisque -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
-        Initialize-Disk -Number $NumeroDisque -PartitionStyle MBR -ErrorAction SilentlyContinue | Out-Null
+
+        # On VISE le MBR, mais on ne le suppose pas. Clear-Disk ne ramène pas
+        # toujours le disque à l'état brut : une clé faite par Rufus reste en GPT,
+        # et Initialize-Disk echoue alors sans bruit. C'est ce qui s'est passé au
+        # premier essai reel — le style restait GPT, et -IsActive, qui n'existe
+        # qu'en MBR, faisait echouer la creation de partition APRES l'effacement.
+        $etat = Get-Disk -Number $NumeroDisque
+        if ($etat.PartitionStyle -eq 'RAW') {
+            Initialize-Disk -Number $NumeroDisque -PartitionStyle MBR -ErrorAction SilentlyContinue | Out-Null
+        }
+        elseif ($etat.PartitionStyle -eq 'GPT') {
+            try { Set-Disk -Number $NumeroDisque -PartitionStyle MBR -ErrorAction Stop }
+            catch { }
+        }
+        $style = (Get-Disk -Number $NumeroDisque).PartitionStyle
+        Write-Etat "Table de partition : $style" -Niveau Info
 
         # 32 Go maximum en FAT32 : au-delà, Windows refuse de formater. Un support
         # d'installation n'a de toute façon besoin que de 8 à 10 Go. NTFS n'a pas
         # cette limite, on prend alors toute la clé.
         $tailleMax = if ($SystemeFichiers -eq 'FAT32') { [math]::Min($disque.Size - 8MB, 32GB) } else { $disque.Size - 8MB }
-        $part = New-Partition -DiskNumber $NumeroDisque -Size $tailleMax -AssignDriveLetter -IsActive -ErrorAction Stop
+
+        # « Actif » est une notion propre au MBR. En GPT elle n'existe pas — et
+        # elle n'y sert a rien : l'UEFI demarre sur une partition FAT32 sans
+        # aucun indicateur d'activite. On ne la pose donc que la ou elle a un sens.
+        if ($style -eq 'MBR') {
+            $part = New-Partition -DiskNumber $NumeroDisque -Size $tailleMax -AssignDriveLetter -IsActive -ErrorAction Stop
+        }
+        else {
+            $part = New-Partition -DiskNumber $NumeroDisque -Size $tailleMax -AssignDriveLetter -ErrorAction Stop
+        }
         Start-Sleep -Seconds 2
         Write-Etat "Formatage en $SystemeFichiers..." -Niveau Info
         if ($SystemeFichiers -eq 'NTFS') {
