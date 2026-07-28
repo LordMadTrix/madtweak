@@ -5095,6 +5095,183 @@ function Start-MediaCreationTool {
     return $true
 }
 
+function Get-LienIsoWindows {
+    <#
+        Obtient un lien de telechargement OFFICIEL d'une ISO Windows, depuis les
+        serveurs de Microsoft, en refaisant les memes appels que sa propre page
+        de telechargement. Retourne @{ Nom; Uri; Langue }.
+
+        Comment ca marche, parce que ce n'est pas evident :
+
+        La page publique ne contient aucun lien direct. Elle fait travailler le
+        navigateur en quatre temps. On enregistre une session aupres de
+        vlscppe.microsoft.com, qui pose deux cookies de reconnaissance. On
+        demande ensuite mdt.js, un fragment de JavaScript contenant trois
+        valeurs a usage unique : un jeton « w », un horodatage serveur
+        « rticks » et un identifiant client. La page les renvoie a
+        ov-df.microsoft.com dans une iframe invisible : c'est cette etape qui
+        valide la session. Alors seulement l'API accepte de rendre la liste des
+        langues, puis les liens.
+
+        Sans cette sequence, l'API repond « Sentinel marked this request as
+        rejected ». C'est ce qui arrive quand on attaque directement le dernier
+        appel, et c'est exactement l'erreur par laquelle j'ai commence.
+
+        Deux pieges m'ont coute plusieurs essais, notes ici pour la prochaine
+        fois. « CustomerId » n'est PAS l'org_id des cookies mais l'instanceId.
+        Et « rticks » n'est pas un parametre d'URL dans le JavaScript mais une
+        concatenation — &rticks=" + 1785204326859 — donc une expression qui
+        cherche un parametre d'URL revient vide, sans erreur, et la session
+        n'est jamais validee.
+
+        FRAGILITE ASSUMEE : rien de tout ceci n'est documente par Microsoft, qui
+        peut le changer sans preavis. La fonction echoue alors proprement, avec
+        un message explicite, et le menu propose l'outil officiel en repli. Elle
+        ne contourne aucune protection de contenu : elle demande, comme le
+        ferait un navigateur, une image que Microsoft distribue gratuitement et
+        publiquement.
+    #>
+    param(
+        [ValidateSet('11', '10')][string]$Version = '11',
+        [string]$Langue = 'Francais',
+        [ValidateSet('x64', 'ARM64')][string]$Arch = 'x64'
+    )
+
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36'
+    $page = if ($Version -eq '11') {
+        'https://www.microsoft.com/software-download/windows11'
+    }
+    else {
+        'https://www.microsoft.com/software-download/windows10ISO'
+    }
+    $sid = [guid]::NewGuid().ToString()
+    $instance = '560dc9f3-1aa5-4a2f-b63c-9e18f8d0e175'
+
+    try {
+        # 1. La page, pour y LIRE l'identifiant d'edition courant plutot que de
+        #    le coder en dur : Microsoft l'incremente a chaque version.
+        Write-Etat "Interrogation de la page officielle Microsoft..." -Niveau Info
+        $r = Invoke-WebRequest -Uri $page -UserAgent $ua -UseBasicParsing -TimeoutSec 30 -SessionVariable ws
+        $edId = ([regex]::Match($r.Content, 'value="(\d{3,5})"[^>]*>\s*Windows ' + $Version)).Groups[1].Value
+        if (-not $edId) { $edId = ([regex]::Match($r.Content, '<option[^>]*value="(\d{3,5})"')).Groups[1].Value }
+        if (-not $edId) { throw "Identifiant d'edition introuvable : Microsoft a change sa mise en page." }
+
+        # 2. Enregistrement de la session (pose les cookies de reconnaissance).
+        Invoke-WebRequest -Uri "https://vlscppe.microsoft.com/tags?org_id=y6jn8c31&session_id=$sid" `
+            -UserAgent $ua -UseBasicParsing -WebSession $ws -TimeoutSec 30 | Out-Null
+
+        # 3. Les trois valeurs a usage unique.
+        $m = Invoke-WebRequest -Uri "https://ov-df.microsoft.com/mdt.js?instanceId=$instance&PageId=si&session_id=$sid" `
+            -UserAgent $ua -UseBasicParsing -WebSession $ws -TimeoutSec 30
+        $w = ([regex]::Match($m.Content, '[?&]w=([A-Za-z0-9]+)')).Groups[1].Value
+        $rticks = ([regex]::Match($m.Content, 'rticks="\s*\+\s*(\d+)')).Groups[1].Value
+        $cid = ([regex]::Match($m.Content, 'customerId:"([^"]+)"')).Groups[1].Value
+        if (-not $w -or -not $rticks -or -not $cid) {
+            throw "Jetons de session illisibles : le mecanisme de validation a change."
+        }
+
+        # 4. Le renvoi qui valide la session, celui que fait l'iframe invisible.
+        $mdt = [long]([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())
+        Invoke-WebRequest -Uri "https://ov-df.microsoft.com/?session_id=$sid&CustomerId=$cid&PageId=si&w=$w&mdt=$mdt&rticks=$rticks" `
+            -UserAgent $ua -UseBasicParsing -WebSession $ws -Headers @{ 'Referer' = $page } -TimeoutSec 30 | Out-Null
+        Start-Sleep -Seconds 3
+
+        # 5. Les langues reellement proposees pour cette edition.
+        $sku = Invoke-RestMethod -UserAgent $ua -WebSession $ws -Headers @{ 'Referer' = $page } -TimeoutSec 30 `
+            -Uri "https://www.microsoft.com/software-download-connector/api/getskuinformationbyproductedition?profile=606624d44113&productEditionId=$edId&SKU=undefined&friendlyFileName=undefined&Locale=fr-FR&sessionID=$sid"
+        if (-not $sku.Skus) { throw "Aucune langue retournee : $($sku.Errors | ConvertTo-Json -Compress)" }
+
+        # Comparaison insensible aux accents : Microsoft renvoie « Français » avec
+        # sa cédille. Même piège que les noms de profils, même remède.
+        $cible = ConvertTo-CleComparable $Langue
+        $choix = $sku.Skus | Where-Object { (ConvertTo-CleComparable $_.LocalizedLanguage) -like "*$cible*" } | Select-Object -First 1
+        if (-not $choix) {
+            throw "Langue « $Langue » indisponible. Proposees : $((($sku.Skus.LocalizedLanguage) | Select-Object -First 12) -join ', ')..."
+        }
+
+        # 6. Les liens, enfin.
+        $dl = Invoke-RestMethod -UserAgent $ua -WebSession $ws -Headers @{ 'Referer' = $page } -TimeoutSec 30 `
+            -Uri "https://www.microsoft.com/software-download-connector/api/GetProductDownloadLinksBySku?profile=606624d44113&productEditionId=undefined&SKU=$($choix.Id)&friendlyFileName=undefined&Locale=fr-FR&sessionID=$sid"
+        if (-not $dl.ProductDownloadOptions) {
+            throw "Lien refuse par Microsoft : $($dl.Errors | ConvertTo-Json -Compress)"
+        }
+
+        # DownloadType : 1 = x64, 2 = ARM64 (constate sur les reponses reelles).
+        $type = if ($Arch -eq 'x64') { 1 } else { 2 }
+        $opt = $dl.ProductDownloadOptions | Where-Object { $_.DownloadType -eq $type } | Select-Object -First 1
+        if (-not $opt) { $opt = $dl.ProductDownloadOptions | Select-Object -First 1 }
+
+        $nom = ([regex]::Match($opt.Uri, '/([^/?]+\.iso)')).Groups[1].Value
+        if (-not $nom) { $nom = "Windows$Version-$Arch.iso" }
+        Write-Etat "Lien officiel obtenu : $nom" -Niveau OK
+        return @{ Nom = $nom; Uri = $opt.Uri; Langue = $choix.LocalizedLanguage }
+    }
+    catch {
+        Write-Etat "Lien indisponible : $($_.Exception.Message)" -Niveau Echec
+        Write-Etat "Repli : utilise le Media Creation Tool depuis ce menu." -Niveau Info
+        return $null
+    }
+}
+
+function Save-IsoWindows {
+    <#
+        Telecharge l'ISO depuis le lien officiel, avec progression.
+        Retourne le chemin ecrit, ou $null.
+
+        Le lien expire au bout de quelques heures : on ne le conserve pas, on le
+        redemande a chaque fois. Un telechargement interrompu laisse un fichier
+        tronque, qui produirait un support silencieusement inutilisable : on
+        ecrit donc dans un fichier temporaire et on ne le renomme QU'A LA FIN,
+        apres avoir verifie que le compte d'octets correspond.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Uri,
+        [Parameter(Mandatory)][string]$Chemin
+    )
+
+    $partiel = "$Chemin.partiel"
+    $dossier = Split-Path $Chemin -Parent
+    if ($dossier -and -not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
+    if (Test-Path $partiel) { Remove-Item $partiel -Force }
+
+    try {
+        Write-Etat "Telechargement en cours (plusieurs gigaoctets, compter 10 a 40 minutes)..." -Niveau Info
+        $req = [System.Net.HttpWebRequest]::Create($Uri)
+        $req.UserAgent = 'Mozilla/5.0'
+        $req.Timeout = 60000
+        $rep = $req.GetResponse()
+        $total = $rep.ContentLength
+        $flux = $rep.GetResponseStream()
+        $sortie = [System.IO.File]::Create($partiel)
+        $tampon = New-Object byte[] 1048576
+        $fait = 0L
+        $dernier = Get-Date
+        while (($lu = $flux.Read($tampon, 0, $tampon.Length)) -gt 0) {
+            $sortie.Write($tampon, 0, $lu)
+            $fait += $lu
+            if (((Get-Date) - $dernier).TotalSeconds -ge 10) {
+                $pc = if ($total -gt 0) { [math]::Round($fait * 100 / $total) } else { 0 }
+                Write-Etat "  $pc %  ($([math]::Round($fait / 1GB, 2)) Go sur $([math]::Round($total / 1GB, 2)) Go)" -Niveau Info
+                $dernier = Get-Date
+            }
+        }
+        $sortie.Close(); $flux.Close(); $rep.Close()
+
+        if ($total -gt 0 -and $fait -ne $total) {
+            throw "Telechargement incomplet : $fait octets sur $total attendus."
+        }
+        Move-Item $partiel $Chemin -Force
+        Write-Etat "ISO telechargee : $Chemin ($([math]::Round((Get-Item $Chemin).Length / 1GB, 2)) Go)" -Niveau OK
+        return $Chemin
+    }
+    catch {
+        if (Test-Path $partiel) { Remove-Item $partiel -Force -ErrorAction SilentlyContinue }
+        Write-Etat "Telechargement echoue : $($_.Exception.Message)" -Niveau Echec
+        return $null
+    }
+}
+
 function Wait-IsoTelechargee {
     <#
         Surveille l'apparition d'une ISO Windows et renvoie son chemin.
