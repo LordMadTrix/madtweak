@@ -4969,7 +4969,7 @@ function Get-DisquesUSB {
     return $liste
 }
 
-function Convert-EsdVersWim {
+function Convert-ImageVersWim {
     <#
         Convertit une image .esd en .wim en n'en extrayant qu'UNE édition.
         Retourne le chemin du .wim produit. Ne touche pas à la source.
@@ -4991,7 +4991,7 @@ function Convert-EsdVersWim {
         contiennent qu'une : ne pas compter dessus.
     #>
     param(
-        [Parameter(Mandatory)][string]$CheminEsd,
+        [Parameter(Mandatory)][string]$CheminImage,
         [string]$Edition = '',
         # Clé produit. Sans elle, l'installeur affiche son écran « Clé de produit »
         # et il faut cliquer « Je n'ai pas de clé » — constaté sur un vrai essai.
@@ -5002,9 +5002,9 @@ function Convert-EsdVersWim {
         [string]$DossierSortie
     )
 
-    if (-not (Test-Path -LiteralPath $CheminEsd)) { throw "Image introuvable : $CheminEsd" }
+    if (-not (Test-Path -LiteralPath $CheminImage)) { throw "Image introuvable : $CheminImage" }
 
-    $images = @(Get-WindowsImage -ImagePath $CheminEsd -ErrorAction Stop)
+    $images = @(Get-WindowsImage -ImagePath $CheminImage -ErrorAction Stop)
     $index = 1
     if ($Edition) {
         $trouve = $images | Where-Object { $_.ImageName -eq $Edition } | Select-Object -First 1
@@ -5031,7 +5031,7 @@ function Convert-EsdVersWim {
     # .wim, soit +37 %. Le facteur 2 laisse la marge nécessaire — une première
     # version de ce contrôle comparait à la taille de la source et aurait laissé
     # démarrer une conversion vouée à finir sur un disque plein.
-    $taille = (Get-Item $CheminEsd).Length
+    $taille = (Get-Item $CheminImage).Length
     $requis = $taille * 2
     $libre = (Get-PSDrive -Name ($DossierSortie.Substring(0, 1))).Free
     if ($libre -lt $requis) {
@@ -5040,7 +5040,7 @@ function Convert-EsdVersWim {
 
     $sortie = Join-Path $DossierSortie 'install.wim'
     Write-Etat "Conversion vers .wim, édition « $nomGarde » (compter 5 à 15 minutes selon le disque)..." -Niveau Info
-    Export-WindowsImage -SourceImagePath $CheminEsd -SourceIndex $index `
+    Export-WindowsImage -SourceImagePath $CheminImage -SourceIndex $index `
         -DestinationImagePath $sortie -CompressionType Max -ErrorAction Stop | Out-Null
     Write-Etat "Converti : $([math]::Round((Get-Item $sortie).Length/1GB,2)) Go (source : $([math]::Round($taille/1GB,2)) Go)." -Niveau OK
     return $sortie
@@ -5446,17 +5446,19 @@ function New-CleInstallation {
             $tailleGo = (Get-Item $gros).Length / 1GB
             if ($tailleGo -gt 3.9 -and $SystemeFichiers -eq 'FAT32') {
                 $decouper = $true
-                $aDecouper = $gros
 
-                if ($gros -eq $esd) {
-                    # Un .esd ne se découpe pas, mais il se convertit. Toute la
-                    # mécanique est dans Convert-EsdVersWim, éprouvable seule.
-                    $wimTemp = Convert-EsdVersWim -CheminEsd $esd -Edition $Edition
-                    $aDecouper = $wimTemp
-                }
-                else {
-                    Write-Etat "install.wim fait $([math]::Round($tailleGo,1)) Go : il sera découpé en .swm (FAT32 plafonne à 4 Go par fichier)." -Niveau Info
-                }
+                # On exporte TOUJOURS vers un WIM temporaire, que la source soit un
+                # .esd ou un .wim. Deux raisons, la premiere apprise a la dure :
+                #
+                # 1. Split-WindowsImage refuse une source en LECTURE SEULE. Or une
+                #    ISO montee l'est toujours. Sur une image contenant un .wim, le
+                #    decoupage direct echoue avec « Acces refuse (E_ACCESSDENIED) »,
+                #    apres la copie des fichiers, donc tard.
+                # 2. On n'emporte alors qu'une edition sur les onze que contient une
+                #    image officielle : le fichier produit est bien plus petit.
+                Write-Etat "$nomExclu fait $([math]::Round($tailleGo,1)) Go : extraction de l'edition choisie, puis decoupage en .swm." -Niveau Info
+                $wimTemp = Convert-ImageVersWim -CheminImage $gros -Edition $Edition
+                $aDecouper = $wimTemp
             }
         }
 
