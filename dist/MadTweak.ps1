@@ -5046,6 +5046,55 @@ function Convert-EsdVersWim {
     return $sortie
 }
 
+function Get-OutilsSupport {
+    # Outils officiels ou reconnus pour obtenir une ISO et ecrire une cle.
+    # MadTweak ne telecharge aucune image lui-meme : il installe l'outil qui le
+    # fait, et laisse l'utilisateur decider.
+    return [ordered]@{
+        "Media Creation Tool (Microsoft, Windows 11)" = "Microsoft.MediaCreationTool"
+        "Media Creation Tool (Microsoft, Windows 10)" = "Microsoft.MediaCreationTool.Windows10"
+        "Rufus (ecrit la cle, sait aussi telecharger)" = "Rufus.Rufus"
+        "Ventoy (une cle, plusieurs ISO)"             = "Ventoy.Ventoy"
+    }
+}
+
+function Start-MediaCreationTool {
+    <#
+        Lance le Media Creation Tool, SANS AUCUN COMMUTATEUR.
+
+        AVERTISSEMENT, appris a la dure : les commutateurs qu'on trouve partout
+        sur le web — /Eula Accept /Retail /MediaArch /MediaLangCode /MediaEdition —
+        ne mettent PAS l'outil en mode « creation de support ». Ils le basculent
+        en mode MISE A NIVEAU DE LA MACHINE COURANTE. Essaye sur une machine
+        reelle : l'outil ouvre « Configuration de Windows 11 » et reclame une cle
+        produit pour installer Windows sur le PC ou on se trouve.
+
+        Sur un outil dont le role est de preparer une cle pour une AUTRE machine,
+        declencher par megarde la mise a niveau de celle-ci serait la pire des
+        surprises. On lance donc l'assistant nu, et l'utilisateur choisit
+        « Creer un support d'installation » puis « Fichier ISO » lui-meme.
+    #>
+    $chemins = @(
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Packages\Microsoft.MediaCreationTool_Microsoft.Winget.Source_8wekyb3d8bbwe\MediaCreationTool.exe'),
+        (Join-Path $env:LOCALAPPDATA 'Microsoft\WinGet\Links\MediaCreationTool.exe')
+    )
+    $exe = $chemins | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $exe) {
+        $c = Get-Command MediaCreationTool -ErrorAction SilentlyContinue
+        if ($c) { $exe = $c.Source }
+    }
+    if (-not $exe) {
+        Write-Etat "Media Creation Tool introuvable. Installe-le d'abord depuis ce menu." -Niveau Avert
+        return $false
+    }
+
+    Write-Etat "Lancement du Media Creation Tool." -Niveau Info
+    Write-Etat "Choisis « Creer un support d'installation », PAS la mise a niveau de ce PC." -Niveau Avert
+    Write-Etat "Puis « Fichier ISO », et note ou tu l'enregistres." -Niveau Info
+    Start-Process -FilePath $exe | Out-Null
+    return $true
+}
+
 function New-CleInstallation {
     <#
         Efface un disque USB, le formate et y écrit une ISO Windows officielle,
