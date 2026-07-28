@@ -2946,7 +2946,9 @@ function Set-GamingNetworkOptimizations {
     try {
         $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | Select-Object -First 1
         if ($adapter) {
-            Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+            Invoke-Action "définirait le serveur DNS 1.1.1.1 sur $($adapter.Name)" {
+                Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+            }
         }
     } catch { }
 
@@ -2957,9 +2959,9 @@ function Set-GamingNetworkOptimizations {
 function Set-CpuCoreParkingAndFrequency {
     # Désactive le parquage agressif des cœurs CPU dans le plan d'alimentation actif (Unpark CPU Cores).
     try {
-        powercfg.exe /setacvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
-        powercfg.exe /setdcvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
-        powercfg.exe /setactive SCHEME_CURRENT
+        Invoke-Externe "powercfg.exe" @("/setacvalueindex", "SCHEME_CURRENT", "54533751-8834-450f-9a72-171923846a36", "0cc5b647-0208-46c6-9466-9d6a0d0c377f", "100")
+        Invoke-Externe "powercfg.exe" @("/setdcvalueindex", "SCHEME_CURRENT", "54533751-8834-450f-9a72-171923846a36", "0cc5b647-0208-46c6-9466-9d6a0d0c377f", "100")
+        Invoke-Externe "powercfg.exe" @("/setactive", "SCHEME_CURRENT")
         Write-Etat (T 'cpu.unpark.ok') -Niveau OK
         return $true
     } catch {
@@ -2972,9 +2974,9 @@ function Optimize-LecteursStockageSsd {
     try {
         $volumes = Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 'Fixed' -and $_.DriveLetter }
         foreach ($v in $volumes) {
-            try {
+            Invoke-Action "exécuterait le ReTrim sur le volume $($v.DriveLetter):" {
                 Optimize-Volume -DriveLetter $v.DriveLetter -ReTrim -ErrorAction SilentlyContinue | Out-Null
-            } catch { }
+            }
         }
         Write-Etat (T 'ssd.trim.ok') -Niveau OK
         return $true
@@ -2982,6 +2984,7 @@ function Optimize-LecteursStockageSsd {
         return $false
     }
 }
+
 
 
 
@@ -3194,7 +3197,9 @@ function Update-ProtectionHostsViePrivee {
     }
 
     if ($ajoutes -gt 0) {
-        Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+        Invoke-Action "ajouterait $ajoutes règles de télémétrie au fichier hosts" {
+            Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+        }
     }
 
     Write-Etat ((T 'hosts.telemetrie.ok') -f $domaines.Count) -Niveau OK
@@ -3204,7 +3209,9 @@ function Update-ProtectionHostsViePrivee {
 function Set-ProtectionDefenderViePrivee {
     # Règle la soumission d'échantillons Defender sur Jamais (SubmitSamplesConsent = 2) et désactive la télémétrie SmartScreen.
     try {
-        Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        Invoke-Action "désactiverait la soumission d'échantillons Defender Cloud" {
+            Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        }
         Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SubmitSamplesConsent" -Value 2
         Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SpynetReporting" -Value 0
         Write-Etat (T 'defender.privacy.ok') -Niveau OK
@@ -3213,6 +3220,7 @@ function Set-ProtectionDefenderViePrivee {
         return $false
     }
 }
+
 
 
 
@@ -7469,9 +7477,10 @@ function New-IsoMadTweakBootable {
     }
 
     $args = @("-m", "-o", "-u2", "-udfver102", $bootArg, "-l$LabelVolume", $DossierSource, $CheminIsoSortie)
-    & $oscdimg $args | Out-Null
+    Invoke-Externe $oscdimg $args
 
     if (Test-Path $CheminIsoSortie) {
+
         $tailleGo = [math]::Round((Get-Item $CheminIsoSortie).Length / 1GB, 2)
         Write-Etat ((T 'iso.bootable.ok') -f $tailleGo, $CheminIsoSortie) -Niveau OK
         return $CheminIsoSortie

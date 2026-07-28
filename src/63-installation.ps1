@@ -1969,9 +1969,10 @@ function New-IsoMadTweakBootable {
     }
 
     $args = @("-m", "-o", "-u2", "-udfver102", $bootArg, "-l$LabelVolume", $DossierSource, $CheminIsoSortie)
-    & $oscdimg $args | Out-Null
+    Invoke-Externe $oscdimg $args
 
     if (Test-Path $CheminIsoSortie) {
+
         $tailleGo = [math]::Round((Get-Item $CheminIsoSortie).Length / 1GB, 2)
         Write-Etat ((T 'iso.bootable.ok') -f $tailleGo, $CheminIsoSortie) -Niveau OK
         return $CheminIsoSortie

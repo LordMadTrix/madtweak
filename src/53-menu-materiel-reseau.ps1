@@ -306,7 +306,9 @@ function Set-GamingNetworkOptimizations {
     try {
         $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | Select-Object -First 1
         if ($adapter) {
-            Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+            Invoke-Action "définirait le serveur DNS 1.1.1.1 sur $($adapter.Name)" {
+                Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+            }
         }
     } catch { }
 
@@ -317,9 +319,9 @@ function Set-GamingNetworkOptimizations {
 function Set-CpuCoreParkingAndFrequency {
     # Désactive le parquage agressif des cœurs CPU dans le plan d'alimentation actif (Unpark CPU Cores).
     try {
-        powercfg.exe /setacvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
-        powercfg.exe /setdcvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
-        powercfg.exe /setactive SCHEME_CURRENT
+        Invoke-Externe "powercfg.exe" @("/setacvalueindex", "SCHEME_CURRENT", "54533751-8834-450f-9a72-171923846a36", "0cc5b647-0208-46c6-9466-9d6a0d0c377f", "100")
+        Invoke-Externe "powercfg.exe" @("/setdcvalueindex", "SCHEME_CURRENT", "54533751-8834-450f-9a72-171923846a36", "0cc5b647-0208-46c6-9466-9d6a0d0c377f", "100")
+        Invoke-Externe "powercfg.exe" @("/setactive", "SCHEME_CURRENT")
         Write-Etat (T 'cpu.unpark.ok') -Niveau OK
         return $true
     } catch {
@@ -332,9 +334,9 @@ function Optimize-LecteursStockageSsd {
     try {
         $volumes = Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 'Fixed' -and $_.DriveLetter }
         foreach ($v in $volumes) {
-            try {
+            Invoke-Action "exécuterait le ReTrim sur le volume $($v.DriveLetter):" {
                 Optimize-Volume -DriveLetter $v.DriveLetter -ReTrim -ErrorAction SilentlyContinue | Out-Null
-            } catch { }
+            }
         }
         Write-Etat (T 'ssd.trim.ok') -Niveau OK
         return $true
@@ -342,6 +344,7 @@ function Optimize-LecteursStockageSsd {
         return $false
     }
 }
+
 
 
 

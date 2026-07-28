@@ -204,7 +204,9 @@ function Update-ProtectionHostsViePrivee {
     }
 
     if ($ajoutes -gt 0) {
-        Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+        Invoke-Action "ajouterait $ajoutes règles de télémétrie au fichier hosts" {
+            Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+        }
     }
 
     Write-Etat ((T 'hosts.telemetrie.ok') -f $domaines.Count) -Niveau OK
@@ -214,7 +216,9 @@ function Update-ProtectionHostsViePrivee {
 function Set-ProtectionDefenderViePrivee {
     # Règle la soumission d'échantillons Defender sur Jamais (SubmitSamplesConsent = 2) et désactive la télémétrie SmartScreen.
     try {
-        Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        Invoke-Action "désactiverait la soumission d'échantillons Defender Cloud" {
+            Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        }
         Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SubmitSamplesConsent" -Value 2
         Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SpynetReporting" -Value 0
         Write-Etat (T 'defender.privacy.ok') -Niveau OK
@@ -223,6 +227,7 @@ function Set-ProtectionDefenderViePrivee {
         return $false
     }
 }
+
 
 
 
