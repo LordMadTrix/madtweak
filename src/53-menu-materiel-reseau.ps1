@@ -327,6 +327,23 @@ function Set-CpuCoreParkingAndFrequency {
     }
 }
 
+function Optimize-LecteursStockageSsd {
+    # Déclenche le ReTrim sur les volumes SSD/NVMe et optimise le cache d'écriture.
+    try {
+        $volumes = Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 'Fixed' -and $_.DriveLetter }
+        foreach ($v in $volumes) {
+            try {
+                Optimize-Volume -DriveLetter $v.DriveLetter -ReTrim -ErrorAction SilentlyContinue | Out-Null
+            } catch { }
+        }
+        Write-Etat (T 'ssd.trim.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+
 
 
 

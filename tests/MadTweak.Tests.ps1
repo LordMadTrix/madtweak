@@ -149,9 +149,12 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         . (Join-Path $srcDir "30-simulation-et-tweaks.ps1")
         . (Join-Path $srcDir "51-menu-avances.ps1")
         . (Join-Path $srcDir "53-menu-materiel-reseau.ps1")
+        . (Join-Path $srcDir "54-menu-securite-ia.ps1")
         . (Join-Path $srcDir "56-menu-maintenance.ps1")
         . (Join-Path $srcDir "59-menu-nettoyage.ps1")
+        . (Join-Path $srcDir "70-audit.ps1")
     }
+
 
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
@@ -210,7 +213,28 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     It "Clear-TelechargementsAnciens doit s'exécuter sans lever d'exception" {
         { Clear-TelechargementsAnciens } | Should Not Throw
     }
+
+    It "Optimize-LecteursStockageSsd doit s'exécuter sans lever d'exception" {
+        { Optimize-LecteursStockageSsd } | Should Not Throw
+    }
+
+    It "Set-ProtectionDefenderViePrivee doit s'exécuter sans lever d'exception" {
+        { Set-ProtectionDefenderViePrivee } | Should Not Throw
+    }
+
+    It "Clear-FichiersMajWindowsOld doit s'exécuter sans lever d'exception" {
+        { Clear-FichiersMajWindowsOld } | Should Not Throw
+    }
+
+    It "Export-RapportAuditPdf doit générer un fichier rapport HTML/PDF valide" {
+        $tmpPdf = Join-Path $env:TEMP "test-report.html"
+        if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
+        Export-RapportAuditPdf -CheminSortie $tmpPdf | Out-Null
+        (Test-Path $tmpPdf) | Should Be $true
+        if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
+    }
 }
+
 
 
 

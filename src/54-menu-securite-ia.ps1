@@ -211,4 +211,18 @@ function Update-ProtectionHostsViePrivee {
     return $ajoutes
 }
 
+function Set-ProtectionDefenderViePrivee {
+    # Règle la soumission d'échantillons Defender sur Jamais (SubmitSamplesConsent = 2) et désactive la télémétrie SmartScreen.
+    try {
+        Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SubmitSamplesConsent" -Value 2
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SpynetReporting" -Value 0
+        Write-Etat (T 'defender.privacy.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+
 

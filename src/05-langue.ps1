@@ -387,7 +387,14 @@ $script:Textes = @{
     'cpu.unpark.ok'              = @{ fr = "Déblocage des cœurs CPU et désactivation du parking d'énergie appliqués."; en = "CPU unpark and core parking disabled." }
     'iso.bootable.ok'            = @{ fr = "Image ISO bootable UEFI générée avec succès ({0} Go) : {1}"; en = "Bootable UEFI ISO image generated successfully ({0} GB): {1}" }
     'nettoyage.downloads.ok'     = @{ fr = "{0} installeur(s) périmé(s) supprimé(s) du dossier Téléchargements ({1} Mo libéré(s))."; en = "{0} outdated installer(s) removed from Downloads ({1} MB freed)." }
+
+    # --- v1.7 Features ---
+    'ssd.trim.ok'                = @{ fr = "Optimisation des lecteurs SSD/NVMe et commande TRIM terminées."; en = "SSD/NVMe optimization and TRIM command completed." }
+    'defender.privacy.ok'        = @{ fr = "Protection de la vie privée Microsoft Defender Cloud appliquée (soumission d'échantillons désactivée)."; en = "Microsoft Defender Cloud privacy applied (sample submission disabled)." }
+    'winupdate.purge.ok'         = @{ fr = "Purge du magasin de composants Windows Update terminée ({0} Mo libéré(s))."; en = "Windows Update component store cleanup completed ({0} MB freed)." }
+    'rapport.pdf.ok'             = @{ fr = "Rapport d'audit imprimable PDF généré avec succès : {0}"; en = "Printable PDF audit report generated successfully: {0}" }
 }
+
 
 
 

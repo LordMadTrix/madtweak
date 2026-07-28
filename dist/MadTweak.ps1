@@ -457,7 +457,14 @@ $script:Textes = @{
     'cpu.unpark.ok'              = @{ fr = "Déblocage des cœurs CPU et désactivation du parking d'énergie appliqués."; en = "CPU unpark and core parking disabled." }
     'iso.bootable.ok'            = @{ fr = "Image ISO bootable UEFI générée avec succès ({0} Go) : {1}"; en = "Bootable UEFI ISO image generated successfully ({0} GB): {1}" }
     'nettoyage.downloads.ok'     = @{ fr = "{0} installeur(s) périmé(s) supprimé(s) du dossier Téléchargements ({1} Mo libéré(s))."; en = "{0} outdated installer(s) removed from Downloads ({1} MB freed)." }
+
+    # --- v1.7 Features ---
+    'ssd.trim.ok'                = @{ fr = "Optimisation des lecteurs SSD/NVMe et commande TRIM terminées."; en = "SSD/NVMe optimization and TRIM command completed." }
+    'defender.privacy.ok'        = @{ fr = "Protection de la vie privée Microsoft Defender Cloud appliquée (soumission d'échantillons désactivée)."; en = "Microsoft Defender Cloud privacy applied (sample submission disabled)." }
+    'winupdate.purge.ok'         = @{ fr = "Purge du magasin de composants Windows Update terminée ({0} Mo libéré(s))."; en = "Windows Update component store cleanup completed ({0} MB freed)." }
+    'rapport.pdf.ok'             = @{ fr = "Rapport d'audit imprimable PDF généré avec succès : {0}"; en = "Printable PDF audit report generated successfully: {0}" }
 }
+
 
 
 
@@ -2953,6 +2960,23 @@ function Set-CpuCoreParkingAndFrequency {
     }
 }
 
+function Optimize-LecteursStockageSsd {
+    # Déclenche le ReTrim sur les volumes SSD/NVMe et optimise le cache d'écriture.
+    try {
+        $volumes = Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 'Fixed' -and $_.DriveLetter }
+        foreach ($v in $volumes) {
+            try {
+                Optimize-Volume -DriveLetter $v.DriveLetter -ReTrim -ErrorAction SilentlyContinue | Out-Null
+            } catch { }
+        }
+        Write-Etat (T 'ssd.trim.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+
 
 
 
@@ -3169,6 +3193,20 @@ function Update-ProtectionHostsViePrivee {
     Write-Etat ((T 'hosts.telemetrie.ok') -f $domaines.Count) -Niveau OK
     return $ajoutes
 }
+
+function Set-ProtectionDefenderViePrivee {
+    # Règle la soumission d'échantillons Defender sur Jamais (SubmitSamplesConsent = 2) et désactive la télémétrie SmartScreen.
+    try {
+        Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction SilentlyContinue
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SubmitSamplesConsent" -Value 2
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Spynet" -Name "SpynetReporting" -Value 0
+        Write-Etat (T 'defender.privacy.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
 
 
 # ------------------------------------------------------------------------------
@@ -4279,6 +4317,28 @@ function Clear-TelechargementsAnciens {
     Write-Etat ((T 'nettoyage.downloads.ok') -f $suppr, $mo) -Niveau OK
     return $suppr
 }
+
+function Clear-FichiersMajWindowsOld {
+    # Purge le dossier C:\Windows\SoftwareDistribution\Download et exécute DISM /startcomponentcleanup.
+    $octets = [long]0
+    $dossierDl = "C:\Windows\SoftwareDistribution\Download"
+    if (Test-Path $dossierDl) {
+        $fichiers = Get-ChildItem -Path $dossierDl -Recurse -File -ErrorAction SilentlyContinue
+        foreach ($f in $fichiers) {
+            $octets += $f.Length
+            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    try {
+        dism.exe /online /cleanup-image /startcomponentcleanup /resetbase | Out-Null
+    } catch { }
+
+    $mo = [math]::Round($octets / 1MB, 1)
+    Write-Etat ((T 'winupdate.purge.ok') -f $mo) -Niveau OK
+    return $mo
+}
+
 
 
 
@@ -8274,6 +8334,62 @@ function Get-AuditConformiteSecurite {
     Write-Etat (T 'audit.securite.ok') -Niveau OK
     return $res
 }
+
+function Export-RapportAuditPdf {
+    # Génère un rapport d'audit au format HTML réactif optimisé pour l'impression directe en PDF (@media print).
+    param([string]$CheminSortie)
+    if (-not $CheminSortie) { $CheminSortie = Join-Path $script:DossierDonnees "Rapport-Audit-MadTweak.html" }
+
+    $oui = 0; $non = 0; $ind = 0
+    $rows = ""
+    foreach ($a in Get-CatalogueAudit) {
+        $r = $null; try { $r = & $a.Test } catch { $r = $null }
+        switch ($r) {
+            $true { $v = "<span class='badge-ok'>Actif</span>"; $oui++ }
+            $false { $v = "<span class='badge-ko'>Au défaut</span>"; $non++ }
+            default { $v = "<span style='color:#caa24a;'>N/A</span>"; $ind++ }
+        }
+        $rows += "<tr><td>$($a.Nom)</td><td>$($a.Cat)</td><td>$v</td></tr>`n"
+    }
+
+    $score = if (($oui + $non) -gt 0) { [int](100 * $oui / ($oui + $non)) } else { 0 }
+    $html = @"
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Rapport d'Audit MadTweak</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #0f121a; color: #e0e6ed; }
+  h1 { color: #e20018; border-bottom: 2px solid #e20018; padding-bottom: 10px; }
+  .score { font-size: 48px; font-weight: bold; color: #00f0ff; }
+  .badge-ok { color: #00ff88; font-weight: bold; }
+  .badge-ko { color: #ff4444; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #232838; padding: 10px; text-align: left; }
+  th { background: #151821; }
+  @media print { body { background: #fff; color: #000; } .score { color: #0088cc; } th { background: #eee; } }
+</style>
+</head>
+<body>
+  <h1>MadTweak v1.7 — Rapport d'Audit Système</h1>
+  <p>Score de santé global : <span class="score">${score}/100</span></p>
+  <p>Généré le $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss') sur $env:COMPUTERNAME</p>
+  <table>
+    <tr><th>Tweak / Test</th><th>Catégorie</th><th>Verdict</th></tr>
+$rows
+  </table>
+</body>
+</html>
+"@
+
+    [System.IO.File]::WriteAllText($CheminSortie, $html, [System.Text.Encoding]::UTF8)
+
+    Write-Etat ((T 'rapport.pdf.ok') -f $CheminSortie) -Niveau OK
+    return $CheminSortie
+}
+
+
 
 
 

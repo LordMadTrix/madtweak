@@ -322,6 +322,28 @@ function Clear-TelechargementsAnciens {
     return $suppr
 }
 
+function Clear-FichiersMajWindowsOld {
+    # Purge le dossier C:\Windows\SoftwareDistribution\Download et exécute DISM /startcomponentcleanup.
+    $octets = [long]0
+    $dossierDl = "C:\Windows\SoftwareDistribution\Download"
+    if (Test-Path $dossierDl) {
+        $fichiers = Get-ChildItem -Path $dossierDl -Recurse -File -ErrorAction SilentlyContinue
+        foreach ($f in $fichiers) {
+            $octets += $f.Length
+            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    try {
+        dism.exe /online /cleanup-image /startcomponentcleanup /resetbase | Out-Null
+    } catch { }
+
+    $mo = [math]::Round($octets / 1MB, 1)
+    Write-Etat ((T 'winupdate.purge.ok') -f $mo) -Niveau OK
+    return $mo
+}
+
+
 
 
 

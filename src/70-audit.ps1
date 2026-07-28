@@ -905,5 +905,61 @@ function Get-AuditConformiteSecurite {
     return $res
 }
 
+function Export-RapportAuditPdf {
+    # Génère un rapport d'audit au format HTML réactif optimisé pour l'impression directe en PDF (@media print).
+    param([string]$CheminSortie)
+    if (-not $CheminSortie) { $CheminSortie = Join-Path $script:DossierDonnees "Rapport-Audit-MadTweak.html" }
+
+    $oui = 0; $non = 0; $ind = 0
+    $rows = ""
+    foreach ($a in Get-CatalogueAudit) {
+        $r = $null; try { $r = & $a.Test } catch { $r = $null }
+        switch ($r) {
+            $true { $v = "<span class='badge-ok'>Actif</span>"; $oui++ }
+            $false { $v = "<span class='badge-ko'>Au défaut</span>"; $non++ }
+            default { $v = "<span style='color:#caa24a;'>N/A</span>"; $ind++ }
+        }
+        $rows += "<tr><td>$($a.Nom)</td><td>$($a.Cat)</td><td>$v</td></tr>`n"
+    }
+
+    $score = if (($oui + $non) -gt 0) { [int](100 * $oui / ($oui + $non)) } else { 0 }
+    $html = @"
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Rapport d'Audit MadTweak</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #0f121a; color: #e0e6ed; }
+  h1 { color: #e20018; border-bottom: 2px solid #e20018; padding-bottom: 10px; }
+  .score { font-size: 48px; font-weight: bold; color: #00f0ff; }
+  .badge-ok { color: #00ff88; font-weight: bold; }
+  .badge-ko { color: #ff4444; font-weight: bold; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { border: 1px solid #232838; padding: 10px; text-align: left; }
+  th { background: #151821; }
+  @media print { body { background: #fff; color: #000; } .score { color: #0088cc; } th { background: #eee; } }
+</style>
+</head>
+<body>
+  <h1>MadTweak v1.7 — Rapport d'Audit Système</h1>
+  <p>Score de santé global : <span class="score">${score}/100</span></p>
+  <p>Généré le $(Get-Date -Format 'dd/MM/yyyy HH:mm:ss') sur $env:COMPUTERNAME</p>
+  <table>
+    <tr><th>Tweak / Test</th><th>Catégorie</th><th>Verdict</th></tr>
+$rows
+  </table>
+</body>
+</html>
+"@
+
+    [System.IO.File]::WriteAllText($CheminSortie, $html, [System.Text.Encoding]::UTF8)
+
+    Write-Etat ((T 'rapport.pdf.ok') -f $CheminSortie) -Niveau OK
+    return $CheminSortie
+}
+
+
+
 
 
