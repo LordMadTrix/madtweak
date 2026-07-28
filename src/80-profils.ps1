@@ -426,3 +426,67 @@ function Menu-Profils {
     }
 }
 
+function Measure-ImpactProfil {
+    # Estime le nombre de tweaks ciblant des processus, services ou télémétrie
+    # afin de donner une métrique indicative sur le gain potentiel de RAM / CPU.
+    param([Parameter(Mandatory)][string]$NomProfil)
+    $p = $script:Profils[$NomProfil]
+    if (-not $p) { return $null }
+
+    $clesServices = @("service-diagtrack", "sysmain", "service-retaildemo", "service-fax", "service-registre-distant", "wer")
+    $clesBloatware = @("bloatwares", "widgets-paquet", "apps-arriere-plan")
+    $clesTelemetrie = @("telemetrie", "taches-telemetrie", "nvidia-telemetrie", "amd-telemetrie", "edge-telemetrie", "browsers-telemetrie", "office-telemetrie")
+
+    $countServices = 0
+    $countBloat = 0
+    $countTelem = 0
+
+    foreach ($cle in $p.Cles) {
+        if ($cle -in $clesServices) { $countServices++ }
+        elseif ($cle -in $clesBloatware) { $countBloat++ }
+        elseif ($cle -in $clesTelemetrie) { $countTelem++ }
+    }
+
+    # Estimation indicative
+    $ramEstimeeMo = ($countServices * 45) + ($countBloat * 120) + ($countTelem * 15)
+
+    return @{
+        NombreTweaksTotal = $p.Cles.Count
+        ServicesOptimises = $countServices
+        ApplicationsAllegees = $countBloat
+        TelemDesactivee = $countTelem
+        GainRamEstimeMo = $ramEstimeeMo
+    }
+}
+
+function Compare-Profils {
+    # Compare deux profils et renvoie un dictionnaire structuré contenant :
+    # - TweaksCommuns : liste des clés présentes dans les 2 profils
+    # - TweaksUniquesA : clés uniquement dans ProfilA
+    # - TweaksUniquesB : clés uniquement dans ProfilB
+    param(
+        [Parameter(Mandatory)][string]$NomProfilA,
+        [Parameter(Mandatory)][string]$NomProfilB
+    )
+    $pA = $script:Profils[$NomProfilA]
+    $pB = $script:Profils[$NomProfilB]
+    if (-not $pA -or -not $pB) { throw "Profil inconnu : $NomProfilA ou $NomProfilB" }
+
+    $clesA = @($pA.Cles)
+    $clesB = @($pB.Cles)
+
+    $communs = @($clesA | Where-Object { $_ -in $clesB })
+    $uniquesA = @($clesA | Where-Object { $_ -notin $clesB })
+    $uniquesB = @($clesB | Where-Object { $_ -notin $clesA })
+
+    return @{
+        ProfilA = $NomProfilA
+        ProfilB = $NomProfilB
+        TweaksCommuns = $communs
+        TweaksUniquesA = $uniquesA
+        TweaksUniquesB = $uniquesB
+    }
+}
+
+
+

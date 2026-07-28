@@ -256,3 +256,40 @@ function Menu-Materiel-Cpu {
     Fin-De-Menu -RedemarrerExplorateur
 }
 
+function Test-SanteReseau {
+    # Mesure la santé de la connexion réseau (ping, DNS, et réglages TCP/IP).
+    $res = @{
+        PingMs = -1
+        DnsOk = $false
+        NetworkThrottlingIndex = $null
+        SystemResponsiveness = $null
+    }
+
+    try {
+        $ping = New-Object System.Net.NetworkInformation.Ping
+        $reply = $ping.Send("8.8.8.8", 2000)
+        if ($reply.Status -eq 'Success') {
+            $res.PingMs = $reply.RoundtripTime
+        }
+    } catch { }
+
+    try {
+        $ip = [System.Net.Dns]::GetHostAddresses("www.microsoft.com")
+        if ($ip.Count -gt 0) { $res.DnsOk = $true }
+    } catch { }
+
+    try {
+        $profil = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"
+        $p = Get-ItemProperty -Path $profil -ErrorAction SilentlyContinue
+        $res.NetworkThrottlingIndex = $p.NetworkThrottlingIndex
+        $res.SystemResponsiveness = $p.SystemResponsiveness
+    } catch { }
+
+    $pingDisplay = if ($res.PingMs -ge 0) { "$($res.PingMs)" } else { "ÉCHEC" }
+    $niveauPing = if ($res.PingMs -ge 0 -and $res.PingMs -lt 100) { "OK" } else { "Avert" }
+    Write-Etat ((T 'reseau.sante.ping') -f $pingDisplay) -Niveau $niveauPing
+    return $res
+}
+
+
+

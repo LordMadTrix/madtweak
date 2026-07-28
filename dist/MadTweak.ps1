@@ -397,11 +397,46 @@ $script:Textes = @{
     'c.choix'    = @{ fr = "Entre ton choix (1-17, ou S)"; en = "Enter your choice (1-17, or S)" }
 
     # --- Mentions de santé ---
-    'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
-    'sante.bon'            = @{ fr = "bon"; en = "good" }
-    'sante.moyen'          = @{ fr = "moyen"; en = "fair" }
-    'sante.faible'         = @{ fr = "à optimiser"; en = "needs work" }
+    'sante.excellent'            = @{ fr = "excellent"; en = "excellent" }
+    'sante.bon'                  = @{ fr = "bon"; en = "good" }
+    'sante.moyen'                = @{ fr = "moyen"; en = "fair" }
+    'sante.faible'               = @{ fr = "à optimiser"; en = "needs work" }
+
+    # --- Phase 2 : Export audit, Icônes bureau, Drivers, Comparateur ---
+    'audit.rapport.md.titre'     = @{ fr = "Rapport d'Audit de Santé Système — MadTweak"; en = "System Health Audit Report — MadTweak" }
+    'audit.rapport.md.score'     = @{ fr = "Score de santé global : "; en = "Overall health score: " }
+    'audit.rapport.md.date'      = @{ fr = "Généré le : "; en = "Generated on: " }
+    'icones.bureau.sauvegarde'   = @{ fr = "Position des icônes du bureau sauvegardée avec succès."; en = "Desktop icon positions saved successfully." }
+    'icones.bureau.restauree'    = @{ fr = "Position des icônes du bureau restaurée avec succès."; en = "Desktop icon positions restored successfully." }
+    'driver.plantage.detecte'    = @{ fr = "Pilote responsable du dernier plantage (BSOD) : "; en = "Driver responsible for last crash (BSOD): " }
+    'profils.compare.titre'      = @{ fr = "Comparaison des profils"; en = "Profile Comparison" }
+    'profils.compare.communs'    = @{ fr = "Tweaks communs aux deux profils :"; en = "Tweaks common to both profiles:" }
+    'profils.compare.uniques'    = @{ fr = "Tweaks uniques à "; en = "Unique tweaks to " }
+
+    # --- Clé d'installation USB & ISO ---
+    'install.vitesse.debut'      = @{ fr = "Test de vitesse du lecteur USB en cours..."; en = "Testing USB drive speed..." }
+    'install.vitesse.ok'         = @{ fr = "Débit d'écriture USB : {0} Mo/s (Satisfaisant)."; en = "USB write speed: {0} MB/s (Good)." }
+    'install.vitesse.lente'      = @{ fr = "ATTENTION : Débit d'écriture USB très faible ({0} Mo/s). La création de la clé peut être très longue."; en = "WARNING: Very low USB write speed ({0} MB/s). USB creation may be very slow." }
+    'install.hash.calcul'        = @{ fr = "Calcul du hash SHA-256 de l'ISO..."; en = "Calculating ISO SHA-256 hash..." }
+    'install.hash.ok'            = @{ fr = "Hash SHA-256 : {0}"; en = "SHA-256 Hash: {0}" }
+    'install.drivers.copie'      = @{ fr = "Copie des pilotes OEM vers le dossier `$WinPEDriver`$ de la clé USB..."; en = "Copying OEM drivers to `$WinPEDriver`$ folder on USB drive..." }
+    'install.drivers.ok'         = @{ fr = "{0} fichier(s) de pilotes copiés avec succès."; en = "{0} driver file(s) copied successfully." }
+    'install.template.export'    = @{ fr = "Modèle de configuration d'installation exporté : {0}"; en = "Installation configuration template exported: {0}" }
+    'install.template.import'    = @{ fr = "Modèle de configuration d'installation importé avec succès."; en = "Installation configuration template imported successfully." }
+    'install.wim.optimise'       = @{ fr = "Fichier WIM optimisé avec succès ({0} Go)."; en = "WIM file optimized successfully ({0} GB)." }
+
+    # --- Phase 3 : Apps JSON, Caches d'apps/GPU, Santé réseau ---
+    'apps.export.ok'             = @{ fr = "Liste d'applications exportée dans {0} ({1} app(s))."; en = "Application list exported to {0} ({1} app(s))." }
+    'apps.import.ok'             = @{ fr = "Liste d'applications importée depuis {0} ({1} app(s))."; en = "Application list imported from {0} ({1} app(s))." }
+    'nettoyage.caches.analyse'   = @{ fr = "Mesure des caches d'applications et Shader GPU en cours..."; en = "Measuring application and GPU Shader caches..." }
+    'nettoyage.caches.purger'    = @{ fr = "Purge des caches terminée : {0} Mo libéré(s)."; en = "Cache cleanup completed: {0} MB freed." }
+    'reseau.sante.titre'         = @{ fr = "Diagnostic de santé réseau"; en = "Network Health Diagnostic" }
+    'reseau.sante.ping'          = @{ fr = "Latence réseau (ping 8.8.8.8) : {0} ms"; en = "Network latency (ping 8.8.8.8): {0} ms" }
 }
+
+
+
+
 # ------------------------------------------------------------------------------
 # TEXTES DES TWEAKS — traductions anglaises
 #
@@ -1089,6 +1124,27 @@ function Assert-EditionPro {
     }
 }
 
+function Get-TemperatureCPU {
+    # Tente d'obtenir la température du CPU en Celsius via WMI (MSAcpi_ThermalZoneTemperature).
+    try {
+        $tz = Get-CimInstance -Namespace "root/wmi" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue
+        if ($tz -and $tz.CurrentTemperature) {
+            $kelvin = ($tz.CurrentTemperature | Measure-Object -Maximum).Maximum
+            $celsius = [math]::Round(($kelvin / 10) - 273.15, 1)
+            if ($celsius -gt 0 -and $celsius -lt 120) { return $celsius }
+        }
+    } catch { }
+    return $null
+}
+
+# Si exécuté sous PowerShell 7+ (pwsh), tenter de charger le module Appx via l'interopérabilité
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    try {
+        Import-Module Appx -UseWindowsPowerShell -ErrorAction SilentlyContinue
+    } catch { }
+}
+
+
 # ------------------------------------------------------------------------------
 # SAUVEGARDE DE L'ÉTAT D'ORIGINE
 # Sans ça, "Annuler" ne peut que deviner les défauts de Windows. Ici on note la
@@ -1378,6 +1434,49 @@ function Restore-SauvegardePartielle {
     Write-Etat "$ok entrée(s) restaurée(s), $echecs échec(s)." -Niveau Info
     return @{ OK = $ok; Echecs = $echecs }
 }
+
+function Backup-PositionsIconesBureau {
+    # Sauvegarde l'agencement binaire des icônes du bureau dans le dossier de données local.
+    $keyPath = "HKCU:\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
+    $fichier = Join-Path $script:DossierDonnees "bureau-icones.bin"
+
+    if (-not (Test-Path $keyPath)) { return $false }
+    try {
+        $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+        $val = $null
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like "ItemPos*") { $val = $p.Value; break }
+        }
+        if ($val) {
+            if (-not (Test-Path $script:DossierDonnees)) { New-Item -ItemType Directory -Path $script:DossierDonnees -Force | Out-Null }
+            [System.IO.File]::WriteAllBytes($fichier, [byte[]]$val)
+            Write-Etat (T 'icones.bureau.sauvegarde') -Niveau OK
+            return $true
+        }
+    } catch { }
+    return $false
+}
+
+function Restore-PositionsIconesBureau {
+    # Restaure l'agencement binaire des icônes du bureau.
+    $keyPath = "HKCU:\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
+    $fichier = Join-Path $script:DossierDonnees "bureau-icones.bin"
+
+    if (-not (Test-Path $fichier) -or -not (Test-Path $keyPath)) { return $false }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($fichier)
+        $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like "ItemPos*") {
+                Set-ItemProperty -Path $keyPath -Name $p.Name -Value $bytes -ErrorAction SilentlyContinue
+            }
+        }
+        Write-Etat (T 'icones.bureau.restauree') -Niveau OK
+        return $true
+    } catch { }
+    return $false
+}
+
 
 # ------------------------------------------------------------------------------
 # MODE SIMULATION
@@ -2656,6 +2755,43 @@ function Menu-Materiel-Cpu {
     Fin-De-Menu -RedemarrerExplorateur
 }
 
+function Test-SanteReseau {
+    # Mesure la santé de la connexion réseau (ping, DNS, et réglages TCP/IP).
+    $res = @{
+        PingMs = -1
+        DnsOk = $false
+        NetworkThrottlingIndex = $null
+        SystemResponsiveness = $null
+    }
+
+    try {
+        $ping = New-Object System.Net.NetworkInformation.Ping
+        $reply = $ping.Send("8.8.8.8", 2000)
+        if ($reply.Status -eq 'Success') {
+            $res.PingMs = $reply.RoundtripTime
+        }
+    } catch { }
+
+    try {
+        $ip = [System.Net.Dns]::GetHostAddresses("www.microsoft.com")
+        if ($ip.Count -gt 0) { $res.DnsOk = $true }
+    } catch { }
+
+    try {
+        $profil = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile"
+        $p = Get-ItemProperty -Path $profil -ErrorAction SilentlyContinue
+        $res.NetworkThrottlingIndex = $p.NetworkThrottlingIndex
+        $res.SystemResponsiveness = $p.SystemResponsiveness
+    } catch { }
+
+    $pingDisplay = if ($res.PingMs -ge 0) { "$($res.PingMs)" } else { "ÉCHEC" }
+    $niveauPing = if ($res.PingMs -ge 0 -and $res.PingMs -lt 100) { "OK" } else { "Avert" }
+    Write-Etat ((T 'reseau.sante.ping') -f $pingDisplay) -Niveau $niveauPing
+    return $res
+}
+
+
+
 # ------------------------------------------------------------------------------
 # MISES À JOUR, SÉCURITÉ & IA
 # ------------------------------------------------------------------------------
@@ -2952,6 +3088,51 @@ function Menu-Logiciels-Extra {
 
     Fin-De-Menu
 }
+
+function Export-ListeApplicationsWinget {
+    # Exporte la liste des applications actuellement installées via winget au format JSON.
+    param([string]$CheminSortieJson)
+    if (-not $CheminSortieJson) { $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json" }
+
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        throw "winget est introuvable."
+    }
+
+    $dir = Split-Path $CheminSortieJson -Parent
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    winget export -o $CheminSortieJson --accept-source-agreements 2>&1 | Out-Null
+    if (-not (Test-Path $CheminSortieJson)) { throw "winget n'a produit aucun fichier." }
+
+    $count = 0
+    try {
+        $json = Get-Content $CheminSortieJson -Raw | ConvertFrom-Json
+        $count = $json.Sources.Packages.Count
+    } catch { }
+
+    Write-Etat ((T 'apps.export.ok') -f $CheminSortieJson, $count) -Niveau OK
+    return $CheminSortieJson
+}
+
+function Import-ListeApplicationsWinget {
+    # Importe et réinstalle automatiquement la liste d'applications depuis un fichier JSON.
+    param([string]$CheminJsonSource)
+    if (-not $CheminJsonSource) { $CheminJsonSource = Join-Path $script:DossierDonnees "mes-apps.json" }
+
+    if (-not (Test-Path $CheminJsonSource)) { throw "Fichier JSON introuvable : $CheminJsonSource" }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw "winget est introuvable." }
+
+    $count = 0
+    try {
+        $json = Get-Content $CheminJsonSource -Raw | ConvertFrom-Json
+        $count = $json.Sources.Packages.Count
+    } catch { }
+
+    winget import -i $CheminJsonSource --accept-source-agreements --accept-package-agreements --ignore-unavailable
+    Write-Etat ((T 'apps.import.ok') -f $CheminJsonSource, $count) -Niveau OK
+    return $LASTEXITCODE
+}
+
 
 # ------------------------------------------------------------------------------
 # MAINTENANCE & RÉPARATION
@@ -3772,6 +3953,58 @@ function Menu-Nettoyage {
 
     Fin-De-Menu
 }
+
+function Get-AnalyseCachesApplications {
+    # Pèse la taille des caches d'applications courantes et des Shader GPU.
+    $cibles = @{
+        "Cache Shader NVIDIA"  = Join-Path $env:LOCALAPPDATA "NVIDIA\DXCache"
+        "Cache Shader AMD"     = Join-Path $env:LOCALAPPDATA "AMD\DxCache"
+        "Cache Shader DirectX" = Join-Path $env:LOCALAPPDATA "D3DSCache"
+        "Cache Discord"        = Join-Path $env:APPDATA "discord\Cache"
+        "Cache Spotify"        = Join-Path $env:LOCALAPPDATA "Spotify\Storage"
+        "Cache Google Chrome"  = Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data\Default\Cache"
+        "Cache Microsoft Edge" = Join-Path $env:LOCALAPPDATA "Microsoft\Edge\User Data\Default\Cache"
+    }
+
+    $resultats = @()
+    $totalOctets = [long]0
+
+    foreach ($kv in $cibles.GetEnumerator()) {
+        $taille = Get-TailleDossier $kv.Value
+        if ($taille -gt 0) {
+            $totalOctets += $taille
+            $resultats += [pscustomobject]@{
+                Nom = $kv.Key
+                Chemin = $kv.Value
+                Octets = $taille
+                TailleFmt = Format-Taille $taille
+            }
+        }
+    }
+
+    return @{
+        Postes = $resultats
+        TotalOctets = $totalOctets
+        TotalFmt = Format-Taille $totalOctets
+    }
+}
+
+function Clear-CachesApplications {
+    # Purge sélectivement les caches d'applications et Shader GPU.
+    Write-Etat (T 'nettoyage.caches.analyse') -Niveau Info
+    $analyse = Get-AnalyseCachesApplications
+    $octetsLiberes = [long]0
+
+    foreach ($p in $analyse.Postes) {
+        $r = Clear-Contenu -Chemin $p.Chemin
+        $octetsLiberes += $p.Octets
+    }
+
+    $mo = [math]::Round($octetsLiberes / 1MB, 1)
+    Write-Etat ((T 'nettoyage.caches.purger') -f $mo) -Niveau OK
+    return $mo
+}
+
 
 # ------------------------------------------------------------------------------
 # DÉMARRAGE & SERVICES
@@ -5061,6 +5294,76 @@ function Get-DisquesUSB {
     return $liste
 }
 
+function Test-VitesseCleUSB {
+    # Effectue un test d'écriture rapide (64 Mo) pour mesurer le débit du lecteur USB.
+    param([Parameter(Mandatory)][string]$Lettre)
+    $racine = ($Lettre.TrimEnd(':', '\')) + ":\"
+    if (-not (Test-Path $racine)) { throw "Lecteur introuvable : $racine" }
+
+    $fichier = Join-Path $racine "madtweak-speedtest.tmp"
+    if ($racine.StartsWith("C:", [System.StringComparison]::OrdinalIgnoreCase) -and $env:TEMP) {
+        $fichier = Join-Path $env:TEMP "madtweak-speedtest.tmp"
+    }
+    if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+
+
+    try {
+        Write-Etat (T 'install.vitesse.debut') -Niveau Info
+        $tailleMo = 64
+        $buffer = New-Object byte[] (1MB)
+        (New-Object Random).NextBytes($buffer)
+
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $fs = [System.IO.File]::Create($fichier)
+        try {
+            for ($i = 0; $i -lt $tailleMo; $i++) {
+                $fs.Write($buffer, 0, $buffer.Length)
+            }
+            $fs.Flush()
+        } finally {
+            $fs.Dispose()
+        }
+        $sw.Stop()
+
+        $secondes = [math]::Max($sw.Elapsed.TotalSeconds, 0.001)
+        $debitMoS = [math]::Round($tailleMo / $secondes, 1)
+
+        if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+
+        $performant = ($debitMoS -ge 5.0)
+        if ($performant) {
+            Write-Etat ((T 'install.vitesse.ok') -f $debitMoS) -Niveau OK
+        } else {
+            Write-Etat ((T 'install.vitesse.lente') -f $debitMoS) -Niveau Avert
+        }
+
+        return @{
+            MoParSeconde = $debitMoS
+            EstPerformant = $performant
+        }
+    } catch {
+        if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+        return @{ MoParSeconde = 0; EstPerformant = $false }
+    }
+}
+
+function Get-HashIsoWindows {
+    # Calcule l'empreinte SHA-256 d'un fichier ISO.
+    param([Parameter(Mandatory)][string]$CheminIso)
+    if (-not (Test-Path -LiteralPath $CheminIso)) { throw "Fichier ISO introuvable : $CheminIso" }
+
+    try {
+        Write-Etat (T 'install.hash.calcul') -Niveau Info
+        $hashObj = Get-FileHash -LiteralPath $CheminIso -Algorithm SHA256 -ErrorAction Stop
+        $hashStr = $hashObj.Hash
+        Write-Etat ((T 'install.hash.ok') -f $hashStr) -Niveau OK
+        return $hashStr
+    } catch {
+        Write-Etat "Erreur calcul SHA-256 : $($_.Exception.Message)" -Niveau Avert
+        return $null
+    }
+}
+
 function Convert-ImageVersWim {
     <#
         Convertit une image .esd en .wim en n'en extrayant qu'UNE édition.
@@ -5555,7 +5858,13 @@ function New-CleInstallation {
         }
 
         # --- À partir d'ici, on écrit. Tout ce qui pouvait être vérifié l'a été. ---
+        $volsTest = @(Get-Partition -DiskNumber $NumeroDisque -ErrorAction SilentlyContinue | Get-Volume -ErrorAction SilentlyContinue | Where-Object DriveLetter)
+        if ($volsTest -and $volsTest.Count -gt 0 -and $volsTest[0].DriveLetter) {
+            try { Test-VitesseCleUSB -Lettre $volsTest[0].DriveLetter | Out-Null } catch { }
+        }
+
         Write-Etat "Effacement du disque $NumeroDisque ($($disque.FriendlyName))..." -Niveau Info
+
         Clear-Disk -Number $NumeroDisque -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
 
         # On VISE le MBR, mais on ne le suppose pas. Clear-Disk ne ramène pas
@@ -6017,8 +6326,21 @@ function New-AutounattendXml {
                 <Order>3</Order>
                 <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassRAMCheck /t REG_DWORD /d 1 /f</Path>
             </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>4</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassCPUCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>5</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassDiskCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>6</Order>
+                <Path>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE /v BypassNRO /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
 "@
     }
+
 
     # --- Disque : on n'efface RIEN sans demande explicite -------------------------
     # Sans -EffacerDisque, aucune section DiskConfiguration n'est ecrite : Windows
@@ -6619,6 +6941,77 @@ function Menu-Installation {
         if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
     }
 }
+
+function Add-PilotesVersCle {
+    # Copie les fichiers de pilotes (.inf, .sys, .cat) d'un dossier vers $WinPEDriver$ à la racine de la clé.
+    param(
+        [Parameter(Mandatory)][string]$LettreCle,
+        [Parameter(Mandatory)][string]$DossierPilotesSource
+    )
+    $racine = ($LettreCle.TrimEnd(':', '\')) + ":\"
+    if (-not (Test-Path $racine)) { throw "Clé USB introuvable : $racine" }
+    if (-not (Test-Path $DossierPilotesSource)) { throw "Dossier pilotes introuvable : $DossierPilotesSource" }
+
+    $cibles = Join-Path $racine '$WinPEDriver$'
+    if (-not (Test-Path $cibles)) { New-Item -ItemType Directory -Path $cibles -Force | Out-Null }
+
+    Write-Etat (T 'install.drivers.copie') -Niveau Info
+    $fichiers = Get-ChildItem -Path $DossierPilotesSource -Recurse -Include *.inf, *.sys, *.cat -ErrorAction SilentlyContinue
+    $copies = 0
+    foreach ($f in $fichiers) {
+        $dest = Join-Path $cibles $f.Name
+        Copy-Item -LiteralPath $f.FullName -Destination $dest -Force -ErrorAction SilentlyContinue
+        $copies++
+    }
+
+    Write-Etat ((T 'install.drivers.ok') -f $copies) -Niveau OK
+    return $copies
+}
+
+function Export-AutounattendConfig {
+    # Exporte la configuration d'installation dans un modèle JSON réutilisable.
+    param(
+        [Parameter(Mandatory)][string]$CheminSortieJson,
+        [Parameter(Mandatory)][hashtable]$Configuration
+    )
+    $json = $Configuration | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($CheminSortieJson, $json, [System.Text.Encoding]::UTF8)
+    Write-Etat ((T 'install.template.export') -f $CheminSortieJson) -Niveau OK
+    return $CheminSortieJson
+}
+
+function Import-AutounattendConfig {
+    # Importe la configuration d'installation depuis un modèle JSON.
+    param([Parameter(Mandatory)][string]$CheminJsonSource)
+    if (-not (Test-Path $CheminJsonSource)) { throw "Fichier JSON introuvable : $CheminJsonSource" }
+
+    $json = [System.IO.File]::ReadAllText($CheminJsonSource, [System.Text.Encoding]::UTF8)
+    $cfg = $json | ConvertFrom-Json
+    Write-Etat (T 'install.template.import') -Niveau OK
+    return $cfg
+}
+
+function Optimize-ImageWim {
+    # Extrait une seule édition d'un fichier WIM vers une nouvelle image plus compacte.
+    param(
+        [Parameter(Mandatory)][string]$CheminWimSource,
+        [Parameter(Mandatory)][string]$NomEdition,
+        [Parameter(Mandatory)][string]$CheminWimDestination
+    )
+    if (-not (Test-Path $CheminWimSource)) { throw "Fichier WIM introuvable : $CheminWimSource" }
+
+    $images = @(Get-WindowsImage -ImagePath $CheminWimSource -ErrorAction Stop)
+    $trouve = $images | Where-Object { $_.ImageName -eq $NomEdition } | Select-Object -First 1
+    if (-not $trouve) { throw "Édition $NomEdition introuvable dans $CheminWimSource." }
+
+    Export-WindowsImage -SourceImagePath $CheminWimSource -SourceIndex $trouve.ImageIndex `
+        -DestinationImagePath $CheminWimDestination -CompressionType Max -ErrorAction Stop | Out-Null
+
+    $tailleGo = [math]::Round((Get-Item $CheminWimDestination).Length / 1GB, 2)
+    Write-Etat ((T 'install.wim.optimise') -f $tailleGo) -Niveau OK
+    return $CheminWimDestination
+}
+
 # ------------------------------------------------------------------------------
 # AUDIT : que vaut cette machine, ici et maintenant ?
 #
@@ -7263,13 +7656,18 @@ $($corps.ToString())
 function Get-DiagnosticPlantages {
     # Lit les plantages récents (Kernel-Power 41 = arrêt inattendu, BugCheck 1001 =
     # écran bleu) et croise avec les tweaks d'alim/matériel ACTUELLEMENT actifs pour
-    # désigner des suspects. Né du bug « modern-standby » : automatise le diagnostic
-    # qu'on a fait à la main. Lecture seule.
+    # désigner des suspects. Lecture seule.
     $depuis = (Get-Date).AddDays(-21)
     $crashes = @()
+    $crashingDrivers = @()
     try {
-        $crashes = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 1001; StartTime = $depuis } -ErrorAction Stop |
-                Select-Object -First 10 TimeCreated, Id)
+        $events = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 1001; StartTime = $depuis } -ErrorAction Stop
+        $crashes = @($events | Select-Object -First 10 TimeCreated, Id, Message)
+        foreach ($evt in $events) {
+            if ($evt.Id -eq 1001 -and $evt.Message -and $evt.Message -match '([a-zA-Z0-9_-]+\.sys)') {
+                $crashingDrivers += $Matches[1]
+            }
+        }
     }
     catch { }
 
@@ -7292,8 +7690,85 @@ function Get-DiagnosticPlantages {
             }
         }
     }
-    return @{ Crashes = @($crashes); Suspects = @($suspects) }
+    return @{
+        Crashes = @($crashes)
+        Suspects = @($suspects)
+        PilotesSuspects = @($crashingDrivers | Select-Object -Unique)
+    }
 }
+
+function Export-RapportAuditJson {
+    param([string]$CheminSortie = "rapport-audit.json")
+    $catalogue = Get-CatalogueAudit
+    $resultats = @()
+    $oui = 0; $non = 0
+
+    foreach ($a in $catalogue) {
+        $r = $null
+        try { $r = & $a.Test } catch { $r = $null }
+        $etatStr = switch ($r) { $true { $oui++; "Applique" } $false { $non++; "Absent" } default { "Indetermine" } }
+        $resultats += @{
+            Categorie = $a.Cat
+            Cle = $a.Cle
+            Nom = (Get-NomAudit $a.Nom)
+            Etat = $etatStr
+        }
+    }
+
+    $base = $oui + $non
+    $score = if ($base -gt 0) { [int](100 * $oui / $base) } else { 0 }
+    $mention = if ($score -ge 80) { "excellent" } elseif ($score -ge 60) { "bon" } elseif ($score -ge 40) { "moyen" } else { "a optimiser" }
+
+    $export = @{
+        DateGenere = (Get-Date -Format "o")
+        WindowsDisplayVersion = $script:InfosOS.DisplayVersion
+        BuildOS = $script:BuildOS
+        Edition = $script:InfosOS.EditionID
+        ScoreSante = $score
+        Mention = $mention
+        AuditResults = $resultats
+    }
+
+    $json = $export | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($CheminSortie, $json, [System.Text.Encoding]::UTF8)
+    return $CheminSortie
+}
+
+function Export-RapportAuditMarkdown {
+    param([string]$CheminSortie = "rapport-audit.md")
+    $catalogue = Get-CatalogueAudit
+    $oui = 0; $non = 0
+    $lignesResultats = New-Object System.Collections.Generic.List[string]
+
+    foreach ($a in $catalogue) {
+        $r = $null
+        try { $r = & $a.Test } catch { $r = $null }
+        $etatStr = switch ($r) { $true { $oui++; "Appliqué" } $false { $non++; "Absent" } default { "Indéterminé" } }
+        $catNom = (Get-CatAudit $a.Cat)
+        $nomAudit = (Get-NomAudit $a.Nom)
+        $lignesResultats.Add("| $catNom | $nomAudit | $etatStr |")
+    }
+
+    $base = $oui + $non
+    $score = if ($base -gt 0) { [int](100 * $oui / $base) } else { 0 }
+    $mentionKey = if ($score -ge 80) { "sante.excellent" } elseif ($score -ge 60) { "sante.bon" } elseif ($score -ge 40) { "sante.moyen" } else { "sante.faible" }
+    $mention = T $mentionKey
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("# " + (T 'audit.rapport.md.titre'))
+    $lines.Add("")
+    $lines.Add("**" + (T 'audit.rapport.md.date') + "** " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
+    $lines.Add("**" + (T 'audit.rapport.md.score') + "** " + $score + "/100 (" + $mention + ")")
+    $lines.Add("")
+    $lines.Add("| Catégorie | Réglage | État |")
+    $lines.Add("|---|---|---|")
+    foreach ($l in $lignesResultats) { $lines.Add($l) }
+
+    $md = ($lines -join "`n") + "`n"
+    [System.IO.File]::WriteAllText($CheminSortie, $md, [System.Text.Encoding]::UTF8)
+    return $CheminSortie
+}
+
 
 function Test-CoherenceAudit {
     # Même logique que Test-ClesProfils : l'audit et les tweaks doivent parler des
@@ -7807,6 +8282,70 @@ function Menu-Profils {
     }
 }
 
+function Measure-ImpactProfil {
+    # Estime le nombre de tweaks ciblant des processus, services ou télémétrie
+    # afin de donner une métrique indicative sur le gain potentiel de RAM / CPU.
+    param([Parameter(Mandatory)][string]$NomProfil)
+    $p = $script:Profils[$NomProfil]
+    if (-not $p) { return $null }
+
+    $clesServices = @("service-diagtrack", "sysmain", "service-retaildemo", "service-fax", "service-registre-distant", "wer")
+    $clesBloatware = @("bloatwares", "widgets-paquet", "apps-arriere-plan")
+    $clesTelemetrie = @("telemetrie", "taches-telemetrie", "nvidia-telemetrie", "amd-telemetrie", "edge-telemetrie", "browsers-telemetrie", "office-telemetrie")
+
+    $countServices = 0
+    $countBloat = 0
+    $countTelem = 0
+
+    foreach ($cle in $p.Cles) {
+        if ($cle -in $clesServices) { $countServices++ }
+        elseif ($cle -in $clesBloatware) { $countBloat++ }
+        elseif ($cle -in $clesTelemetrie) { $countTelem++ }
+    }
+
+    # Estimation indicative
+    $ramEstimeeMo = ($countServices * 45) + ($countBloat * 120) + ($countTelem * 15)
+
+    return @{
+        NombreTweaksTotal = $p.Cles.Count
+        ServicesOptimises = $countServices
+        ApplicationsAllegees = $countBloat
+        TelemDesactivee = $countTelem
+        GainRamEstimeMo = $ramEstimeeMo
+    }
+}
+
+function Compare-Profils {
+    # Compare deux profils et renvoie un dictionnaire structuré contenant :
+    # - TweaksCommuns : liste des clés présentes dans les 2 profils
+    # - TweaksUniquesA : clés uniquement dans ProfilA
+    # - TweaksUniquesB : clés uniquement dans ProfilB
+    param(
+        [Parameter(Mandatory)][string]$NomProfilA,
+        [Parameter(Mandatory)][string]$NomProfilB
+    )
+    $pA = $script:Profils[$NomProfilA]
+    $pB = $script:Profils[$NomProfilB]
+    if (-not $pA -or -not $pB) { throw "Profil inconnu : $NomProfilA ou $NomProfilB" }
+
+    $clesA = @($pA.Cles)
+    $clesB = @($pB.Cles)
+
+    $communs = @($clesA | Where-Object { $_ -in $clesB })
+    $uniquesA = @($clesA | Where-Object { $_ -notin $clesB })
+    $uniquesB = @($clesB | Where-Object { $_ -notin $clesA })
+
+    return @{
+        ProfilA = $NomProfilA
+        ProfilB = $NomProfilB
+        TweaksCommuns = $communs
+        TweaksUniquesA = $uniquesA
+        TweaksUniquesB = $uniquesB
+    }
+}
+
+
+
 # ------------------------------------------------------------------------------
 # MENU PRINCIPAL (boucle, et non plus récursion)
 # ------------------------------------------------------------------------------
@@ -7877,6 +8416,55 @@ function Afficher-Menu-Principal {
 }
 
 # ------------------------------------------------------------------------------
+# INTERFACE GRAPHIQUE (WPF) — HELPER STYLES & TRADUCTIONS
+# ------------------------------------------------------------------------------
+
+function Update-InterfaceGui {
+    # L'équivalent WPF de DoEvents : on laisse le Dispatcher traiter ce qui est en
+    # attente (redessin, log) avant de reprendre.
+    $frame = New-Object System.Windows.Threading.DispatcherFrame
+    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
+        [System.Windows.Threading.DispatcherPriority]::Background,
+        [System.Windows.Threading.DispatcherOperationCallback] { param($f) $f.Continue = $false; return $null },
+        $frame) | Out-Null
+    [System.Windows.Threading.Dispatcher]::PushFrame($frame)
+}
+
+function Get-NomOnglet {
+    # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
+    # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
+    param([Parameter(Mandatory)][string]$Categorie)
+    $en = $script:LangueActive -eq 'en'
+    switch -Wildcard ($Categorie) {
+        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
+        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
+        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
+        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
+        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
+        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
+        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
+        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
+        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
+        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
+        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
+        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
+        default { $Categorie }
+    }
+}
+
+function Get-NomProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
+    return $Nom
+}
+
+function Get-DescriptionProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    $p = $script:Profils[$Nom]
+    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
+    return $p.Description
+}
+# ------------------------------------------------------------------------------
 # INTERFACE GRAPHIQUE (WPF)
 #
 # Ce module n'est qu'une FAÇADE : il ne contient aucun tweak, aucune connaissance
@@ -7897,18 +8485,6 @@ function Afficher-Menu-Principal {
 # « tournait dans le vide », fenêtre gelée. Le repli synchrone (qui fige) ne sert
 # que si le fichier source est illisible -- cas d'un script collé dans une console.
 # ------------------------------------------------------------------------------
-
-function Update-InterfaceGui {
-    # L'équivalent WPF de DoEvents : on laisse le Dispatcher traiter ce qui est en
-    # attente (redessin, log) avant de reprendre. Sans ça, Windows marquerait la
-    # fenêtre « ne répond pas » dès le premier tweak un peu long.
-    $frame = New-Object System.Windows.Threading.DispatcherFrame
-    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
-        [System.Windows.Threading.DispatcherPriority]::Background,
-        [System.Windows.Threading.DispatcherOperationCallback] { param($f) $f.Continue = $false; return $null },
-        $frame) | Out-Null
-    [System.Windows.Threading.Dispatcher]::PushFrame($frame)
-}
 
 function Start-ApplyArrierePlan {
     # Exécute l'application des tweaks sur un FIL D'ARRIÈRE-PLAN (runspace), pour
@@ -8038,45 +8614,6 @@ finally {
         }
     }.GetNewClosure())
     $timer.Start()
-}
-
-function Get-NomOnglet {
-    # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
-    # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
-    param([Parameter(Mandatory)][string]$Categorie)
-    # Le motif reste FRANÇAIS : c'est le titre du menu console qui sert de clé, et il
-    # ne dépend pas de la langue d'affichage. Seul le libellé rendu est traduit.
-    $en = $script:LangueActive -eq 'en'
-    switch -Wildcard ($Categorie) {
-        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
-        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
-        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
-        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
-        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
-        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
-        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
-        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
-        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
-        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
-        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
-        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
-        default { $Categorie }
-    }
-}
-
-function Get-NomProfil {
-    # Nom d'affichage d'un profil. La CLÉ du profil reste française : elle sert
-    # d'identifiant dans tout le code (boutons, Tag, journal). Seul l'affichage change.
-    param([Parameter(Mandatory)][string]$Nom)
-    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
-    return $Nom
-}
-
-function Get-DescriptionProfil {
-    param([Parameter(Mandatory)][string]$Nom)
-    $p = $script:Profils[$Nom]
-    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
-    return $p.Description
 }
 
 $script:XamlInterface = @'

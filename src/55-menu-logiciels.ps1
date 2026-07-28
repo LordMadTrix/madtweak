@@ -116,3 +116,48 @@ function Menu-Logiciels-Extra {
     Fin-De-Menu
 }
 
+function Export-ListeApplicationsWinget {
+    # Exporte la liste des applications actuellement installées via winget au format JSON.
+    param([string]$CheminSortieJson)
+    if (-not $CheminSortieJson) { $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json" }
+
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        throw "winget est introuvable."
+    }
+
+    $dir = Split-Path $CheminSortieJson -Parent
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    winget export -o $CheminSortieJson --accept-source-agreements 2>&1 | Out-Null
+    if (-not (Test-Path $CheminSortieJson)) { throw "winget n'a produit aucun fichier." }
+
+    $count = 0
+    try {
+        $json = Get-Content $CheminSortieJson -Raw | ConvertFrom-Json
+        $count = $json.Sources.Packages.Count
+    } catch { }
+
+    Write-Etat ((T 'apps.export.ok') -f $CheminSortieJson, $count) -Niveau OK
+    return $CheminSortieJson
+}
+
+function Import-ListeApplicationsWinget {
+    # Importe et réinstalle automatiquement la liste d'applications depuis un fichier JSON.
+    param([string]$CheminJsonSource)
+    if (-not $CheminJsonSource) { $CheminJsonSource = Join-Path $script:DossierDonnees "mes-apps.json" }
+
+    if (-not (Test-Path $CheminJsonSource)) { throw "Fichier JSON introuvable : $CheminJsonSource" }
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw "winget est introuvable." }
+
+    $count = 0
+    try {
+        $json = Get-Content $CheminJsonSource -Raw | ConvertFrom-Json
+        $count = $json.Sources.Packages.Count
+    } catch { }
+
+    winget import -i $CheminJsonSource --accept-source-agreements --accept-package-agreements --ignore-unavailable
+    Write-Etat ((T 'apps.import.ok') -f $CheminJsonSource, $count) -Niveau OK
+    return $LASTEXITCODE
+}
+
+

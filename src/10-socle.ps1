@@ -113,3 +113,24 @@ function Assert-EditionPro {
     }
 }
 
+function Get-TemperatureCPU {
+    # Tente d'obtenir la température du CPU en Celsius via WMI (MSAcpi_ThermalZoneTemperature).
+    try {
+        $tz = Get-CimInstance -Namespace "root/wmi" -ClassName "MSAcpi_ThermalZoneTemperature" -ErrorAction SilentlyContinue
+        if ($tz -and $tz.CurrentTemperature) {
+            $kelvin = ($tz.CurrentTemperature | Measure-Object -Maximum).Maximum
+            $celsius = [math]::Round(($kelvin / 10) - 273.15, 1)
+            if ($celsius -gt 0 -and $celsius -lt 120) { return $celsius }
+        }
+    } catch { }
+    return $null
+}
+
+# Si exécuté sous PowerShell 7+ (pwsh), tenter de charger le module Appx via l'interopérabilité
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    try {
+        Import-Module Appx -UseWindowsPowerShell -ErrorAction SilentlyContinue
+    } catch { }
+}
+
+

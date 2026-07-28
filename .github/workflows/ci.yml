@@ -1,0 +1,27 @@
+name: CI Build & Test Verification
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  verify-build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify dist/MadTweak.ps1 is Up-To-Date
+        shell: powershell
+        run: |
+          .\build.ps1 -Verifier
+
+      - name: Run Pester Tests
+        shell: powershell
+        run: |
+          if (-not (Get-Module -ListAvailable Pester)) {
+              Install-Module Pester -Force -Scope CurrentUser
+          }
+          Invoke-Pester .\tests\MadTweak.Tests.ps1 -Passthru

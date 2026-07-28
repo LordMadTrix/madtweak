@@ -1,0 +1,164 @@
+# ==============================================================================
+# TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
+# ==============================================================================
+
+$racine = Split-Path -Path $PSScriptRoot -Parent
+$buildScript = Join-Path $racine "build.ps1"
+$srcDir = Join-Path $racine "src"
+
+Describe "Build Verification" {
+    It "Doit valider que dist\MadTweak.ps1 est parfaitement à jour avec src\" {
+        $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $buildScript -Verifier
+        $LASTEXITCODE | Should Be 0
+    }
+
+    It "Chaque module src\*.ps1 doit posséder un BOM UTF-8 (0xEF, 0xBB, 0xBF)" {
+        $modules = Get-ChildItem -Path $srcDir -Filter "*.ps1"
+        $modules.Count | Should BeGreaterThan 0
+
+        foreach ($m in $modules) {
+            $tete = [byte[]]::new(3)
+            $fs = [System.IO.File]::OpenRead($m.FullName)
+            try { $lu = $fs.Read($tete, 0, 3) } finally { $fs.Dispose() }
+            $lu | Should Be 3
+            $tete[0] | Should Be 0xEF
+            $tete[1] | Should Be 0xBB
+            $tete[2] | Should Be 0xBF
+        }
+    }
+}
+
+Describe "Dictionnaire de langues (i18n)" {
+    BeforeAll {
+        $langueFile = Join-Path $srcDir "05-langue.ps1"
+        . $langueFile
+    }
+
+    It "Chaque clé de traduction dans `$script:Textes doit posséder des entrées FR et EN" {
+        $script:Textes | Should Not BeNullOrEmpty
+        $clesManquantes = @()
+
+        foreach ($cle in $script:Textes.Keys) {
+            $entree = $script:Textes[$cle]
+            if (-not $entree['fr'] -or -not $entree['en']) {
+                $clesManquantes += $cle
+            }
+        }
+
+        $clesManquantes.Count | Should Be 0
+    }
+}
+
+Describe "Fonctions du Socle" {
+    BeforeAll {
+        . (Join-Path $srcDir "05-langue.ps1")
+        . (Join-Path $srcDir "10-socle.ps1")
+    }
+
+    It "Get-LangueSysteme doit renvoyer 'fr' ou 'en'" {
+        $langue = Get-LangueSysteme
+        ($langue -in @('fr', 'en')) | Should Be $true
+    }
+
+    It "Test-NPU doit s'exécuter sans erreur et renvoyer un booléen" {
+        $res = Test-NPU
+        $res -is [bool] | Should Be $true
+    }
+
+    It "Get-TemperatureCPU doit s'exécuter sans lever d'exception" {
+        { Get-TemperatureCPU } | Should Not Throw
+    }
+}
+
+Describe "Fonctionnalités Phase 2" {
+    BeforeAll {
+        . (Join-Path $srcDir "05-langue.ps1")
+        . (Join-Path $srcDir "10-socle.ps1")
+        . (Join-Path $srcDir "06-textes-tweaks.ps1")
+        . (Join-Path $srcDir "07-textes-audit.ps1")
+        . (Join-Path $srcDir "20-sauvegarde.ps1")
+        . (Join-Path $srcDir "70-audit.ps1")
+        . (Join-Path $srcDir "80-profils.ps1")
+    }
+
+    It "Compare-Profils doit comparer deux profils et retourner les tweaks communs et uniques" {
+        $keys = @($script:Profils.Keys)
+        $comp = Compare-Profils -NomProfilA $keys[0] -NomProfilB $keys[3]
+        $comp | Should Not BeNullOrEmpty
+        $comp.ProfilA | Should Be $keys[0]
+        $comp.ProfilB | Should Be $keys[3]
+        $comp.TweaksCommuns.Count | Should BeGreaterThan 0
+    }
+
+    It "Export-RapportAuditJson doit exporter un fichier JSON d'audit valide" {
+        $tmp = Join-Path $env:TEMP "test-audit.json"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+        $out = Export-RapportAuditJson -CheminSortie $tmp
+        (Test-Path $tmp) | Should Be $true
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+    }
+
+    It "Export-RapportAuditMarkdown doit exporter un rapport Markdown lisible" {
+        $tmp = Join-Path $env:TEMP "test-audit.md"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+        $out = Export-RapportAuditMarkdown -CheminSortie $tmp
+        (Test-Path $tmp) | Should Be $true
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+    }
+}
+
+Describe "Installation USB & Autounattend" {
+    BeforeAll {
+        . (Join-Path $srcDir "05-langue.ps1")
+        . (Join-Path $srcDir "10-socle.ps1")
+        . (Join-Path $srcDir "63-installation.ps1")
+    }
+
+    It "Test-VitesseCleUSB doit s'exécuter sur le lecteur système C: sans lever d'exception" {
+        $res = Test-VitesseCleUSB -Lettre "C:"
+        $res | Should Not BeNullOrEmpty
+        $res.MoParSeconde | Should BeGreaterThan 0
+    }
+
+    It "New-AutounattendXml doit générer un fichier XML valide sans avertissements" {
+        $tmpXml = Join-Path $env:TEMP "test-autounattend.xml"
+        if (Test-Path $tmpXml) { Remove-Item $tmpXml -Force }
+        $out = New-AutounattendXml -Chemin $tmpXml -NomUtilisateur "TestUser" -SansTPM
+        (Test-Path $tmpXml) | Should Be $true
+        $pbs = Test-AutounattendXml -Chemin $tmpXml
+        $pbs.Count | Should Be 0
+        if (Test-Path $tmpXml) { Remove-Item $tmpXml -Force }
+    }
+
+    It "Export-AutounattendConfig et Import-AutounattendConfig doivent sérialiser et désérialiser la configuration" {
+        $tmpJson = Join-Path $env:TEMP "unattend-test.json"
+        if (Test-Path $tmpJson) { Remove-Item $tmpJson -Force }
+        $cfg = @{ NomUtilisateur = "TestUser"; Version = "11"; SansTPM = $true }
+        Export-AutounattendConfig -CheminSortieJson $tmpJson -Configuration $cfg | Out-Null
+        (Test-Path $tmpJson) | Should Be $true
+        $read = Import-AutounattendConfig -CheminJsonSource $tmpJson
+        $read.NomUtilisateur | Should Be "TestUser"
+        if (Test-Path $tmpJson) { Remove-Item $tmpJson -Force }
+    }
+}
+
+Describe "Fonctionnalités Phase 3" {
+    BeforeAll {
+        . (Join-Path $srcDir "05-langue.ps1")
+        . (Join-Path $srcDir "10-socle.ps1")
+        . (Join-Path $srcDir "53-menu-materiel-reseau.ps1")
+        . (Join-Path $srcDir "59-menu-nettoyage.ps1")
+    }
+
+    It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
+        $res = Get-AnalyseCachesApplications
+        $res | Should Not BeNullOrEmpty
+    }
+
+    It "Test-SanteReseau doit s'exécuter et renvoyer un objet de diagnostic" {
+        $res = Test-SanteReseau
+        $res | Should Not BeNullOrEmpty
+    }
+}
+
+

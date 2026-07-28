@@ -222,3 +222,55 @@ function Menu-Nettoyage {
     Fin-De-Menu
 }
 
+function Get-AnalyseCachesApplications {
+    # Pèse la taille des caches d'applications courantes et des Shader GPU.
+    $cibles = @{
+        "Cache Shader NVIDIA"  = Join-Path $env:LOCALAPPDATA "NVIDIA\DXCache"
+        "Cache Shader AMD"     = Join-Path $env:LOCALAPPDATA "AMD\DxCache"
+        "Cache Shader DirectX" = Join-Path $env:LOCALAPPDATA "D3DSCache"
+        "Cache Discord"        = Join-Path $env:APPDATA "discord\Cache"
+        "Cache Spotify"        = Join-Path $env:LOCALAPPDATA "Spotify\Storage"
+        "Cache Google Chrome"  = Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data\Default\Cache"
+        "Cache Microsoft Edge" = Join-Path $env:LOCALAPPDATA "Microsoft\Edge\User Data\Default\Cache"
+    }
+
+    $resultats = @()
+    $totalOctets = [long]0
+
+    foreach ($kv in $cibles.GetEnumerator()) {
+        $taille = Get-TailleDossier $kv.Value
+        if ($taille -gt 0) {
+            $totalOctets += $taille
+            $resultats += [pscustomobject]@{
+                Nom = $kv.Key
+                Chemin = $kv.Value
+                Octets = $taille
+                TailleFmt = Format-Taille $taille
+            }
+        }
+    }
+
+    return @{
+        Postes = $resultats
+        TotalOctets = $totalOctets
+        TotalFmt = Format-Taille $totalOctets
+    }
+}
+
+function Clear-CachesApplications {
+    # Purge sélectivement les caches d'applications et Shader GPU.
+    Write-Etat (T 'nettoyage.caches.analyse') -Niveau Info
+    $analyse = Get-AnalyseCachesApplications
+    $octetsLiberes = [long]0
+
+    foreach ($p in $analyse.Postes) {
+        $r = Clear-Contenu -Chemin $p.Chemin
+        $octetsLiberes += $p.Octets
+    }
+
+    $mo = [math]::Round($octetsLiberes / 1MB, 1)
+    Write-Etat ((T 'nettoyage.caches.purger') -f $mo) -Niveau OK
+    return $mo
+}
+
+

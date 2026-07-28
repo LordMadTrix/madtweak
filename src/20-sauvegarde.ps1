@@ -288,3 +288,46 @@ function Restore-SauvegardePartielle {
     return @{ OK = $ok; Echecs = $echecs }
 }
 
+function Backup-PositionsIconesBureau {
+    # Sauvegarde l'agencement binaire des icônes du bureau dans le dossier de données local.
+    $keyPath = "HKCU:\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
+    $fichier = Join-Path $script:DossierDonnees "bureau-icones.bin"
+
+    if (-not (Test-Path $keyPath)) { return $false }
+    try {
+        $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+        $val = $null
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like "ItemPos*") { $val = $p.Value; break }
+        }
+        if ($val) {
+            if (-not (Test-Path $script:DossierDonnees)) { New-Item -ItemType Directory -Path $script:DossierDonnees -Force | Out-Null }
+            [System.IO.File]::WriteAllBytes($fichier, [byte[]]$val)
+            Write-Etat (T 'icones.bureau.sauvegarde') -Niveau OK
+            return $true
+        }
+    } catch { }
+    return $false
+}
+
+function Restore-PositionsIconesBureau {
+    # Restaure l'agencement binaire des icônes du bureau.
+    $keyPath = "HKCU:\Software\Microsoft\Windows\Shell\Bags\1\Desktop"
+    $fichier = Join-Path $script:DossierDonnees "bureau-icones.bin"
+
+    if (-not (Test-Path $fichier) -or -not (Test-Path $keyPath)) { return $false }
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($fichier)
+        $props = Get-ItemProperty -Path $keyPath -ErrorAction Stop
+        foreach ($p in $props.PSObject.Properties) {
+            if ($p.Name -like "ItemPos*") {
+                Set-ItemProperty -Path $keyPath -Name $p.Name -Value $bytes -ErrorAction SilentlyContinue
+            }
+        }
+        Write-Etat (T 'icones.bureau.restauree') -Niveau OK
+        return $true
+    } catch { }
+    return $false
+}
+
+

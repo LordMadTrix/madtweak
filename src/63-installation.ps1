@@ -185,6 +185,76 @@ function Get-DisquesUSB {
     return $liste
 }
 
+function Test-VitesseCleUSB {
+    # Effectue un test d'écriture rapide (64 Mo) pour mesurer le débit du lecteur USB.
+    param([Parameter(Mandatory)][string]$Lettre)
+    $racine = ($Lettre.TrimEnd(':', '\')) + ":\"
+    if (-not (Test-Path $racine)) { throw "Lecteur introuvable : $racine" }
+
+    $fichier = Join-Path $racine "madtweak-speedtest.tmp"
+    if ($racine.StartsWith("C:", [System.StringComparison]::OrdinalIgnoreCase) -and $env:TEMP) {
+        $fichier = Join-Path $env:TEMP "madtweak-speedtest.tmp"
+    }
+    if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+
+
+    try {
+        Write-Etat (T 'install.vitesse.debut') -Niveau Info
+        $tailleMo = 64
+        $buffer = New-Object byte[] (1MB)
+        (New-Object Random).NextBytes($buffer)
+
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        $fs = [System.IO.File]::Create($fichier)
+        try {
+            for ($i = 0; $i -lt $tailleMo; $i++) {
+                $fs.Write($buffer, 0, $buffer.Length)
+            }
+            $fs.Flush()
+        } finally {
+            $fs.Dispose()
+        }
+        $sw.Stop()
+
+        $secondes = [math]::Max($sw.Elapsed.TotalSeconds, 0.001)
+        $debitMoS = [math]::Round($tailleMo / $secondes, 1)
+
+        if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+
+        $performant = ($debitMoS -ge 5.0)
+        if ($performant) {
+            Write-Etat ((T 'install.vitesse.ok') -f $debitMoS) -Niveau OK
+        } else {
+            Write-Etat ((T 'install.vitesse.lente') -f $debitMoS) -Niveau Avert
+        }
+
+        return @{
+            MoParSeconde = $debitMoS
+            EstPerformant = $performant
+        }
+    } catch {
+        if (Test-Path $fichier) { Remove-Item $fichier -Force -ErrorAction SilentlyContinue }
+        return @{ MoParSeconde = 0; EstPerformant = $false }
+    }
+}
+
+function Get-HashIsoWindows {
+    # Calcule l'empreinte SHA-256 d'un fichier ISO.
+    param([Parameter(Mandatory)][string]$CheminIso)
+    if (-not (Test-Path -LiteralPath $CheminIso)) { throw "Fichier ISO introuvable : $CheminIso" }
+
+    try {
+        Write-Etat (T 'install.hash.calcul') -Niveau Info
+        $hashObj = Get-FileHash -LiteralPath $CheminIso -Algorithm SHA256 -ErrorAction Stop
+        $hashStr = $hashObj.Hash
+        Write-Etat ((T 'install.hash.ok') -f $hashStr) -Niveau OK
+        return $hashStr
+    } catch {
+        Write-Etat "Erreur calcul SHA-256 : $($_.Exception.Message)" -Niveau Avert
+        return $null
+    }
+}
+
 function Convert-ImageVersWim {
     <#
         Convertit une image .esd en .wim en n'en extrayant qu'UNE édition.
@@ -679,7 +749,13 @@ function New-CleInstallation {
         }
 
         # --- À partir d'ici, on écrit. Tout ce qui pouvait être vérifié l'a été. ---
+        $volsTest = @(Get-Partition -DiskNumber $NumeroDisque -ErrorAction SilentlyContinue | Get-Volume -ErrorAction SilentlyContinue | Where-Object DriveLetter)
+        if ($volsTest -and $volsTest.Count -gt 0 -and $volsTest[0].DriveLetter) {
+            try { Test-VitesseCleUSB -Lettre $volsTest[0].DriveLetter | Out-Null } catch { }
+        }
+
         Write-Etat "Effacement du disque $NumeroDisque ($($disque.FriendlyName))..." -Niveau Info
+
         Clear-Disk -Number $NumeroDisque -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
 
         # On VISE le MBR, mais on ne le suppose pas. Clear-Disk ne ramène pas
@@ -1141,8 +1217,21 @@ function New-AutounattendXml {
                 <Order>3</Order>
                 <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassRAMCheck /t REG_DWORD /d 1 /f</Path>
             </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>4</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassCPUCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>5</Order>
+                <Path>reg add HKLM\SYSTEM\Setup\LabConfig /v BypassDiskCheck /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
+            <RunSynchronousCommand wcm:action="add">
+                <Order>6</Order>
+                <Path>reg add HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OOBE /v BypassNRO /t REG_DWORD /d 1 /f</Path>
+            </RunSynchronousCommand>
 "@
     }
+
 
     # --- Disque : on n'efface RIEN sans demande explicite -------------------------
     # Sans -EffacerDisque, aucune section DiskConfiguration n'est ecrite : Windows
@@ -1743,3 +1832,74 @@ function Menu-Installation {
         if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
     }
 }
+
+function Add-PilotesVersCle {
+    # Copie les fichiers de pilotes (.inf, .sys, .cat) d'un dossier vers $WinPEDriver$ à la racine de la clé.
+    param(
+        [Parameter(Mandatory)][string]$LettreCle,
+        [Parameter(Mandatory)][string]$DossierPilotesSource
+    )
+    $racine = ($LettreCle.TrimEnd(':', '\')) + ":\"
+    if (-not (Test-Path $racine)) { throw "Clé USB introuvable : $racine" }
+    if (-not (Test-Path $DossierPilotesSource)) { throw "Dossier pilotes introuvable : $DossierPilotesSource" }
+
+    $cibles = Join-Path $racine '$WinPEDriver$'
+    if (-not (Test-Path $cibles)) { New-Item -ItemType Directory -Path $cibles -Force | Out-Null }
+
+    Write-Etat (T 'install.drivers.copie') -Niveau Info
+    $fichiers = Get-ChildItem -Path $DossierPilotesSource -Recurse -Include *.inf, *.sys, *.cat -ErrorAction SilentlyContinue
+    $copies = 0
+    foreach ($f in $fichiers) {
+        $dest = Join-Path $cibles $f.Name
+        Copy-Item -LiteralPath $f.FullName -Destination $dest -Force -ErrorAction SilentlyContinue
+        $copies++
+    }
+
+    Write-Etat ((T 'install.drivers.ok') -f $copies) -Niveau OK
+    return $copies
+}
+
+function Export-AutounattendConfig {
+    # Exporte la configuration d'installation dans un modèle JSON réutilisable.
+    param(
+        [Parameter(Mandatory)][string]$CheminSortieJson,
+        [Parameter(Mandatory)][hashtable]$Configuration
+    )
+    $json = $Configuration | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($CheminSortieJson, $json, [System.Text.Encoding]::UTF8)
+    Write-Etat ((T 'install.template.export') -f $CheminSortieJson) -Niveau OK
+    return $CheminSortieJson
+}
+
+function Import-AutounattendConfig {
+    # Importe la configuration d'installation depuis un modèle JSON.
+    param([Parameter(Mandatory)][string]$CheminJsonSource)
+    if (-not (Test-Path $CheminJsonSource)) { throw "Fichier JSON introuvable : $CheminJsonSource" }
+
+    $json = [System.IO.File]::ReadAllText($CheminJsonSource, [System.Text.Encoding]::UTF8)
+    $cfg = $json | ConvertFrom-Json
+    Write-Etat (T 'install.template.import') -Niveau OK
+    return $cfg
+}
+
+function Optimize-ImageWim {
+    # Extrait une seule édition d'un fichier WIM vers une nouvelle image plus compacte.
+    param(
+        [Parameter(Mandatory)][string]$CheminWimSource,
+        [Parameter(Mandatory)][string]$NomEdition,
+        [Parameter(Mandatory)][string]$CheminWimDestination
+    )
+    if (-not (Test-Path $CheminWimSource)) { throw "Fichier WIM introuvable : $CheminWimSource" }
+
+    $images = @(Get-WindowsImage -ImagePath $CheminWimSource -ErrorAction Stop)
+    $trouve = $images | Where-Object { $_.ImageName -eq $NomEdition } | Select-Object -First 1
+    if (-not $trouve) { throw "Édition $NomEdition introuvable dans $CheminWimSource." }
+
+    Export-WindowsImage -SourceImagePath $CheminWimSource -SourceIndex $trouve.ImageIndex `
+        -DestinationImagePath $CheminWimDestination -CompressionType Max -ErrorAction Stop | Out-Null
+
+    $tailleGo = [math]::Round((Get-Item $CheminWimDestination).Length / 1GB, 2)
+    Write-Etat ((T 'install.wim.optimise') -f $tailleGo) -Niveau OK
+    return $CheminWimDestination
+}
+

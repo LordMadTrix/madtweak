@@ -327,8 +327,43 @@ $script:Textes = @{
     'c.choix'    = @{ fr = "Entre ton choix (1-17, ou S)"; en = "Enter your choice (1-17, or S)" }
 
     # --- Mentions de santé ---
-    'sante.excellent'      = @{ fr = "excellent"; en = "excellent" }
-    'sante.bon'            = @{ fr = "bon"; en = "good" }
-    'sante.moyen'          = @{ fr = "moyen"; en = "fair" }
-    'sante.faible'         = @{ fr = "à optimiser"; en = "needs work" }
+    'sante.excellent'            = @{ fr = "excellent"; en = "excellent" }
+    'sante.bon'                  = @{ fr = "bon"; en = "good" }
+    'sante.moyen'                = @{ fr = "moyen"; en = "fair" }
+    'sante.faible'               = @{ fr = "à optimiser"; en = "needs work" }
+
+    # --- Phase 2 : Export audit, Icônes bureau, Drivers, Comparateur ---
+    'audit.rapport.md.titre'     = @{ fr = "Rapport d'Audit de Santé Système — MadTweak"; en = "System Health Audit Report — MadTweak" }
+    'audit.rapport.md.score'     = @{ fr = "Score de santé global : "; en = "Overall health score: " }
+    'audit.rapport.md.date'      = @{ fr = "Généré le : "; en = "Generated on: " }
+    'icones.bureau.sauvegarde'   = @{ fr = "Position des icônes du bureau sauvegardée avec succès."; en = "Desktop icon positions saved successfully." }
+    'icones.bureau.restauree'    = @{ fr = "Position des icônes du bureau restaurée avec succès."; en = "Desktop icon positions restored successfully." }
+    'driver.plantage.detecte'    = @{ fr = "Pilote responsable du dernier plantage (BSOD) : "; en = "Driver responsible for last crash (BSOD): " }
+    'profils.compare.titre'      = @{ fr = "Comparaison des profils"; en = "Profile Comparison" }
+    'profils.compare.communs'    = @{ fr = "Tweaks communs aux deux profils :"; en = "Tweaks common to both profiles:" }
+    'profils.compare.uniques'    = @{ fr = "Tweaks uniques à "; en = "Unique tweaks to " }
+
+    # --- Clé d'installation USB & ISO ---
+    'install.vitesse.debut'      = @{ fr = "Test de vitesse du lecteur USB en cours..."; en = "Testing USB drive speed..." }
+    'install.vitesse.ok'         = @{ fr = "Débit d'écriture USB : {0} Mo/s (Satisfaisant)."; en = "USB write speed: {0} MB/s (Good)." }
+    'install.vitesse.lente'      = @{ fr = "ATTENTION : Débit d'écriture USB très faible ({0} Mo/s). La création de la clé peut être très longue."; en = "WARNING: Very low USB write speed ({0} MB/s). USB creation may be very slow." }
+    'install.hash.calcul'        = @{ fr = "Calcul du hash SHA-256 de l'ISO..."; en = "Calculating ISO SHA-256 hash..." }
+    'install.hash.ok'            = @{ fr = "Hash SHA-256 : {0}"; en = "SHA-256 Hash: {0}" }
+    'install.drivers.copie'      = @{ fr = "Copie des pilotes OEM vers le dossier `$WinPEDriver`$ de la clé USB..."; en = "Copying OEM drivers to `$WinPEDriver`$ folder on USB drive..." }
+    'install.drivers.ok'         = @{ fr = "{0} fichier(s) de pilotes copiés avec succès."; en = "{0} driver file(s) copied successfully." }
+    'install.template.export'    = @{ fr = "Modèle de configuration d'installation exporté : {0}"; en = "Installation configuration template exported: {0}" }
+    'install.template.import'    = @{ fr = "Modèle de configuration d'installation importé avec succès."; en = "Installation configuration template imported successfully." }
+    'install.wim.optimise'       = @{ fr = "Fichier WIM optimisé avec succès ({0} Go)."; en = "WIM file optimized successfully ({0} GB)." }
+
+    # --- Phase 3 : Apps JSON, Caches d'apps/GPU, Santé réseau ---
+    'apps.export.ok'             = @{ fr = "Liste d'applications exportée dans {0} ({1} app(s))."; en = "Application list exported to {0} ({1} app(s))." }
+    'apps.import.ok'             = @{ fr = "Liste d'applications importée depuis {0} ({1} app(s))."; en = "Application list imported from {0} ({1} app(s))." }
+    'nettoyage.caches.analyse'   = @{ fr = "Mesure des caches d'applications et Shader GPU en cours..."; en = "Measuring application and GPU Shader caches..." }
+    'nettoyage.caches.purger'    = @{ fr = "Purge des caches terminée : {0} Mo libéré(s)."; en = "Cache cleanup completed: {0} MB freed." }
+    'reseau.sante.titre'         = @{ fr = "Diagnostic de santé réseau"; en = "Network Health Diagnostic" }
+    'reseau.sante.ping'          = @{ fr = "Latence réseau (ping 8.8.8.8) : {0} ms"; en = "Network latency (ping 8.8.8.8): {0} ms" }
 }
+
+
+
+

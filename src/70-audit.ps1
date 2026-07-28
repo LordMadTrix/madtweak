@@ -642,13 +642,18 @@ $($corps.ToString())
 function Get-DiagnosticPlantages {
     # Lit les plantages récents (Kernel-Power 41 = arrêt inattendu, BugCheck 1001 =
     # écran bleu) et croise avec les tweaks d'alim/matériel ACTUELLEMENT actifs pour
-    # désigner des suspects. Né du bug « modern-standby » : automatise le diagnostic
-    # qu'on a fait à la main. Lecture seule.
+    # désigner des suspects. Lecture seule.
     $depuis = (Get-Date).AddDays(-21)
     $crashes = @()
+    $crashingDrivers = @()
     try {
-        $crashes = @(Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 1001; StartTime = $depuis } -ErrorAction Stop |
-                Select-Object -First 10 TimeCreated, Id)
+        $events = Get-WinEvent -FilterHashtable @{ LogName = 'System'; Id = 41, 1001; StartTime = $depuis } -ErrorAction Stop
+        $crashes = @($events | Select-Object -First 10 TimeCreated, Id, Message)
+        foreach ($evt in $events) {
+            if ($evt.Id -eq 1001 -and $evt.Message -and $evt.Message -match '([a-zA-Z0-9_-]+\.sys)') {
+                $crashingDrivers += $Matches[1]
+            }
+        }
     }
     catch { }
 
@@ -671,8 +676,85 @@ function Get-DiagnosticPlantages {
             }
         }
     }
-    return @{ Crashes = @($crashes); Suspects = @($suspects) }
+    return @{
+        Crashes = @($crashes)
+        Suspects = @($suspects)
+        PilotesSuspects = @($crashingDrivers | Select-Object -Unique)
+    }
 }
+
+function Export-RapportAuditJson {
+    param([string]$CheminSortie = "rapport-audit.json")
+    $catalogue = Get-CatalogueAudit
+    $resultats = @()
+    $oui = 0; $non = 0
+
+    foreach ($a in $catalogue) {
+        $r = $null
+        try { $r = & $a.Test } catch { $r = $null }
+        $etatStr = switch ($r) { $true { $oui++; "Applique" } $false { $non++; "Absent" } default { "Indetermine" } }
+        $resultats += @{
+            Categorie = $a.Cat
+            Cle = $a.Cle
+            Nom = (Get-NomAudit $a.Nom)
+            Etat = $etatStr
+        }
+    }
+
+    $base = $oui + $non
+    $score = if ($base -gt 0) { [int](100 * $oui / $base) } else { 0 }
+    $mention = if ($score -ge 80) { "excellent" } elseif ($score -ge 60) { "bon" } elseif ($score -ge 40) { "moyen" } else { "a optimiser" }
+
+    $export = @{
+        DateGenere = (Get-Date -Format "o")
+        WindowsDisplayVersion = $script:InfosOS.DisplayVersion
+        BuildOS = $script:BuildOS
+        Edition = $script:InfosOS.EditionID
+        ScoreSante = $score
+        Mention = $mention
+        AuditResults = $resultats
+    }
+
+    $json = $export | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText($CheminSortie, $json, [System.Text.Encoding]::UTF8)
+    return $CheminSortie
+}
+
+function Export-RapportAuditMarkdown {
+    param([string]$CheminSortie = "rapport-audit.md")
+    $catalogue = Get-CatalogueAudit
+    $oui = 0; $non = 0
+    $lignesResultats = New-Object System.Collections.Generic.List[string]
+
+    foreach ($a in $catalogue) {
+        $r = $null
+        try { $r = & $a.Test } catch { $r = $null }
+        $etatStr = switch ($r) { $true { $oui++; "Appliqué" } $false { $non++; "Absent" } default { "Indéterminé" } }
+        $catNom = (Get-CatAudit $a.Cat)
+        $nomAudit = (Get-NomAudit $a.Nom)
+        $lignesResultats.Add("| $catNom | $nomAudit | $etatStr |")
+    }
+
+    $base = $oui + $non
+    $score = if ($base -gt 0) { [int](100 * $oui / $base) } else { 0 }
+    $mentionKey = if ($score -ge 80) { "sante.excellent" } elseif ($score -ge 60) { "sante.bon" } elseif ($score -ge 40) { "sante.moyen" } else { "sante.faible" }
+    $mention = T $mentionKey
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("# " + (T 'audit.rapport.md.titre'))
+    $lines.Add("")
+    $lines.Add("**" + (T 'audit.rapport.md.date') + "** " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss"))
+    $lines.Add("**" + (T 'audit.rapport.md.score') + "** " + $score + "/100 (" + $mention + ")")
+    $lines.Add("")
+    $lines.Add("| Catégorie | Réglage | État |")
+    $lines.Add("|---|---|---|")
+    foreach ($l in $lignesResultats) { $lines.Add($l) }
+
+    $md = ($lines -join "`n") + "`n"
+    [System.IO.File]::WriteAllText($CheminSortie, $md, [System.Text.Encoding]::UTF8)
+    return $CheminSortie
+}
+
 
 function Test-CoherenceAudit {
     # Même logique que Test-ClesProfils : l'audit et les tweaks doivent parler des
