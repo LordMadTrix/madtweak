@@ -18,15 +18,18 @@ jobs:
         run: |
           & .\build.ps1 -Verifier
 
-      - name: Install Pester 5+
+      # Pester 3.4.0 est celui livre avec Windows, et c'est la syntaxe qu'utilise
+      # tests\MadTweak.Tests.ps1 : "Should Be", "Should Not Throw". Pester 5 a
+      # supprime cette syntaxe au profit de "Should -Be" : l'installer faisait
+      # echouer LA TOTALITE des tests, alors qu'ils passent tous en local.
+      # On epingle donc la version qui correspond au code. La conversion vers
+      # Pester 5 reste souhaitable, mais c'est une reecriture, pas un reglage.
+      - name: Run Pester Tests (Pester 3.4.0, shipped with Windows)
         shell: powershell
         run: |
-          Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser -AllowClobber
-
-      - name: Run Pester Tests
-        shell: powershell
-        run: |
-          Import-Module Pester -Force
-          Invoke-Pester .\tests\MadTweak.Tests.ps1 -Passthru
+          Import-Module Pester -RequiredVersion 3.4.0 -Force
+          $r = Invoke-Pester .\tests\MadTweak.Tests.ps1 -PassThru
+          Write-Host "Resultat : $($r.PassedCount) reussis, $($r.FailedCount) echecs sur $($r.TotalCount)"
+          if ($r.FailedCount -gt 0) { exit 1 }
 
 

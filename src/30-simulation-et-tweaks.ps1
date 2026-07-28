@@ -6,7 +6,14 @@
 # (services, apps, tâches planifiées, winget...) par Invoke-Action.
 # Si une action contourne ces quatre portes, la simulation ferait de vrais dégâts.
 # ------------------------------------------------------------------------------
-$script:Simulation = $false
+# La simulation peut être demandée AVANT le chargement des modules, par une suite
+# de tests ou un appel programmatique. Deux précautions pour que cette demande
+# survive : on n'écrase pas une valeur déjà posée, et on accepte un drapeau global.
+#
+# Sans cela, charger ce module remettait systématiquement la simulation à faux —
+# et une suite de tests qui l'avait activée nettoyait la machine pour de bon.
+if ($global:Simulation) { $script:Simulation = $true }
+elseif ($null -eq $script:Simulation) { $script:Simulation = $false }
 $script:SimuCompteur = 0
 
 function Write-Simu {

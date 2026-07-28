@@ -1,4 +1,4 @@
-# ==============================================================================
+﻿# ==============================================================================
 # TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
 # ==============================================================================
 
@@ -8,6 +8,19 @@ if (-not (Test-Path (Join-Path $global:racine "src"))) {
     $global:racine = (Get-Item ".").FullName
 }
 $global:buildScript = Join-Path $global:racine "build.ps1"
+
+# MODE SIMULATION POUR TOUTE LA SUITE.
+#
+# Plusieurs tests appellent directement des fonctions qui MODIFIENT la machine :
+# Clear-TelechargementsAnciens supprime des installeurs de plus de 30 jours dans
+# le dossier Telechargements, Clear-FichiersMajWindowsOld lance un DISM
+# /resetbase irreversible, Clear-RegistreOrphelin vide des historiques.
+#
+# Constate : lancer cette suite sur une machine de developpement lui appliquait
+# reellement ces nettoyages. Un test doit verifier un comportement, pas
+# reconfigurer l'ordinateur de qui le lance.
+$global:Simulation = $true
+$script:Simulation = $true
 $global:srcDir = Join-Path $global:racine "src"
 
 Describe "Build Verification" {
@@ -156,6 +169,15 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         . (Join-Path $global:srcDir "56-menu-maintenance.ps1")
         . (Join-Path $global:srcDir "59-menu-nettoyage.ps1")
         . (Join-Path $global:srcDir "70-audit.ps1")
+
+        # LA LIGNE QUI COMPTE, et elle doit etre ICI, apres le chargement.
+        # Posee en tete du fichier elle n'a aucun effet : $script: designe la
+        # portee ou la fonction a ete DEFINIE, c'est-a-dire ce bloc-ci.
+        # Sans elle, les tests ci-dessous nettoient reellement la machine de qui
+        # les lance : suppression d'installeurs de plus de 30 jours dans les
+        # Telechargements, DISM /resetbase irreversible, purge d'historiques.
+        $script:Simulation = $true
+        $script:SimuCompteur = 0
     }
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
