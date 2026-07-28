@@ -196,7 +196,22 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     It "Clear-RegistreOrphelin doit s'exécuter sans lever d'exception" {
         { Clear-RegistreOrphelin } | Should Not Throw
     }
+
+    It "Get-AuditConformiteSecurite doit exécuter l'audit de sécurité sans lever d'exception" {
+        . (Join-Path $srcDir "70-audit.ps1")
+        $res = Get-AuditConformiteSecurite
+        $res | Should Not BeNullOrEmpty
+    }
+
+    It "Set-CpuCoreParkingAndFrequency doit s'exécuter sans lever d'exception" {
+        { Set-CpuCoreParkingAndFrequency } | Should Not Throw
+    }
+
+    It "Clear-TelechargementsAnciens doit s'exécuter sans lever d'exception" {
+        { Clear-TelechargementsAnciens } | Should Not Throw
+    }
 }
+
 
 
 

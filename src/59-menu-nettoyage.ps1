@@ -295,5 +295,33 @@ function Clear-RegistreOrphelin {
     return $purges
 }
 
+function Clear-TelechargementsAnciens {
+    # Supprime les installeurs (.exe, .msi, .iso, .zip) non modifiés depuis plus de 30 jours dans le dossier Downloads.
+    param([int]$JoursAnciennete = 30)
+
+    $dossierDl = Join-Path $env:USERPROFILE "Downloads"
+    if (-not (Test-Path $dossierDl)) { return 0 }
+
+    $dateLimite = (Get-Date).AddDays(-$JoursAnciennete)
+    $fichiers = Get-ChildItem -Path $dossierDl -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $dateLimite -and $_.Extension -in @('.exe', '.msi', '.iso', '.zip', '.rar', '.7z') }
+
+    $suppr = 0
+    $octets = [long]0
+
+    foreach ($f in $fichiers) {
+        try {
+            $octets += $f.Length
+            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            $suppr++
+        } catch { }
+    }
+
+    $mo = [math]::Round($octets / 1MB, 1)
+    Write-Etat ((T 'nettoyage.downloads.ok') -f $suppr, $mo) -Niveau OK
+    return $suppr
+}
+
+
 
 

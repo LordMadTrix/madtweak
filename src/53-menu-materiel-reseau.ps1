@@ -314,6 +314,20 @@ function Set-GamingNetworkOptimizations {
     return $true
 }
 
+function Set-CpuCoreParkingAndFrequency {
+    # Désactive le parquage agressif des cœurs CPU dans le plan d'alimentation actif (Unpark CPU Cores).
+    try {
+        powercfg.exe /setacvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
+        powercfg.exe /setdcvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
+        powercfg.exe /setactive SCHEME_CURRENT
+        Write-Etat (T 'cpu.unpark.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+
 
 
 

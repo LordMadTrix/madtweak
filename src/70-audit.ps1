@@ -872,4 +872,38 @@ function Test-BenchmarkPerformance {
     return $res
 }
 
+function Get-AuditConformiteSecurite {
+    # Audit de sécurité : BitLocker, isolation noyau HVCI, Windows Firewall, UAC.
+    $res = @{
+        BitLockerActif = $false
+        HvciActif      = $false
+        PareFeuActif   = $false
+        UacActif       = $false
+    }
+
+    try {
+        $bl = Get-BitLockerVolume -ErrorAction SilentlyContinue
+        if ($bl -and ($bl | Where-Object { $_.ProtectionStatus -eq 'On' })) { $res.BitLockerActif = $true }
+    } catch { }
+
+    try {
+        $fw = Get-NetFirewallProfile -ErrorAction SilentlyContinue
+        if ($fw -and ($fw | Where-Object { $_.Enabled -eq $true }).Count -eq $fw.Count) { $res.PareFeuActif = $true }
+    } catch { }
+
+    try {
+        $uac = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -ErrorAction SilentlyContinue
+        if ($uac -and $uac.EnableLUA -eq 1) { $res.UacActif = $true }
+    } catch { }
+
+    try {
+        $hvci = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled" -ErrorAction SilentlyContinue
+        if ($hvci -and $hvci.Enabled -eq 1) { $res.HvciActif = $true }
+    } catch { }
+
+    Write-Etat (T 'audit.securite.ok') -Niveau OK
+    return $res
+}
+
+
 

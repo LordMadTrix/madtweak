@@ -381,7 +381,14 @@ $script:Textes = @{
     'reseau.gaming.ok'           = @{ fr = "Optimisations réseau gaming appliquées (TcpAckFrequency, TCPNoDelay, DoH)."; en = "Gaming network optimizations applied (TcpAckFrequency, TCPNoDelay, DoH)." }
     'drivers.export.ok'          = @{ fr = "Exportation des pilotes système terminée ({0} pilote(s) exporté(s))."; en = "System drivers export completed ({0} driver(s) exported)." }
     'registre.orphelin.ok'       = @{ fr = "Nettoyage du registre orphelin terminé."; en = "Orphaned registry cleanup completed." }
+
+    # --- v1.6 Features ---
+    'audit.securite.ok'          = @{ fr = "Audit de conformité sécurité terminé."; en = "Security compliance audit completed." }
+    'cpu.unpark.ok'              = @{ fr = "Déblocage des cœurs CPU et désactivation du parking d'énergie appliqués."; en = "CPU unpark and core parking disabled." }
+    'iso.bootable.ok'            = @{ fr = "Image ISO bootable UEFI générée avec succès ({0} Go) : {1}"; en = "Bootable UEFI ISO image generated successfully ({0} GB): {1}" }
+    'nettoyage.downloads.ok'     = @{ fr = "{0} installeur(s) périmé(s) supprimé(s) du dossier Téléchargements ({1} Mo libéré(s))."; en = "{0} outdated installer(s) removed from Downloads ({1} MB freed)." }
 }
+
 
 
 

@@ -451,7 +451,14 @@ $script:Textes = @{
     'reseau.gaming.ok'           = @{ fr = "Optimisations réseau gaming appliquées (TcpAckFrequency, TCPNoDelay, DoH)."; en = "Gaming network optimizations applied (TcpAckFrequency, TCPNoDelay, DoH)." }
     'drivers.export.ok'          = @{ fr = "Exportation des pilotes système terminée ({0} pilote(s) exporté(s))."; en = "System drivers export completed ({0} driver(s) exported)." }
     'registre.orphelin.ok'       = @{ fr = "Nettoyage du registre orphelin terminé."; en = "Orphaned registry cleanup completed." }
+
+    # --- v1.6 Features ---
+    'audit.securite.ok'          = @{ fr = "Audit de conformité sécurité terminé."; en = "Security compliance audit completed." }
+    'cpu.unpark.ok'              = @{ fr = "Déblocage des cœurs CPU et désactivation du parking d'énergie appliqués."; en = "CPU unpark and core parking disabled." }
+    'iso.bootable.ok'            = @{ fr = "Image ISO bootable UEFI générée avec succès ({0} Go) : {1}"; en = "Bootable UEFI ISO image generated successfully ({0} GB): {1}" }
+    'nettoyage.downloads.ok'     = @{ fr = "{0} installeur(s) périmé(s) supprimé(s) du dossier Téléchargements ({1} Mo libéré(s))."; en = "{0} outdated installer(s) removed from Downloads ({1} MB freed)." }
 }
+
 
 
 
@@ -2933,6 +2940,20 @@ function Set-GamingNetworkOptimizations {
     return $true
 }
 
+function Set-CpuCoreParkingAndFrequency {
+    # Désactive le parquage agressif des cœurs CPU dans le plan d'alimentation actif (Unpark CPU Cores).
+    try {
+        powercfg.exe /setacvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
+        powercfg.exe /setdcvalueindex SCHEME_CURRENT 54533751-8834-450f-9a72-171923846a36 0cc5b647-0208-46c6-9466-9d6a0d0c377f 100
+        powercfg.exe /setactive SCHEME_CURRENT
+        Write-Etat (T 'cpu.unpark.ok') -Niveau OK
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+
 
 
 
@@ -4231,6 +4252,34 @@ function Clear-RegistreOrphelin {
     Write-Etat (T 'registre.orphelin.ok') -Niveau OK
     return $purges
 }
+
+function Clear-TelechargementsAnciens {
+    # Supprime les installeurs (.exe, .msi, .iso, .zip) non modifiés depuis plus de 30 jours dans le dossier Downloads.
+    param([int]$JoursAnciennete = 30)
+
+    $dossierDl = Join-Path $env:USERPROFILE "Downloads"
+    if (-not (Test-Path $dossierDl)) { return 0 }
+
+    $dateLimite = (Get-Date).AddDays(-$JoursAnciennete)
+    $fichiers = Get-ChildItem -Path $dossierDl -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.LastWriteTime -lt $dateLimite -and $_.Extension -in @('.exe', '.msi', '.iso', '.zip', '.rar', '.7z') }
+
+    $suppr = 0
+    $octets = [long]0
+
+    foreach ($f in $fichiers) {
+        try {
+            $octets += $f.Length
+            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            $suppr++
+        } catch { }
+    }
+
+    $mo = [math]::Round($octets / 1MB, 1)
+    Write-Etat ((T 'nettoyage.downloads.ok') -f $suppr, $mo) -Niveau OK
+    return $suppr
+}
+
 
 
 
@@ -7280,6 +7329,44 @@ function Optimize-IsoWindows {
     }
 }
 
+function New-IsoMadTweakBootable {
+    # Construit une image ISO .iso bootable UEFI à partir d'un dossier source à l'aide d'oscdimg.exe.
+    param(
+        [Parameter(Mandatory)][string]$DossierSource,
+        [Parameter(Mandatory)][string]$CheminIsoSortie,
+        [string]$LabelVolume = "MADTWEAK_WIN11"
+    )
+    if (-not (Test-Path $DossierSource)) { throw "Dossier source introuvable : $DossierSource" }
+
+    $oscdimg = Get-Command oscdimg.exe -ErrorAction SilentlyContinue
+    if (-not $oscdimg) {
+        $cands = @("$env:ProgramFiles(x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe", "$env:SystemRoot\System32\oscdimg.exe")
+        foreach ($c in $cands) { if (Test-Path $c) { $oscdimg = $c; break } }
+    }
+    if (-not $oscdimg) {
+        throw "oscdimg.exe est introuvable. Installe Windows ADK (Deployment Tools) pour reconstruire des images ISO."
+    }
+
+    $bootFile = Join-Path $DossierSource "boot\etfsboot.com"
+    $efisys = Join-Path $DossierSource "efi\microsoft\boot\efisys.bin"
+    $bootArg = "-b`"$bootFile`""
+    if (Test-Path $efisys) {
+        $bootArg = "-p00 -e -b`"$efisys`""
+    }
+
+    $args = @("-m", "-o", "-u2", "-udfver102", $bootArg, "-l$LabelVolume", $DossierSource, $CheminIsoSortie)
+    & $oscdimg $args | Out-Null
+
+    if (Test-Path $CheminIsoSortie) {
+        $tailleGo = [math]::Round((Get-Item $CheminIsoSortie).Length / 1GB, 2)
+        Write-Etat ((T 'iso.bootable.ok') -f $tailleGo, $CheminIsoSortie) -Niveau OK
+        return $CheminIsoSortie
+    } else {
+        throw "Échec de la génération ISO par oscdimg."
+    }
+}
+
+
 
 # ------------------------------------------------------------------------------
 # AUDIT : que vaut cette machine, ici et maintenant ?
@@ -8154,6 +8241,40 @@ function Test-BenchmarkPerformance {
     Write-Etat "Processus actifs : $procs | RAM utilisée : $ramUtiliseeMo Mo | RAM libre : $ramLibreMo Mo" -Niveau OK
     return $res
 }
+
+function Get-AuditConformiteSecurite {
+    # Audit de sécurité : BitLocker, isolation noyau HVCI, Windows Firewall, UAC.
+    $res = @{
+        BitLockerActif = $false
+        HvciActif      = $false
+        PareFeuActif   = $false
+        UacActif       = $false
+    }
+
+    try {
+        $bl = Get-BitLockerVolume -ErrorAction SilentlyContinue
+        if ($bl -and ($bl | Where-Object { $_.ProtectionStatus -eq 'On' })) { $res.BitLockerActif = $true }
+    } catch { }
+
+    try {
+        $fw = Get-NetFirewallProfile -ErrorAction SilentlyContinue
+        if ($fw -and ($fw | Where-Object { $_.Enabled -eq $true }).Count -eq $fw.Count) { $res.PareFeuActif = $true }
+    } catch { }
+
+    try {
+        $uac = Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -ErrorAction SilentlyContinue
+        if ($uac -and $uac.EnableLUA -eq 1) { $res.UacActif = $true }
+    } catch { }
+
+    try {
+        $hvci = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled" -ErrorAction SilentlyContinue
+        if ($hvci -and $hvci.Enabled -eq 1) { $res.HvciActif = $true }
+    } catch { }
+
+    Write-Etat (T 'audit.securite.ok') -Niveau OK
+    return $res
+}
+
 
 
 # ------------------------------------------------------------------------------

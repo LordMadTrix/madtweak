@@ -1943,4 +1943,42 @@ function Optimize-IsoWindows {
     }
 }
 
+function New-IsoMadTweakBootable {
+    # Construit une image ISO .iso bootable UEFI à partir d'un dossier source à l'aide d'oscdimg.exe.
+    param(
+        [Parameter(Mandatory)][string]$DossierSource,
+        [Parameter(Mandatory)][string]$CheminIsoSortie,
+        [string]$LabelVolume = "MADTWEAK_WIN11"
+    )
+    if (-not (Test-Path $DossierSource)) { throw "Dossier source introuvable : $DossierSource" }
+
+    $oscdimg = Get-Command oscdimg.exe -ErrorAction SilentlyContinue
+    if (-not $oscdimg) {
+        $cands = @("$env:ProgramFiles(x86)\Windows Kits\10\Assessment and Deployment Kit\Deployment Tools\amd64\Oscdimg\oscdimg.exe", "$env:SystemRoot\System32\oscdimg.exe")
+        foreach ($c in $cands) { if (Test-Path $c) { $oscdimg = $c; break } }
+    }
+    if (-not $oscdimg) {
+        throw "oscdimg.exe est introuvable. Installe Windows ADK (Deployment Tools) pour reconstruire des images ISO."
+    }
+
+    $bootFile = Join-Path $DossierSource "boot\etfsboot.com"
+    $efisys = Join-Path $DossierSource "efi\microsoft\boot\efisys.bin"
+    $bootArg = "-b`"$bootFile`""
+    if (Test-Path $efisys) {
+        $bootArg = "-p00 -e -b`"$efisys`""
+    }
+
+    $args = @("-m", "-o", "-u2", "-udfver102", $bootArg, "-l$LabelVolume", $DossierSource, $CheminIsoSortie)
+    & $oscdimg $args | Out-Null
+
+    if (Test-Path $CheminIsoSortie) {
+        $tailleGo = [math]::Round((Get-Item $CheminIsoSortie).Length / 1GB, 2)
+        Write-Etat ((T 'iso.bootable.ok') -f $tailleGo, $CheminIsoSortie) -Niveau OK
+        return $CheminIsoSortie
+    } else {
+        throw "Échec de la génération ISO par oscdimg."
+    }
+}
+
+
 
