@@ -325,6 +325,9 @@ $script:TextesTweaks = @{
     'widgets-dsh.t' = "Fully disable Widgets? ('Dsh' policy, the one that works since 24H2)"
     'widgets-dsh.e' = "Fully disables the Widgets panel. This is the policy that actually works from 24H2 onwards: the old « Windows Feeds » key that most guides recommend no longer even exists."
 
+    'apps-accessoires.t' = "Uninstall the rarely used Windows accessories (Clock, Camera, Sound Recorder, Media Player)?"
+    'apps-accessoires.e' = "Removes four accessories shipped with Windows: Alarms & Clock, Camera, Sound Recorder and Media Player (Groove). They bother nobody and do not run in the background — this is about tidiness, not performance. Kept apart from the bloatware list because some people genuinely use them, and everything reinstalls from the Microsoft Store. The Camera especially: without it, no app for your webcam."
+
     'widgets-paquet.t' = "UNINSTALL the Widgets package? (when the policy is refused)"
     'widgets-paquet.e' = "Removes the « Web Experience » package that IS the Widgets panel, instead of relying on a policy Windows may refuse to apply. More radical, but the only reliable way: on a fresh 25H2 install the policy was rejected with « operation not allowed » while Widgets were still there. Reinstallable from the Microsoft Store."
 

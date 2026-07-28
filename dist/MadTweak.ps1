@@ -729,6 +729,9 @@ $script:TextesTweaks = @{
     'widgets-dsh.t' = "Fully disable Widgets? ('Dsh' policy, the one that works since 24H2)"
     'widgets-dsh.e' = "Fully disables the Widgets panel. This is the policy that actually works from 24H2 onwards: the old « Windows Feeds » key that most guides recommend no longer even exists."
 
+    'apps-accessoires.t' = "Uninstall the rarely used Windows accessories (Clock, Camera, Sound Recorder, Media Player)?"
+    'apps-accessoires.e' = "Removes four accessories shipped with Windows: Alarms & Clock, Camera, Sound Recorder and Media Player (Groove). They bother nobody and do not run in the background — this is about tidiness, not performance. Kept apart from the bloatware list because some people genuinely use them, and everything reinstalls from the Microsoft Store. The Camera especially: without it, no app for your webcam."
+
     'widgets-paquet.t' = "UNINSTALL the Widgets package? (when the policy is refused)"
     'widgets-paquet.e' = "Removes the « Web Experience » package that IS the Widgets panel, instead of relying on a policy Windows may refuse to apply. More radical, but the only reliable way: on a fresh 25H2 install the policy was rejected with « operation not allowed » while Widgets were still there. Reinstallable from the Microsoft Store."
 
@@ -1964,6 +1967,38 @@ function Menu-Tweaks-Base {
         }
         # On peut maintenant affirmer ceci, puisqu'on a VRAIMENT lu le catalogue.
         if ($supprimes -eq 0) { Write-Etat "Vérifié : aucun de ces bloatwares n'était installé. Rien à faire." -Niveau Info }
+    }
+
+    Invoke-Tweak "Désinstaller les accessoires Windows peu utilisés (Horloge, Caméra, Magnétophone, Lecteur multimédia) ?" -Cle "apps-accessoires" `
+        -Explication "Retire quatre accessoires livrés avec Windows : Horloge et alarmes, Caméra, Enregistreur vocal, et le Lecteur multimédia (Groove). Ils ne gênent personne et ne tournent pas en arrière-plan — c'est une question de propreté, pas de performance. Séparé des bloatwares parce que certains s'en servent réellement, et tout se réinstalle depuis le Microsoft Store. La Caméra en particulier : sans elle, plus d'application pour ta webcam." {
+        # Relevés sur une installation neuve de Windows 11 25H2 : ni des bloatwares
+        # (personne ne les pousse, ils ne collectent rien), ni des composants du
+        # systeme. Ils meritent donc leur propre case, cochee en connaissance de
+        # cause, plutot que d'etre glisses dans une liste ou l'autre.
+        $Accessoires = @("*WindowsAlarms*", "*WindowsCamera*", "*WindowsSoundRecorder*", "*ZuneMusic*", "*ZuneVideo*")
+        try { $catalogue = @(Get-AppxPackage -AllUsers -ErrorAction Stop) }
+        catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
+
+        $n = 0
+        foreach ($App in $Accessoires) {
+            foreach ($p in @($catalogue | Where-Object { $_.Name -like $App })) {
+                try {
+                    Invoke-Action "désinstallerait le paquet $($p.Name)" { Remove-AppxPackage -Package $p.PackageFullName -AllUsers -ErrorAction Stop }
+                    if (-not $script:Simulation) { Write-Etat "Supprimé : $($p.Name)" -Niveau OK }
+                    $n++
+                }
+                catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
+            }
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } | ForEach-Object {
+                try {
+                    Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
+                        Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                    }
+                }
+                catch { }
+            }
+        }
+        if ($n -eq 0) { Write-Etat "Vérifié : aucun de ces accessoires n'était installé. Rien à faire." -Niveau Info }
     }
 
     Invoke-Tweak "Désinstaller les apps OEM et Xbox (Dolby, Xbox, Family Safety, Lien avec le téléphone) ?" -Cle "apps-oem" `

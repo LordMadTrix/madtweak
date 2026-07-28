@@ -120,6 +120,38 @@ function Menu-Tweaks-Base {
         if ($supprimes -eq 0) { Write-Etat "Vérifié : aucun de ces bloatwares n'était installé. Rien à faire." -Niveau Info }
     }
 
+    Invoke-Tweak "Désinstaller les accessoires Windows peu utilisés (Horloge, Caméra, Magnétophone, Lecteur multimédia) ?" -Cle "apps-accessoires" `
+        -Explication "Retire quatre accessoires livrés avec Windows : Horloge et alarmes, Caméra, Enregistreur vocal, et le Lecteur multimédia (Groove). Ils ne gênent personne et ne tournent pas en arrière-plan — c'est une question de propreté, pas de performance. Séparé des bloatwares parce que certains s'en servent réellement, et tout se réinstalle depuis le Microsoft Store. La Caméra en particulier : sans elle, plus d'application pour ta webcam." {
+        # Relevés sur une installation neuve de Windows 11 25H2 : ni des bloatwares
+        # (personne ne les pousse, ils ne collectent rien), ni des composants du
+        # systeme. Ils meritent donc leur propre case, cochee en connaissance de
+        # cause, plutot que d'etre glisses dans une liste ou l'autre.
+        $Accessoires = @("*WindowsAlarms*", "*WindowsCamera*", "*WindowsSoundRecorder*", "*ZuneMusic*", "*ZuneVideo*")
+        try { $catalogue = @(Get-AppxPackage -AllUsers -ErrorAction Stop) }
+        catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
+
+        $n = 0
+        foreach ($App in $Accessoires) {
+            foreach ($p in @($catalogue | Where-Object { $_.Name -like $App })) {
+                try {
+                    Invoke-Action "désinstallerait le paquet $($p.Name)" { Remove-AppxPackage -Package $p.PackageFullName -AllUsers -ErrorAction Stop }
+                    if (-not $script:Simulation) { Write-Etat "Supprimé : $($p.Name)" -Niveau OK }
+                    $n++
+                }
+                catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
+            }
+            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } | ForEach-Object {
+                try {
+                    Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
+                        Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                    }
+                }
+                catch { }
+            }
+        }
+        if ($n -eq 0) { Write-Etat "Vérifié : aucun de ces accessoires n'était installé. Rien à faire." -Niveau Info }
+    }
+
     Invoke-Tweak "Désinstaller les apps OEM et Xbox (Dolby, Xbox, Family Safety, Lien avec le téléphone) ?" -Cle "apps-oem" `
         -Explication "Liste séparée de la précédente parce qu'elle est discutable : garde Xbox si tu utilises le Game Pass, et Dolby si ton portable a un vrai matériel audio Dolby Atmos (sinon tu perdrais du son). « Lien avec le téléphone » sert à recevoir SMS et notifications Android sur le PC." {
         # Liste séparée car discutable : garde Xbox si tu utilises le Game Pass,
