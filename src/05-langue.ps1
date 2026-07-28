@@ -362,7 +362,14 @@ $script:Textes = @{
     'nettoyage.caches.purger'    = @{ fr = "Purge des caches terminée : {0} Mo libéré(s)."; en = "Cache cleanup completed: {0} MB freed." }
     'reseau.sante.titre'         = @{ fr = "Diagnostic de santé réseau"; en = "Network Health Diagnostic" }
     'reseau.sante.ping'          = @{ fr = "Latence réseau (ping 8.8.8.8) : {0} ms"; en = "Network latency (ping 8.8.8.8): {0} ms" }
+
+    # --- Superiority UWT5 : Context Menu, RAM Purge, System Repair ---
+    'ram.purger.debut'           = @{ fr = "Purge de la mémoire RAM en cours..."; en = "Purging RAM cache..." }
+    'ram.purger.ok'              = @{ fr = "Purge de la mémoire RAM terminée."; en = "RAM cache purge completed." }
+    'repair.systeme.debut'       = @{ fr = "Lancement de la réparation intégrale du système (SFC + DISM + Cache Icônes)..."; en = "Starting full system repair (SFC + DISM + Icon Cache)..." }
+    'repair.systeme.ok'          = @{ fr = "Réparation système terminée avec succès."; en = "System repair completed successfully." }
 }
+
 
 
 

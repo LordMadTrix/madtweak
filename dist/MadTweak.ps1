@@ -432,7 +432,14 @@ $script:Textes = @{
     'nettoyage.caches.purger'    = @{ fr = "Purge des caches terminée : {0} Mo libéré(s)."; en = "Cache cleanup completed: {0} MB freed." }
     'reseau.sante.titre'         = @{ fr = "Diagnostic de santé réseau"; en = "Network Health Diagnostic" }
     'reseau.sante.ping'          = @{ fr = "Latence réseau (ping 8.8.8.8) : {0} ms"; en = "Network latency (ping 8.8.8.8): {0} ms" }
+
+    # --- Superiority UWT5 : Context Menu, RAM Purge, System Repair ---
+    'ram.purger.debut'           = @{ fr = "Purge de la mémoire RAM en cours..."; en = "Purging RAM cache..." }
+    'ram.purger.ok'              = @{ fr = "Purge de la mémoire RAM terminée."; en = "RAM cache purge completed." }
+    'repair.systeme.debut'       = @{ fr = "Lancement de la réparation intégrale du système (SFC + DISM + Cache Icônes)..."; en = "Starting full system repair (SFC + DISM + Icon Cache)..." }
+    'repair.systeme.ok'          = @{ fr = "Réparation système terminée avec succès."; en = "System repair completed successfully." }
 }
+
 
 
 
@@ -2280,6 +2287,31 @@ function Menu-Tweaks-Avances {
     Fin-De-Menu -RedemarrerExplorateur
 }
 
+function Clear-MemoireRAM {
+    # Purge la mémoire de travail des processus et force le garbage collector (GC).
+    Write-Etat (T 'ram.purger.debut') -Niveau Info
+
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+
+    try {
+        $type = Add-Type -MemberDefinition '[DllImport("psapi.dll")] public static extern bool EmptyWorkingSet(IntPtr hProcess);' -Name 'Win32EmptyWS' -Namespace 'MadTweak' -PassThru -ErrorAction SilentlyContinue
+        if ($type) {
+            $procs = Get-Process -ErrorAction SilentlyContinue
+            foreach ($p in $procs) {
+                try {
+                    if ($p.Handle -and -not $p.HasExited) {
+                        [MadTweak.Win32EmptyWS]::EmptyWorkingSet($p.Handle) | Out-Null
+                    }
+                } catch { }
+            }
+        }
+    } catch { }
+
+    Write-Etat (T 'ram.purger.ok') -Niveau OK
+}
+
+
 # ------------------------------------------------------------------------------
 # EXPLORATEUR & VIE PRIVÉE
 # ------------------------------------------------------------------------------
@@ -2494,8 +2526,33 @@ function Menu-Explorateur-Prive {
         }
     }
 
+    Invoke-Tweak "Ajouter « Prendre la propriété » (Take Ownership) au menu contextuel du clic droit ?" -Cle "contextual-take-ownership" `
+        -Explication "Ajoute l'option « Prendre la propriété » dans le menu contextuel clic droit de l'Explorateur Windows sur tous les fichiers et dossiers." {
+        $cmdFile = 'cmd.exe /c takeown /f "%1" && icacls "%1" /grant administrators:F'
+        $cmdDir  = 'cmd.exe /c takeown /f "%1" /r /d y && icacls "%1" /grant administrators:F /t'
+        Set-RegValue -Path "HKCR:\*\shell\runas" -Name "" -Value "Prendre la propriété"
+        Set-RegValue -Path "HKCR:\*\shell\runas" -Name "NoWorkingDirectory" -Value ""
+        Set-RegValue -Path "HKCR:\*\shell\runas\command" -Name "" -Value $cmdFile
+        Set-RegValue -Path "HKCR:\Directory\shell\runas" -Name "" -Value "Prendre la propriété"
+        Set-RegValue -Path "HKCR:\Directory\shell\runas" -Name "NoWorkingDirectory" -Value ""
+        Set-RegValue -Path "HKCR:\Directory\shell\runas\command" -Name "" -Value $cmdDir
+    }
+
+    Invoke-Tweak "Ajouter « Ouvrir PowerShell (Admin) » au menu contextuel des dossiers ?" -Cle "contextual-powershell-admin" `
+        -Explication "Ajoute un raccourci direct pour ouvrir un terminal PowerShell en Administrateur dans le dossier courant lors du clic droit." {
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin" -Name "" -Value "Ouvrir PowerShell (Admin)"
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin" -Name "HasLUAShield" -Value ""
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin\command" -Name "" -Value 'powershell.exe -NoExit -Command "Set-Location ''%V''"'
+    }
+
+    Invoke-Tweak "Restaurer le menu contextuel classique complet de Windows 10 sur Windows 11 ?" -Cle "classic-context-menu-win11" `
+        -Explication "Restaure le menu contextuel clic droit complet classique sans avoir à cliquer sur « Afficher plus d'options » sous Windows 11." {
+        Set-RegValue -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "" -Value ""
+    }
+
     Fin-De-Menu -RedemarrerExplorateur
 }
+
 
 # ------------------------------------------------------------------------------
 # MATÉRIEL, RÉSEAU & RAM
@@ -3175,6 +3232,32 @@ function Menu-Maintenance {
 
     Fin-De-Menu
 }
+
+function Repair-SystemeIntegral {
+    # Exécute la réparation intégrale 1-clic : DISM RestoreHealth, SFC scannow, Flush DNS et reconstruction cache icônes.
+    Write-Etat (T 'repair.systeme.debut') -Niveau Info
+
+    try {
+        Invoke-Externe -Fichier "DISM.exe" -Arguments @("/Online", "/Cleanup-Image", "/RestoreHealth") -CodesOK @(0)
+    } catch { }
+
+    try {
+        Invoke-Externe -Fichier "sfc.exe" -Arguments @("/scannow") -CodesOK @(0)
+    } catch { }
+
+    try {
+        ipconfig /flushdns | Out-Null
+    } catch { }
+
+    try {
+        $iconCache = Join-Path $env:LOCALAPPDATA "IconCache.db"
+        if (Test-Path $iconCache) { Remove-Item $iconCache -Force -ErrorAction SilentlyContinue }
+    } catch { }
+
+    Write-Etat (T 'repair.systeme.ok') -Niveau OK
+    return $true
+}
+
 
 # ------------------------------------------------------------------------------
 # NOUVEAUTÉS WINDOWS 11 24H2 / 25H2

@@ -152,3 +152,28 @@ function Menu-Tweaks-Avances {
     Fin-De-Menu -RedemarrerExplorateur
 }
 
+function Clear-MemoireRAM {
+    # Purge la mémoire de travail des processus et force le garbage collector (GC).
+    Write-Etat (T 'ram.purger.debut') -Niveau Info
+
+    [System.GC]::Collect()
+    [System.GC]::WaitForPendingFinalizers()
+
+    try {
+        $type = Add-Type -MemberDefinition '[DllImport("psapi.dll")] public static extern bool EmptyWorkingSet(IntPtr hProcess);' -Name 'Win32EmptyWS' -Namespace 'MadTweak' -PassThru -ErrorAction SilentlyContinue
+        if ($type) {
+            $procs = Get-Process -ErrorAction SilentlyContinue
+            foreach ($p in $procs) {
+                try {
+                    if ($p.Handle -and -not $p.HasExited) {
+                        [MadTweak.Win32EmptyWS]::EmptyWorkingSet($p.Handle) | Out-Null
+                    }
+                } catch { }
+            }
+        }
+    } catch { }
+
+    Write-Etat (T 'ram.purger.ok') -Niveau OK
+}
+
+

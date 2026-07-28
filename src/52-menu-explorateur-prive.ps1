@@ -212,6 +212,31 @@ function Menu-Explorateur-Prive {
         }
     }
 
+    Invoke-Tweak "Ajouter « Prendre la propriété » (Take Ownership) au menu contextuel du clic droit ?" -Cle "contextual-take-ownership" `
+        -Explication "Ajoute l'option « Prendre la propriété » dans le menu contextuel clic droit de l'Explorateur Windows sur tous les fichiers et dossiers." {
+        $cmdFile = 'cmd.exe /c takeown /f "%1" && icacls "%1" /grant administrators:F'
+        $cmdDir  = 'cmd.exe /c takeown /f "%1" /r /d y && icacls "%1" /grant administrators:F /t'
+        Set-RegValue -Path "HKCR:\*\shell\runas" -Name "" -Value "Prendre la propriété"
+        Set-RegValue -Path "HKCR:\*\shell\runas" -Name "NoWorkingDirectory" -Value ""
+        Set-RegValue -Path "HKCR:\*\shell\runas\command" -Name "" -Value $cmdFile
+        Set-RegValue -Path "HKCR:\Directory\shell\runas" -Name "" -Value "Prendre la propriété"
+        Set-RegValue -Path "HKCR:\Directory\shell\runas" -Name "NoWorkingDirectory" -Value ""
+        Set-RegValue -Path "HKCR:\Directory\shell\runas\command" -Name "" -Value $cmdDir
+    }
+
+    Invoke-Tweak "Ajouter « Ouvrir PowerShell (Admin) » au menu contextuel des dossiers ?" -Cle "contextual-powershell-admin" `
+        -Explication "Ajoute un raccourci direct pour ouvrir un terminal PowerShell en Administrateur dans le dossier courant lors du clic droit." {
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin" -Name "" -Value "Ouvrir PowerShell (Admin)"
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin" -Name "HasLUAShield" -Value ""
+        Set-RegValue -Path "HKCR:\Directory\shell\OpenPowerShellAdmin\command" -Name "" -Value 'powershell.exe -NoExit -Command "Set-Location ''%V''"'
+    }
+
+    Invoke-Tweak "Restaurer le menu contextuel classique complet de Windows 10 sur Windows 11 ?" -Cle "classic-context-menu-win11" `
+        -Explication "Restaure le menu contextuel clic droit complet classique sans avoir à cliquer sur « Afficher plus d'options » sous Windows 11." {
+        Set-RegValue -Path "HKCU:\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32" -Name "" -Value ""
+    }
+
     Fin-De-Menu -RedemarrerExplorateur
 }
+
 

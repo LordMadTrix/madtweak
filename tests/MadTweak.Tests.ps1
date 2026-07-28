@@ -142,11 +142,13 @@ Describe "Installation USB & Autounattend" {
     }
 }
 
-Describe "Fonctionnalités Phase 3" {
+Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     BeforeAll {
         . (Join-Path $srcDir "05-langue.ps1")
         . (Join-Path $srcDir "10-socle.ps1")
+        . (Join-Path $srcDir "51-menu-avances.ps1")
         . (Join-Path $srcDir "53-menu-materiel-reseau.ps1")
+        . (Join-Path $srcDir "56-menu-maintenance.ps1")
         . (Join-Path $srcDir "59-menu-nettoyage.ps1")
     }
 
@@ -159,6 +161,11 @@ Describe "Fonctionnalités Phase 3" {
         $res = Test-SanteReseau
         $res | Should Not BeNullOrEmpty
     }
+
+    It "Clear-MemoireRAM doit s'exécuter sans lever d'exception" {
+        { Clear-MemoireRAM } | Should Not Throw
+    }
 }
+
 
 

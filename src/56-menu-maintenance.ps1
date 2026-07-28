@@ -40,3 +40,29 @@ function Menu-Maintenance {
     Fin-De-Menu
 }
 
+function Repair-SystemeIntegral {
+    # Exécute la réparation intégrale 1-clic : DISM RestoreHealth, SFC scannow, Flush DNS et reconstruction cache icônes.
+    Write-Etat (T 'repair.systeme.debut') -Niveau Info
+
+    try {
+        Invoke-Externe -Fichier "DISM.exe" -Arguments @("/Online", "/Cleanup-Image", "/RestoreHealth") -CodesOK @(0)
+    } catch { }
+
+    try {
+        Invoke-Externe -Fichier "sfc.exe" -Arguments @("/scannow") -CodesOK @(0)
+    } catch { }
+
+    try {
+        ipconfig /flushdns | Out-Null
+    } catch { }
+
+    try {
+        $iconCache = Join-Path $env:LOCALAPPDATA "IconCache.db"
+        if (Test-Path $iconCache) { Remove-Item $iconCache -Force -ErrorAction SilentlyContinue }
+    } catch { }
+
+    Write-Etat (T 'repair.systeme.ok') -Niveau OK
+    return $true
+}
+
+
