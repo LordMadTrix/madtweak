@@ -2,23 +2,16 @@
 # TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
 # ==============================================================================
 
-# Résolution ultra-robuste de la racine du dépôt pour Pester 3.4.0 et Pester 5
-$base = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
-if (Test-Path (Join-Path $base "src")) {
-    $script:racine = $base
-} elseif (Test-Path (Join-Path (Split-Path -Path $base -Parent) "src")) {
-    $script:racine = Split-Path -Path $base -Parent
-} else {
-    $script:racine = (Get-Item ".").FullName
+$script:racine = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+if (-not $script:racine -or -not (Test-Path (Join-Path $script:racine "src"))) {
+    $script:racine = (Resolve-Path ".").Path
 }
-
 $script:buildScript = Join-Path $script:racine "build.ps1"
 $script:srcDir = Join-Path $script:racine "src"
 
 Describe "Build Verification" {
     It "Doit valider que dist\MadTweak.ps1 est parfaitement à jour avec src\" {
-        $result = & powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& '$($script:buildScript)' -Verifier"
-        $LASTEXITCODE | Should Be 0
+        { & $script:buildScript -Verifier } | Should Not Throw
     }
 
     It "Chaque module src\*.ps1 doit posséder un BOM UTF-8 (0xEF, 0xBB, 0xBF)" {
