@@ -4942,6 +4942,152 @@ function Copy-FichiersVersCle {
     return $copies
 }
 
+function Get-DisquesUSB {
+    # Ne renvoie QUE des disques USB, jamais le disque système. C'est la source de
+    # la liste proposée à l'utilisateur : ce qui n'apparaît pas ici ne peut pas
+    # être effacé par erreur.
+    $liste = New-Object System.Collections.Generic.List[object]
+    try {
+        foreach ($d in (Get-Disk -ErrorAction Stop | Where-Object { $_.BusType -eq 'USB' })) {
+            if ($d.IsBoot -or $d.IsSystem) { continue }
+            $vols = @(Get-Partition -DiskNumber $d.Number -ErrorAction SilentlyContinue |
+                Get-Volume -ErrorAction SilentlyContinue | Where-Object DriveLetter)
+            $liste.Add([pscustomobject]@{
+                    Numero  = $d.Number
+                    Nom     = $d.FriendlyName
+                    Go      = [math]::Round($d.Size / 1GB, 1)
+                    Lettres = (($vols | ForEach-Object { "$($_.DriveLetter):" }) -join ' ')
+                    Contenu = (($vols | ForEach-Object { $_.FileSystemLabel }) -join ' ')
+                })
+        }
+    }
+    catch { }
+    return $liste
+}
+
+function New-CleInstallation {
+    <#
+        Efface un disque USB, le formate et y écrit une ISO Windows officielle,
+        puis y dépose le fichier de réponses (et MadTweak si un profil est prévu).
+
+        C'EST LA SEULE FONCTION DESTRUCTIVE DE TOUT MADTWEAK. Tout le reste de
+        l'outil sauvegarde avant d'écrire et sait revenir en arrière ; ici, non :
+        les données du disque choisi sont perdues. D'où les verrous ci-dessous,
+        qui s'exécutent TOUS avant la moindre écriture :
+
+          - -Confirme est obligatoire ; sans lui, la fonction refuse de démarrer ;
+          - le disque doit être de type USB. Un disque interne est refusé, même
+            explicitement demandé : c'est la ligne qui empêche d'effacer un disque
+            de données sur une faute de frappe ;
+          - un disque marqué démarrage ou système est refusé.
+
+        Le formatage est en FAT32, seul système de fichiers que tous les micrologiciels
+        UEFI savent lire au démarrage. Cela impose deux contraintes que la fonction
+        gère au lieu de les subir : une partition d'au plus 32 Go (Windows refuse de
+        formater davantage en FAT32) et un install.wim découpé en .swm s'il dépasse
+        4 Go, ce qui est le cas courant. Windows Setup lit nativement les .swm.
+    #>
+    param(
+        [Parameter(Mandatory)][int]$NumeroDisque,
+        [Parameter(Mandatory)][string]$CheminIso,
+        [string]$CheminXml,
+        [string]$CheminMadTweak,
+        [string]$Etiquette = 'MADTWEAK',
+        [switch]$Confirme
+    )
+
+    if (-not $Confirme) {
+        throw "New-CleInstallation efface entièrement un disque : appelle-la avec -Confirme."
+    }
+    if (-not (Test-Path -LiteralPath $CheminIso)) { throw "ISO introuvable : $CheminIso" }
+    if ([System.IO.Path]::GetExtension($CheminIso).ToLowerInvariant() -ne '.iso') {
+        throw "Attendu un fichier .iso."
+    }
+    if ($CheminXml -and -not (Test-Path -LiteralPath $CheminXml)) {
+        throw "Fichier de réponses introuvable : $CheminXml"
+    }
+
+    $disque = Get-Disk -Number $NumeroDisque -ErrorAction SilentlyContinue
+    if (-not $disque) { throw "Aucun disque numéro $NumeroDisque." }
+    if ($disque.BusType -ne 'USB') {
+        throw "Le disque $NumeroDisque est de type « $($disque.BusType) », pas USB. MadTweak refuse d'effacer autre chose qu'une clé USB."
+    }
+    if ($disque.IsBoot -or $disque.IsSystem) {
+        throw "Le disque $NumeroDisque porte le système : refus catégorique."
+    }
+
+    $monte = $null
+    try {
+        Write-Etat "Ouverture de l'ISO..." -Niveau Info
+        $monte = Mount-DiskImage -ImagePath $CheminIso -StorageType ISO -Access ReadOnly -PassThru -ErrorAction Stop
+        $src = ($monte | Get-Volume).DriveLetter
+        if (-not $src) { throw "L'ISO a été montée mais sans lettre de lecteur." }
+        $srcRacine = "${src}:\"
+        if (-not (Test-Path (Join-Path $srcRacine 'setup.exe'))) {
+            throw "Pas de setup.exe dans cette ISO : ce n'est pas un support d'installation Windows."
+        }
+
+        # On repère le gros fichier AVANT d'effacer quoi que ce soit : si l'image est
+        # un .esd trop volumineux, on ne saura pas la découper, et il vaut mieux le
+        # découvrir maintenant que la clé une fois effacée.
+        $wim = Join-Path $srcRacine 'sources\install.wim'
+        $esd = Join-Path $srcRacine 'sources\install.esd'
+        $gros = $null; $decouper = $false
+        if (Test-Path $wim) { $gros = $wim } elseif (Test-Path $esd) { $gros = $esd }
+        if ($gros) {
+            $tailleGo = (Get-Item $gros).Length / 1GB
+            if ($tailleGo -gt 3.9) {
+                if ($gros -eq $esd) {
+                    throw "sources\install.esd fait $([math]::Round($tailleGo,1)) Go et ne peut pas être découpé pour du FAT32. Utilise Rufus pour cette image."
+                }
+                $decouper = $true
+                Write-Etat "install.wim fait $([math]::Round($tailleGo,1)) Go : il sera découpé en .swm (FAT32 plafonne à 4 Go par fichier)." -Niveau Info
+            }
+        }
+
+        # --- À partir d'ici, on écrit. Tout ce qui pouvait être vérifié l'a été. ---
+        Write-Etat "Effacement du disque $NumeroDisque ($($disque.FriendlyName))..." -Niveau Info
+        Clear-Disk -Number $NumeroDisque -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
+        Initialize-Disk -Number $NumeroDisque -PartitionStyle MBR -ErrorAction SilentlyContinue | Out-Null
+
+        # 32 Go maximum : au-delà, Windows refuse de formater en FAT32. Un support
+        # d'installation n'a de toute façon besoin que de 8 à 10 Go.
+        $tailleMax = [math]::Min($disque.Size - 8MB, 32GB)
+        $part = New-Partition -DiskNumber $NumeroDisque -Size $tailleMax -AssignDriveLetter -IsActive -ErrorAction Stop
+        Start-Sleep -Seconds 2
+        Write-Etat "Formatage en FAT32..." -Niveau Info
+        Format-Volume -Partition $part -FileSystem FAT32 -NewFileSystemLabel $Etiquette -Confirm:$false -Force -ErrorAction Stop | Out-Null
+        $dst = "$($part.DriveLetter):\"
+
+        Write-Etat "Copie de l'image vers $dst (plusieurs minutes)..." -Niveau Info
+        # robocopy plutôt que Copy-Item : il reprend, il journalise, et il sait
+        # exclure un fichier. Ses codes de sortie sous 8 signalent un succès.
+        $exclu = if ($decouper) { @('/XF', 'install.wim') } else { @() }
+        & robocopy $srcRacine $dst /E /NFL /NDL /NJH /NJS /NP @exclu | Out-Null
+        if ($LASTEXITCODE -ge 8) { throw "La copie a échoué (robocopy code $LASTEXITCODE)." }
+
+        if ($decouper) {
+            Write-Etat "Découpage de install.wim en .swm (long)..." -Niveau Info
+            Split-WindowsImage -ImagePath $wim -SplitImagePath (Join-Path $dst 'sources\install.swm') -FileSize 3800 -ErrorAction Stop | Out-Null
+        }
+
+        if ($CheminXml) {
+            Copy-Item -LiteralPath $CheminXml -Destination (Join-Path $dst 'autounattend.xml') -Force -ErrorAction Stop
+            $pbs = Test-AutounattendXml -Chemin (Join-Path $dst 'autounattend.xml')
+            if ($pbs.Count -gt 0) { throw "Le fichier de réponses copié est illisible : $($pbs[0])" }
+        }
+        if ($CheminMadTweak -and (Test-Path $CheminMadTweak)) {
+            Copy-Item -LiteralPath $CheminMadTweak -Destination (Join-Path $dst 'MadTweak.ps1') -Force -ErrorAction Stop
+        }
+
+        Write-Etat "Clé prête sur $dst" -Niveau OK
+        return $dst
+    }
+    finally {
+        if ($monte) { try { Dismount-DiskImage -ImagePath $CheminIso | Out-Null } catch { } }
+    }
+}
+
 function Test-AutounattendXml {
     <#
         Relit un fichier de réponses et renvoie la liste de ses problèmes.
@@ -5732,7 +5878,50 @@ function Menu-Installation {
         Write-Host "   3. Déposer les fichiers à la racine de la clé — MadTweak sait le faire." -ForegroundColor Gray
         Write-Host ""
 
-        # --- Étape 3, celle que l'outil peut faire lui-même ------------------------
+        # --- Préparer la clé de A à Z : la seule opération destructive de l'outil ---
+        $usb = @(Get-DisquesUSB)
+        if ($usb.Count -gt 0 -and (Demander-Option "Préparer entièrement une clé USB à partir d'une ISO (EFFACE la clé) ?")) {
+            Write-Host ""
+            Write-Host "  Seules les clés USB sont proposées. Les disques internes n'apparaissent" -ForegroundColor Gray
+            Write-Host "  pas dans cette liste et ne peuvent pas être effacés par cette fonction." -ForegroundColor Gray
+            Write-Host ""
+            $choixUsb = [ordered]@{}
+            foreach ($u in $usb) {
+                $choixUsb["Disque $($u.Numero) — $($u.Nom) — $($u.Go) Go — $($u.Lettres) $($u.Contenu)"] = $u
+            }
+            $cible = $choixUsb[(Read-ChoixListe $choixUsb "Quelle clé préparer ?" 1)]
+            $iso = (Read-Host "  Chemin de l'ISO Windows officielle").Trim().Trim('"')
+
+            Write-Host ""
+            Write-Host "  ═══════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host "   TOUT LE CONTENU de cette clé va être DÉFINITIVEMENT SUPPRIMÉ :" -ForegroundColor Red
+            Write-Host ("     Disque {0} — {1}" -f $cible.Numero, $cible.Nom) -ForegroundColor Red
+            Write-Host ("     {0} Go — {1} {2}" -f $cible.Go, $cible.Lettres, $cible.Contenu) -ForegroundColor Red
+            Write-Host "   C'est la seule opération de MadTweak qui ne s'annule pas." -ForegroundColor Red
+            Write-Host "   Vérifie que c'est la bonne clé, et qu'elle ne contient rien d'utile." -ForegroundColor Red
+            Write-Host "  ═══════════════════════════════════════════════════════════════" -ForegroundColor Red
+            Write-Host ""
+            Write-Host "  Tape EFFACER en majuscules pour confirmer, autre chose pour renoncer." -ForegroundColor Yellow
+            if ((Read-Host "  Confirmation").Trim() -ceq "EFFACER") {
+                $srcMt = $null
+                if ($profil) {
+                    foreach ($cand in @($PSCommandPath, $MyInvocation.MyCommand.Path)) {
+                        if ($cand -and $cand.EndsWith('.ps1') -and (Test-Path $cand)) { $srcMt = $cand; break }
+                    }
+                }
+                try {
+                    New-CleInstallation -NumeroDisque $cible.Numero -CheminIso $iso `
+                        -CheminXml $chemin -CheminMadTweak $srcMt -Confirme | Out-Null
+                    Write-Etat "La clé est prête : ISO, fichier de réponses et MadTweak sont dessus." -Niveau OK
+                }
+                catch { Write-Etat "Préparation impossible : $($_.Exception.Message)" -Niveau Echec }
+            }
+            else { Write-Etat "Renoncé. La clé n'a pas été touchée." -Niveau Info }
+            if (-not (Test-SansInteraction)) { Read-Host "`nEntrée pour revenir" }
+            return
+        }
+
+        # --- Sinon : déposer les fichiers sur une clé DÉJÀ préparée ---------------
         $cles = @(Get-ClesInstallation)
         $pretes = @($cles | Where-Object EstSupport)
         if ($pretes.Count -eq 0) {
