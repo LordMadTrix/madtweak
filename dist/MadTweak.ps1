@@ -4993,6 +4993,13 @@ function New-CleInstallation {
         [string]$CheminXml,
         [string]$CheminMadTweak,
         [string]$Etiquette = 'MADTWEAK',
+        # FAT32 : démarre sur tous les UEFI, mais plafonne les fichiers à 4 Go, d'où
+        # le découpage de install.wim. NTFS : aucun découpage, préparation bien plus
+        # rapide — mais la plupart des micrologiciels UEFI n'ont pas de pilote NTFS
+        # et ne démarreront pas dessus. Rufus contourne ça avec son propre chargeur ;
+        # nous n'en avons pas, donc NTFS ne convient qu'à une machine en BIOS/CSM ou
+        # à une clé destinée à Ventoy. FAT32 reste le défaut, exprès.
+        [ValidateSet('FAT32', 'NTFS')][string]$SystemeFichiers = 'FAT32',
         [switch]$Confirme
     )
 
@@ -5036,7 +5043,7 @@ function New-CleInstallation {
         if (Test-Path $wim) { $gros = $wim } elseif (Test-Path $esd) { $gros = $esd }
         if ($gros) {
             $tailleGo = (Get-Item $gros).Length / 1GB
-            if ($tailleGo -gt 3.9) {
+            if ($tailleGo -gt 3.9 -and $SystemeFichiers -eq 'FAT32') {
                 if ($gros -eq $esd) {
                     throw "sources\install.esd fait $([math]::Round($tailleGo,1)) Go et ne peut pas être découpé pour du FAT32. Utilise Rufus pour cette image."
                 }
@@ -5050,13 +5057,17 @@ function New-CleInstallation {
         Clear-Disk -Number $NumeroDisque -RemoveData -RemoveOEM -Confirm:$false -ErrorAction Stop
         Initialize-Disk -Number $NumeroDisque -PartitionStyle MBR -ErrorAction SilentlyContinue | Out-Null
 
-        # 32 Go maximum : au-delà, Windows refuse de formater en FAT32. Un support
-        # d'installation n'a de toute façon besoin que de 8 à 10 Go.
-        $tailleMax = [math]::Min($disque.Size - 8MB, 32GB)
+        # 32 Go maximum en FAT32 : au-delà, Windows refuse de formater. Un support
+        # d'installation n'a de toute façon besoin que de 8 à 10 Go. NTFS n'a pas
+        # cette limite, on prend alors toute la clé.
+        $tailleMax = if ($SystemeFichiers -eq 'FAT32') { [math]::Min($disque.Size - 8MB, 32GB) } else { $disque.Size - 8MB }
         $part = New-Partition -DiskNumber $NumeroDisque -Size $tailleMax -AssignDriveLetter -IsActive -ErrorAction Stop
         Start-Sleep -Seconds 2
-        Write-Etat "Formatage en FAT32..." -Niveau Info
-        Format-Volume -Partition $part -FileSystem FAT32 -NewFileSystemLabel $Etiquette -Confirm:$false -Force -ErrorAction Stop | Out-Null
+        Write-Etat "Formatage en $SystemeFichiers..." -Niveau Info
+        if ($SystemeFichiers -eq 'NTFS') {
+            Write-Etat "NTFS : pas de decoupage, mais beaucoup d'UEFI ne demarrent pas sur du NTFS. A reserver au BIOS/CSM ou a Ventoy." -Niveau Avert
+        }
+        Format-Volume -Partition $part -FileSystem $SystemeFichiers -NewFileSystemLabel $Etiquette -Confirm:$false -Force -ErrorAction Stop | Out-Null
         $dst = "$($part.DriveLetter):\"
 
         Write-Etat "Copie de l'image vers $dst (plusieurs minutes)..." -Niveau Info
