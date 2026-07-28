@@ -18,11 +18,15 @@ jobs:
         run: |
           & .\build.ps1 -Verifier
 
+      - name: Install Pester 5+
+        shell: powershell
+        run: |
+          Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser -AllowClobber
+
       - name: Run Pester Tests
         shell: powershell
         run: |
-          if (-not (Get-Module -ListAvailable Pester)) {
-              Install-Module Pester -Force -Scope CurrentUser
-          }
+          Import-Module Pester -Force
           Invoke-Pester .\tests\MadTweak.Tests.ps1 -Passthru
+
 

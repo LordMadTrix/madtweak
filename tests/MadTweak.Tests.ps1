@@ -2,8 +2,16 @@
 # TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
 # ==============================================================================
 
-$script:racine = Split-Path -Path $PSScriptRoot -Parent
-if (-not $script:racine) { $script:racine = (Get-Item ".").FullName }
+# Résolution ultra-robuste de la racine du dépôt pour Pester 3.4.0 et Pester 5
+$base = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+if (Test-Path (Join-Path $base "src")) {
+    $script:racine = $base
+} elseif (Test-Path (Join-Path (Split-Path -Path $base -Parent) "src")) {
+    $script:racine = Split-Path -Path $base -Parent
+} else {
+    $script:racine = (Get-Item ".").FullName
+}
+
 $script:buildScript = Join-Path $script:racine "build.ps1"
 $script:srcDir = Join-Path $script:racine "src"
 
