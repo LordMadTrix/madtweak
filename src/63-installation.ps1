@@ -209,6 +209,12 @@ function Convert-EsdVersWim {
     param(
         [Parameter(Mandatory)][string]$CheminEsd,
         [string]$Edition = '',
+        # Clé produit. Sans elle, l'installeur affiche son écran « Clé de produit »
+        # et il faut cliquer « Je n'ai pas de clé » — constaté sur un vrai essai.
+        # La doc interdit une valeur VIDE (« does not support empty elements ») :
+        # on omet donc l'élément Key entièrement plutôt que d'en écrire un vide,
+        # et WillShowUI=Never demande à Windows de ne pas poser la question.
+        [string]$CleProduit = '',
         [string]$DossierSortie
     )
 
@@ -860,6 +866,25 @@ $blocMeta$cible                    <WillShowUI>OnError</WillShowUI>
 "@
     }
 
+    # --- Clé produit --------------------------------------------------------------
+    $blocCleProduit = if ($CleProduit) {
+        @"
+                <ProductKey>
+                    <Key>$(& $esc $CleProduit)</Key>
+                    <WillShowUI>Never</WillShowUI>
+                </ProductKey>
+"@
+    }
+    else {
+        # Pas de Key : la documentation interdit d'en écrire une vide. WillShowUI
+        # seul reste la seule façon documentée de demander le silence sur ce point.
+        @"
+                <ProductKey>
+                    <WillShowUI>Never</WillShowUI>
+                </ProductKey>
+"@
+    }
+
     # --- Mot de passe : vide = compte sans mot de passe ---------------------------
     $blocMdp = if ($MotDePasse) {
         @"
@@ -895,6 +920,7 @@ $blocDisque
 $blocImage
             <UserData>
                 <AcceptEula>true</AcceptEula>
+$blocCleProduit
             </UserData>
 $(if ($SansTPM) { "            <RunSynchronous>`r`n$blocTPM`r`n            </RunSynchronous>" })
         </component>
