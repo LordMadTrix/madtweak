@@ -2,20 +2,21 @@
 # TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
 # ==============================================================================
 
-$script:racine = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-if (-not $script:racine -or -not (Test-Path (Join-Path $script:racine "src"))) {
-    $script:racine = (Resolve-Path ".").Path
+# Pester 5 exige que les variables partagées soient dans $global: pour survivre à la passe Discovery
+$global:racine = if ($PSScriptRoot) { (Resolve-Path (Join-Path $PSScriptRoot "..")).Path } else { (Get-Location).Path }
+if (-not (Test-Path (Join-Path $global:racine "src"))) {
+    $global:racine = (Get-Item ".").FullName
 }
-$script:buildScript = Join-Path $script:racine "build.ps1"
-$script:srcDir = Join-Path $script:racine "src"
+$global:buildScript = Join-Path $global:racine "build.ps1"
+$global:srcDir = Join-Path $global:racine "src"
 
 Describe "Build Verification" {
     It "Doit valider que dist\MadTweak.ps1 est parfaitement à jour avec src\" {
-        { & $script:buildScript -Verifier } | Should Not Throw
+        { & $global:buildScript -Verifier } | Should Not Throw
     }
 
     It "Chaque module src\*.ps1 doit posséder un BOM UTF-8 (0xEF, 0xBB, 0xBF)" {
-        $modules = Get-ChildItem -Path $script:srcDir -Filter "*.ps1"
+        $modules = Get-ChildItem -Path $global:srcDir -Filter "*.ps1"
         $modules.Count | Should BeGreaterThan 0
 
         foreach ($m in $modules) {
@@ -32,7 +33,7 @@ Describe "Build Verification" {
 
 Describe "Dictionnaire de langues (i18n)" {
     BeforeAll {
-        $langueFile = Join-Path $script:srcDir "05-langue.ps1"
+        $langueFile = Join-Path $global:srcDir "05-langue.ps1"
         . $langueFile
     }
 
@@ -53,8 +54,8 @@ Describe "Dictionnaire de langues (i18n)" {
 
 Describe "Fonctions du Socle" {
     BeforeAll {
-        . (Join-Path $script:srcDir "05-langue.ps1")
-        . (Join-Path $script:srcDir "10-socle.ps1")
+        . (Join-Path $global:srcDir "05-langue.ps1")
+        . (Join-Path $global:srcDir "10-socle.ps1")
     }
 
     It "Get-LangueSysteme doit renvoyer 'fr' ou 'en'" {
@@ -74,13 +75,13 @@ Describe "Fonctions du Socle" {
 
 Describe "Fonctionnalités Phase 2" {
     BeforeAll {
-        . (Join-Path $script:srcDir "05-langue.ps1")
-        . (Join-Path $script:srcDir "10-socle.ps1")
-        . (Join-Path $script:srcDir "06-textes-tweaks.ps1")
-        . (Join-Path $script:srcDir "07-textes-audit.ps1")
-        . (Join-Path $script:srcDir "20-sauvegarde.ps1")
-        . (Join-Path $script:srcDir "70-audit.ps1")
-        . (Join-Path $script:srcDir "80-profils.ps1")
+        . (Join-Path $global:srcDir "05-langue.ps1")
+        . (Join-Path $global:srcDir "10-socle.ps1")
+        . (Join-Path $global:srcDir "06-textes-tweaks.ps1")
+        . (Join-Path $global:srcDir "07-textes-audit.ps1")
+        . (Join-Path $global:srcDir "20-sauvegarde.ps1")
+        . (Join-Path $global:srcDir "70-audit.ps1")
+        . (Join-Path $global:srcDir "80-profils.ps1")
     }
 
     It "Compare-Profils doit comparer deux profils et retourner les tweaks communs et uniques" {
@@ -111,9 +112,9 @@ Describe "Fonctionnalités Phase 2" {
 
 Describe "Installation USB & Autounattend" {
     BeforeAll {
-        . (Join-Path $script:srcDir "05-langue.ps1")
-        . (Join-Path $script:srcDir "10-socle.ps1")
-        . (Join-Path $script:srcDir "63-installation.ps1")
+        . (Join-Path $global:srcDir "05-langue.ps1")
+        . (Join-Path $global:srcDir "10-socle.ps1")
+        . (Join-Path $global:srcDir "63-installation.ps1")
     }
 
     It "Test-VitesseCleUSB doit s'exécuter sur le lecteur système C: sans lever d'exception" {
@@ -146,15 +147,15 @@ Describe "Installation USB & Autounattend" {
 
 Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     BeforeAll {
-        . (Join-Path $script:srcDir "05-langue.ps1")
-        . (Join-Path $script:srcDir "10-socle.ps1")
-        . (Join-Path $script:srcDir "30-simulation-et-tweaks.ps1")
-        . (Join-Path $script:srcDir "51-menu-avances.ps1")
-        . (Join-Path $script:srcDir "53-menu-materiel-reseau.ps1")
-        . (Join-Path $script:srcDir "54-menu-securite-ia.ps1")
-        . (Join-Path $script:srcDir "56-menu-maintenance.ps1")
-        . (Join-Path $script:srcDir "59-menu-nettoyage.ps1")
-        . (Join-Path $script:srcDir "70-audit.ps1")
+        . (Join-Path $global:srcDir "05-langue.ps1")
+        . (Join-Path $global:srcDir "10-socle.ps1")
+        . (Join-Path $global:srcDir "30-simulation-et-tweaks.ps1")
+        . (Join-Path $global:srcDir "51-menu-avances.ps1")
+        . (Join-Path $global:srcDir "53-menu-materiel-reseau.ps1")
+        . (Join-Path $global:srcDir "54-menu-securite-ia.ps1")
+        . (Join-Path $global:srcDir "56-menu-maintenance.ps1")
+        . (Join-Path $global:srcDir "59-menu-nettoyage.ps1")
+        . (Join-Path $global:srcDir "70-audit.ps1")
     }
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
@@ -172,19 +173,19 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     }
 
     It "Test-BenchmarkPerformance doit mesurer l'état du système et renvoyer un hashtable" {
-        . (Join-Path $script:srcDir "70-audit.ps1")
+        . (Join-Path $global:srcDir "70-audit.ps1")
         $res = Test-BenchmarkPerformance
         $res | Should Not BeNullOrEmpty
         $res.NombreProcessus | Should BeGreaterThan 0
     }
 
     It "Set-ProfilServicesWindows doit analyser le matériel et ajuster les services" {
-        . (Join-Path $script:srcDir "80-profils.ps1")
+        . (Join-Path $global:srcDir "80-profils.ps1")
         { Set-ProfilServicesWindows } | Should Not Throw
     }
 
     It "Export-ScriptAutonome doit générer un fichier script PS1 valide" {
-        . (Join-Path $script:srcDir "30-simulation-et-tweaks.ps1")
+        . (Join-Path $global:srcDir "30-simulation-et-tweaks.ps1")
         $tmpPs1 = Join-Path $env:TEMP "test-standalone.ps1"
         if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
         Export-ScriptAutonome -CheminSortiePs1 $tmpPs1 -ClesTweaks @() | Out-Null
@@ -201,7 +202,7 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     }
 
     It "Get-AuditConformiteSecurite doit exécuter l'audit de sécurité sans lever d'exception" {
-        . (Join-Path $script:srcDir "70-audit.ps1")
+        . (Join-Path $global:srcDir "70-audit.ps1")
         $res = Get-AuditConformiteSecurite
         $res | Should Not BeNullOrEmpty
     }
