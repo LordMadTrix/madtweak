@@ -27,30 +27,35 @@
 ### 🛡️ **Confidentialité & nettoyage**
 - ✅ **150 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
 - ✅ **5 profils** prêts à l'emploi (Minimal, Interface épurée, Vie privée, Gamer, Portable)
-- ✅ **Nettoyage mesuré** : chaque poste est pesé avant d'être purgé
+- ✅ **Nettoyage mesuré** : pesée des temporaires, caches d'applications (Discord, Spotify, Chrome/Edge) et Shader GPU (NVIDIA/AMD/DirectX)
 
-### 🔍 **Analyser sa machine**
+### 🔍 **Analyser sa machine & Rapports**
 - ✅ **Score de santé /100** avec le détail par catégorie
-- ✅ **Analyse du démarrage** : durée réelle et coût de chaque programme
-- ✅ **Diagnostic des plantages** : croise les arrêts inattendus avec les tweaks actifs
+- ✅ **Exportations multi-formats** : Rapports d'audit autonomes HTML, Markdown et JSON
+- ✅ **Analyse du démarrage & Réseau** : mesure du coût des programmes et diagnostic de latence TCP/IP
+- ✅ **Diagnostic des plantages** : identification automatique des drivers `.sys` en cause lors des BSOD
 - ✅ **Détection de dérive** : repère ce qu'une mise à jour Windows a réactivé
 
-### ↩️ **Annulation réelle**
-- ✅ **Sauvegarde avant écriture** : chaque valeur touchée est mémorisée
-- ✅ **Restauration exacte**, totale ou tweak par tweak
+### ↩️ **Annulation réelle & Sauvegarde**
+- ✅ **Sauvegarde avant écriture** : chaque valeur touchée est mémorisée dans le registre
+- ✅ **Restauration exacte**, totale, sélective ou tweak par tweak
+- ✅ **Sauvegarde & Restauration de l'agencement des icônes du bureau**
 - ✅ **Mode simulation** : tout voir sans rien écrire
 
-### 💾 **Installer Windows sans y assister**
-- ✅ **Télécharge l'ISO officielle** depuis Microsoft, sans outil tiers
-- ✅ **Construit la clé USB** : formatage FAT32, découpage de l'image, démarrage UEFI natif
-- ✅ **Compte, langue, fuseau, édition, applications** décidés à l'avance
-- ✅ **Un profil MadTweak appliqué au premier démarrage**, machine propre d'emblée
-- ✅ **Éprouvé de bout en bout** sur du vrai matériel, pas seulement en théorie
+### 💾 **Installer Windows sans y assister (Clé d'installation USB)**
+- ✅ **Télécharge l'ISO officielle** depuis Microsoft, sans outil tiers, avec calcul du hash SHA-256
+- ✅ **Bypasses Windows 11 (24H2 / 25H2)** : contournement TPM 2.0, SecureBoot, RAM 4Go, CPU et compte MS (BypassNRO)
+- ✅ **Test de vitesse du lecteur USB** : mesure préventive du débit d'écriture
+- ✅ **Injection de pilotes OEM** : copie automatique des pilotes de stockage/réseau (`$WinPEDriver$`)
+- ✅ **Modèles de configuration JSON** : sauvegarde et rechargement en 1 clic de modèles de réponses
+- ✅ **Compte, langue, fuseau, édition, applications Winget (`mes-apps.json`) et profil MadTweak appliqués d'emblée**
 
-### 🎨 **Interface & personnalisation**
+### 🎨 **Interface & CI/CD**
 - ✅ **Interface graphique** thémable (6 thèmes) ou 16 menus console
+- ✅ **Suite de tests automatisés Pester** et intégration CI/CD GitHub Actions
 - ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code
 - ✅ **Bonus ASUS ROG** : clavier RGB en HID direct, capteurs GPU et ventilateurs
+
 
 ---
 

@@ -39,25 +39,35 @@
 ### 🛡️ **Privacy & cleanup**
 - ✅ **150 reversible tweaks**: telemetry, ads, Copilot, Recall, Store bloatware
 - ✅ **5 ready-made profiles** (Minimal, Clean UI, Privacy, Gamer, Laptop)
-- ✅ **Measured cleanup**: every reclaimable item is weighed *before* anything is purged
+- ✅ **Measured cleanup**: weighs temp files, app caches (Discord, Spotify, Chrome/Edge), and GPU Shader caches (NVIDIA/AMD/DirectX)
 
-### 🔍 **Understand your machine**
+### 🔍 **Machine Analysis & Reports**
 - ✅ **Health score out of 100**, broken down by category
-- ✅ **Startup analysis**: real boot time and the cost in seconds of each startup program
-- ✅ **Crash diagnosis**: cross-references recent unexpected shutdowns with active power tweaks
+- ✅ **Multi-format exports**: standalone HTML, Markdown, and structured JSON audit reports
+- ✅ **Startup & Network Analysis**: measures boot impact and TCP/IP network latency/health
+- ✅ **Crash diagnosis**: automatically extracts crashing `.sys` drivers responsible for BSODs
 - ✅ **Drift detection**: spots settings a Windows update silently reverted
 
-### ↩️ **Real undo**
-- ✅ **Backed up before written**: every value touched is recorded first
-- ✅ **Exact restore**, all at once or tweak by tweak
+### ↩️ **Real undo & Backup**
+- ✅ **Backed up before written**: every value touched is recorded in the registry first
+- ✅ **Exact restore**, all at once, selectively, or tweak by tweak
+- ✅ **Desktop Icon Layout Backup & Restore**
 - ✅ **Simulation mode**: see everything, write nothing
 
-### 💾 **Install Windows without sitting through it**
-- ✅ **Downloads the official ISO** from Microsoft, no third-party tool
-- ✅ **Builds the USB stick**: FAT32 format, image splitting, native UEFI boot
-- ✅ **Account, language, time zone, edition, applications** decided up front
-- ✅ **A MadTweak profile applied at first boot**, clean machine from the start
-- ✅ **Verified end to end** on real hardware, not just on paper
+### 💾 **Install Windows without sitting through it (USB Installer)**
+- ✅ **Downloads official Microsoft ISO** with SHA-256 hash verification
+- ✅ **Windows 11 (24H2 / 25H2) hardware bypasses**: TPM 2.0, SecureBoot, 4GB RAM, CPU, and offline account (BypassNRO)
+- ✅ **USB drive speed test**: preventive write throughput benchmark
+- ✅ **OEM driver injection**: automatic copying of storage/network drivers (`$WinPEDriver$`)
+- ✅ **JSON answer file templates**: 1-click export/import of installer configs
+- ✅ **Account, language, time zone, edition, Winget apps (`mes-apps.json`), and MadTweak profile applied at first boot**
+
+### 🎨 **Interface & CI/CD**
+- ✅ **Themable GUI** (6 themes) or 16 console menus
+- ✅ **Automated Pester unit tests** & GitHub Actions CI/CD integration
+- ✅ **Windows accent**, procedurally generated "MadTrix" wallpapers
+- ✅ **ASUS ROG extra**: direct HID RGB keyboard lighting, GPU sensors and fans
+
 
 ### 🎨 **Interface & personalisation**
 - ✅ **Themeable GUI** (6 themes) or 16 console menus
