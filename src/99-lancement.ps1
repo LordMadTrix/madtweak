@@ -41,6 +41,8 @@ Test-ClesProfils
 Test-CoherenceAudit
 Test-Explications
 
+if ($Simulation) { $script:Simulation = $true }
+
 try {
     if ($Profil) {
         # Installation automatisée : on applique le profil et on sort. Ni interface,

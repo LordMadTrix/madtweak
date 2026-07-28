@@ -46,7 +46,11 @@ param(
     # par le menu « Clé d'installation » appelle le script ainsi à la première
     # ouverture de session. Le nom attendu est celui affiché dans le menu Profils
     # (« Minimal / sûr », « Gamer ROG »...). Un nom inconnu est signalé, pas deviné.
-    [string]$Profil
+    [string]$Profil,
+    # Répétition à blanc : montre tout ce qui changerait, n'écrit RIEN. Sans elle,
+    # la seule façon d'éprouver un profil non interactif était de l'appliquer pour
+    # de bon — donc de ne pas pouvoir l'éprouver du tout.
+    [switch]$Simulation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -9586,6 +9590,8 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 Test-ClesProfils
 Test-CoherenceAudit
 Test-Explications
+
+if ($Simulation) { $script:Simulation = $true }
 
 try {
     if ($Profil) {
