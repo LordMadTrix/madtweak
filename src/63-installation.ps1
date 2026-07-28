@@ -89,6 +89,79 @@ function Get-EditionsImage {
     }
 }
 
+function Get-ClesInstallation {
+    <#
+        Liste les volumes amovibles, en signalant ceux qui portent déjà un support
+        d'installation Windows (présence de setup.exe à la racine). Lecture seule.
+    #>
+    $liste = New-Object System.Collections.Generic.List[object]
+    try {
+        foreach ($v in (Get-Volume -ErrorAction Stop | Where-Object { $_.DriveLetter -and $_.DriveType -eq 'Removable' })) {
+            $racine = "$($v.DriveLetter):\"
+            $liste.Add([pscustomobject]@{
+                    Lettre    = $v.DriveLetter
+                    Nom       = $v.FileSystemLabel
+                    Go        = [math]::Round($v.Size / 1GB, 1)
+                    EstSupport = (Test-Path (Join-Path $racine 'setup.exe'))
+                })
+        }
+    }
+    catch { }
+    return $liste
+}
+
+function Copy-FichiersVersCle {
+    <#
+        Dépose le fichier de réponses — et MadTweak lui-même si un profil est prévu —
+        à la RACINE d'une clé d'installation déjà préparée. Retourne la liste de ce
+        qui a été copié.
+
+        Cette fonction ne formate rien, n'efface rien et n'écrit pas d'image : elle
+        copie deux fichiers. L'écriture de l'ISO sur la clé reste le travail de Rufus
+        ou du Media Creation Tool, et il n'y a aucune raison de la réimplémenter.
+
+        Le garde-fou du setup.exe n'est pas une formalité : sans lui, une lettre de
+        lecteur mal saisie déposerait ces fichiers à la racine d'un disque de données,
+        voire de C:, où un autounattend.xml traînant n'a rien à faire.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Lettre,
+        [Parameter(Mandatory)][string]$CheminXml,
+        [string]$CheminMadTweak,
+        [switch]$Forcer
+    )
+
+    $racine = ($Lettre.TrimEnd(':', '\')) + ":\"
+    if (-not (Test-Path $racine)) { throw "Le lecteur $racine n'existe pas." }
+    if (-not (Test-Path $CheminXml)) { throw "Fichier de réponses introuvable : $CheminXml" }
+
+    if (-not (Test-Path (Join-Path $racine 'setup.exe')) -and -not $Forcer) {
+        throw "Aucun setup.exe à la racine de $racine : ce lecteur ne ressemble pas à une clé d'installation Windows. Prépare-la d'abord avec Rufus ou le Media Creation Tool."
+    }
+
+    $copies = New-Object System.Collections.Generic.List[string]
+    $cible = Join-Path $racine 'autounattend.xml'
+    Copy-Item -LiteralPath $CheminXml -Destination $cible -Force -ErrorAction Stop
+    $copies.Add($cible)
+
+    if ($CheminMadTweak) {
+        if (-not (Test-Path $CheminMadTweak)) { throw "MadTweak.ps1 introuvable : $CheminMadTweak" }
+        $cible2 = Join-Path $racine 'MadTweak.ps1'
+        Copy-Item -LiteralPath $CheminMadTweak -Destination $cible2 -Force -ErrorAction Stop
+        $copies.Add($cible2)
+    }
+
+    # On relit ce qu'on vient de deposer : une copie vers une cle defaillante ou
+    # pleine peut « reussir » et produire un fichier tronque. Le fichier de reponses
+    # d'une machine qu'on va formater merite cette verification.
+    $pbs = Test-AutounattendXml -Chemin $cible
+    if ($pbs.Count -gt 0) {
+        throw "Le fichier copié sur $racine est illisible ou incomplet : $($pbs[0])"
+    }
+
+    return $copies
+}
+
 function Test-AutounattendXml {
     <#
         Relit un fichier de réponses et renvoie la liste de ses problèmes.
@@ -873,12 +946,48 @@ function Menu-Installation {
         Write-Host ""
         Write-Etat "Fichier généré : $chemin" -Niveau OK
         Write-Host ""
-        Write-Host "  Ce qu'il reste à faire :" -ForegroundColor Cyan
-        Write-Host "   1. Prépare ta clé USB avec l'ISO officielle (Rufus, ou l'outil Microsoft)." -ForegroundColor Gray
-        Write-Host "   2. Copie autounattend.xml À LA RACINE de la clé, à côté de setup.exe." -ForegroundColor Gray
-        if ($profil) {
-            Write-Host "   3. Copie AUSSI MadTweak.ps1 à la racine de la clé : sans lui, le profil" -ForegroundColor Yellow
-            Write-Host "      « $profil » ne sera pas appliqué." -ForegroundColor Yellow
+        Write-Host "  Le parcours complet :" -ForegroundColor Cyan
+        Write-Host "   1. Télécharger l'ISO officielle (Media Creation Tool ou Rufus)." -ForegroundColor Gray
+        Write-Host "   2. Écrire l'ISO sur la clé avec l'un de ces deux outils." -ForegroundColor Gray
+        Write-Host "   3. Déposer les fichiers à la racine de la clé — MadTweak sait le faire." -ForegroundColor Gray
+        Write-Host ""
+
+        # --- Étape 3, celle que l'outil peut faire lui-même ------------------------
+        $cles = @(Get-ClesInstallation)
+        $pretes = @($cles | Where-Object EstSupport)
+        if ($pretes.Count -eq 0) {
+            if ($cles.Count -gt 0) {
+                Write-Etat "Support amovible détecté, mais aucun ne porte de setup.exe : la clé n'est pas encore préparée." -Niveau Info
+            }
+            Write-Etat "Prépare la clé avec l'ISO, puis reviens ici : la copie te sera proposée." -Niveau Info
+        }
+        elseif (Demander-Option "Copier maintenant les fichiers sur la clé d'installation ?") {
+            $choixCle = [ordered]@{}
+            foreach ($c in $pretes) {
+                $choixCle["$($c.Lettre): — $($c.Nom) — $($c.Go) Go"] = $c.Lettre
+            }
+            $lettre = $choixCle[(Read-ChoixListe $choixCle "Quelle clé ?" 1)]
+
+            # Sans MadTweak.ps1 sur la clé, le profil ne s'appliquera jamais. On ne
+            # le copie donc que s'il y a un profil, mais alors on y tient.
+            $srcMadTweak = $null
+            if ($profil) {
+                foreach ($cand in @($PSCommandPath, $MyInvocation.MyCommand.Path)) {
+                    if ($cand -and $cand.EndsWith('.ps1') -and (Test-Path $cand)) { $srcMadTweak = $cand; break }
+                }
+                if (-not $srcMadTweak) {
+                    Write-Etat "Impossible de localiser MadTweak.ps1 : seul le fichier de réponses sera copié." -Niveau Avert
+                    Write-Etat "Copie-le toi-même à la racine de la clé, sinon le profil ne s'appliquera pas." -Niveau Avert
+                }
+            }
+            try {
+                $faits = Copy-FichiersVersCle -Lettre $lettre -CheminXml $chemin -CheminMadTweak $srcMadTweak
+                foreach ($fic in $faits) { Write-Etat "Copié : $fic" -Niveau OK }
+                Write-Etat "La clé est prête. L'installation ne posera plus de questions." -Niveau OK
+            }
+            catch {
+                Write-Etat "Copie impossible : $($_.Exception.Message)" -Niveau Echec
+            }
         }
         Write-Host ""
         if ($motDePasse) {

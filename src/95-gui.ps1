@@ -1262,6 +1262,35 @@ function Add-PageInstallation {
 
                 New-AutounattendXml @p | Out-Null
                 $script:JournalGui.AppendText(((T 'inst.jrn.ok') -f $chemin) + "`r`n")
+
+                # Étape que l'outil sait faire lui-même : déposer les fichiers sur une
+                # clé DÉJÀ préparée. On ne formate rien et on n'écrit aucune image ;
+                # c'est le travail de Rufus, et il n'y a pas lieu de le refaire.
+                $pretes = @(Get-ClesInstallation | Where-Object EstSupport)
+                if ($pretes.Count -eq 0) {
+                    $script:JournalGui.AppendText((T 'inst.jrn.cle.aucune') + "`r`n")
+                }
+                else {
+                    foreach ($k in $pretes) {
+                        $r = [System.Windows.MessageBox]::Show(
+                            ((T 'inst.cle.confirm') -f $k.Lettre, $k.Nom, $k.Go),
+                            (T 'inst.cle.titre'),
+                            [System.Windows.MessageBoxButton]::YesNo,
+                            [System.Windows.MessageBoxImage]::Question)
+                        if ($r -ne [System.Windows.MessageBoxResult]::Yes) { continue }
+                        $src = $null
+                        if ($profil -and $PSCommandPath -and $PSCommandPath.EndsWith('.ps1')) { $src = $PSCommandPath }
+                        try {
+                            foreach ($fait in (Copy-FichiersVersCle -Lettre $k.Lettre -CheminXml $chemin -CheminMadTweak $src)) {
+                                $script:JournalGui.AppendText(((T 'inst.jrn.cle.ok') -f $fait) + "`r`n")
+                            }
+                        }
+                        catch {
+                            $script:JournalGui.AppendText(((T 'inst.jrn.cle.echec') -f $_.Exception.Message) + "`r`n")
+                        }
+                        break
+                    }
+                }
                 $script:JournalGui.AppendText((T 'inst.jrn.suite') + "`r`n")
                 if ($profil) { $script:JournalGui.AppendText((T 'inst.jrn.profil') + "`r`n") }
                 if ($script:InstTxtMdp.Password) { $script:JournalGui.AppendText((T 'inst.jrn.mdp') + "`r`n") }

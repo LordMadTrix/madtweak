@@ -265,6 +265,13 @@ $script:Textes = @{
     'inst.jrn.mdp'   = @{ fr = "  Rappel : le mot de passe est lisible dans ce fichier. Ne prête pas la clé."
         en = "  Reminder: the password is readable in this file. Do not lend the stick." }
     'inst.jrn.echec' = @{ fr = "Clé d'installation : échec — {0}"; en = "Install media: failed - {0}" }
+    'inst.cle.titre'   = @{ fr = "Clé d'installation détectée"; en = "Install media detected" }
+    'inst.cle.confirm' = @{ fr = "Une clé d'installation Windows est branchée :`n`n    {0}: — {1} — {2} Go`n`nY copier le fichier de réponses (et MadTweak si un profil est prévu) ?`n`nRien ne sera effacé : seuls des fichiers sont ajoutés."
+        en = "A Windows install stick is plugged in:`n`n    {0}: - {1} - {2} GB`n`nCopy the answer file there (and MadTweak if a profile is set)?`n`nNothing will be erased: files are only added." }
+    'inst.jrn.cle.aucune' = @{ fr = "  Aucune clé d'installation prête détectée. Prépare-la avec Rufus ou le Media Creation Tool, puis relance la génération : la copie sera proposée."
+        en = "  No prepared install stick detected. Prepare it with Rufus or the Media Creation Tool, then generate again: the copy will be offered." }
+    'inst.jrn.cle.ok'    = @{ fr = "  Copié sur la clé : {0}"; en = "  Copied to the stick: {0}" }
+    'inst.jrn.cle.echec' = @{ fr = "  Copie sur la clé impossible — {0}"; en = "  Could not copy to the stick - {0}" }
 
     # --- Journal / états ---
     'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
