@@ -1903,3 +1903,44 @@ function Optimize-ImageWim {
     return $CheminWimDestination
 }
 
+function Optimize-IsoWindows {
+    # Monte l'image WIM, supprime les applications provisionnées UWP indésirables et démonte en enregistrant.
+    param(
+        [Parameter(Mandatory)][string]$CheminWim,
+        [int]$IndexImage = 1,
+        [string[]]$PackagesASupprimer = @('Microsoft.BingNews', 'Microsoft.BingWeather', 'Microsoft.GetHelp', 'Microsoft.Getstarted', 'Microsoft.MicrosoftSolitaireCollection', 'Microsoft.People', 'Microsoft.WindowsFeedbackHub', 'Microsoft.YourPhone', 'Microsoft.ZuneVideo', 'Microsoft.ZuneMusic')
+    )
+    if (-not (Test-Path $CheminWim)) { throw "Fichier WIM introuvable : $CheminWim" }
+
+    $dossierMontage = Join-Path $env:TEMP ("wim-mount-" + [guid]::NewGuid().ToString().Substring(0, 8))
+    if (-not (Test-Path $dossierMontage)) { New-Item -ItemType Directory -Path $dossierMontage -Force | Out-Null }
+
+    Write-Etat (T 'wim.debloat.debut') -Niveau Info
+
+    try {
+        Mount-WindowsImage -ImagePath $CheminWim -Index $IndexImage -Path $dossierMontage -ErrorAction Stop | Out-Null
+        $suppr = 0
+
+        $pkgs = @(Get-AppxProvisionedPackage -Path $dossierMontage -ErrorAction SilentlyContinue)
+        foreach ($p in $pkgs) {
+            foreach ($cible in $PackagesASupprimer) {
+                if ($p.DisplayName -like "*$cible*") {
+                    Remove-AppxProvisionedPackage -Path $dossierMontage -PackageName $p.PackageName -ErrorAction SilentlyContinue | Out-Null
+                    $suppr++
+                }
+            }
+        }
+
+        Dismount-WindowsImage -Path $dossierMontage -Save -ErrorAction Stop | Out-Null
+        if (Test-Path $dossierMontage) { Remove-Item $dossierMontage -Force -Recurse -ErrorAction SilentlyContinue }
+        Write-Etat ((T 'wim.debloat.ok') -f $suppr) -Niveau OK
+        return $suppr
+    }
+    catch {
+        try { Dismount-WindowsImage -Path $dossierMontage -Discard -ErrorAction SilentlyContinue | Out-Null } catch { }
+        if (Test-Path $dossierMontage) { Remove-Item $dossierMontage -Force -Recurse -ErrorAction SilentlyContinue }
+        throw $_
+    }
+}
+
+

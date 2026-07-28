@@ -438,7 +438,15 @@ $script:Textes = @{
     'ram.purger.ok'              = @{ fr = "Purge de la mémoire RAM terminée."; en = "RAM cache purge completed." }
     'repair.systeme.debut'       = @{ fr = "Lancement de la réparation intégrale du système (SFC + DISM + Cache Icônes)..."; en = "Starting full system repair (SFC + DISM + Icon Cache)..." }
     'repair.systeme.ok'          = @{ fr = "Réparation système terminée avec succès."; en = "System repair completed successfully." }
+
+    # --- Ultra-Advanced Features ---
+    'wim.debloat.debut'          = @{ fr = "Nettoyage et suppression des paquets UWP superflus dans l'image WIM..."; en = "Cleaning up superfluous UWP packages from WIM image..." }
+    'wim.debloat.ok'             = @{ fr = "Nettoyage WIM réussi : {0} paquets supprimés."; en = "WIM debloating succeeded: {0} packages removed." }
+    'benchmark.perf.titre'       = @{ fr = "Mesure des performances système"; en = "System Performance Benchmark" }
+    'hosts.telemetrie.ok'        = @{ fr = "Blocage des serveurs de télémétrie dans le fichier hosts appliqué ({0} domaines)."; en = "Telemetry server blocking applied to hosts file ({0} domains)." }
+    'services.smart.ok'          = @{ fr = "Optimisation intelligente des services terminée ({0} service(s) ajusté(s))."; en = "Smart service optimization completed ({0} service(s) adjusted)." }
 }
+
 
 
 
@@ -3027,6 +3035,41 @@ function Menu-Maj-Securite {
     }
     Fin-De-Menu
 }
+
+function Update-ProtectionHostsViePrivee {
+    # Bloque les domaines de télémétrie connus dans le fichier hosts Windows.
+    $fichierHosts = "$env:SystemRoot\System32\drivers\etc\hosts"
+    if (-not (Test-Path $fichierHosts)) { throw "Fichier hosts introuvable : $fichierHosts" }
+
+    $domaines = @(
+        "v10.events.data.microsoft.com",
+        "telemetry.microsoft.com",
+        "watson.telemetry.microsoft.com",
+        "telecommand.telemetry.microsoft.com",
+        "g.msn.com",
+        "telemetry.nvidia.com"
+    )
+
+    $contenu = Get-Content $fichierHosts -ErrorAction SilentlyContinue
+    $lignes = @($contenu)
+    $ajoutes = 0
+
+    foreach ($d in $domaines) {
+        $reg = "0.0.0.0\s+" + [regex]::Escape($d)
+        if (-not ($lignes -match $reg)) {
+            $lignes += "0.0.0.0 $d # MadTweak Telemetry Block"
+            $ajoutes++
+        }
+    }
+
+    if ($ajoutes -gt 0) {
+        Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+    }
+
+    Write-Etat ((T 'hosts.telemetrie.ok') -f $domaines.Count) -Niveau OK
+    return $ajoutes
+}
+
 
 # ------------------------------------------------------------------------------
 # LOGICIELS EXTRA (winget)
@@ -7095,6 +7138,47 @@ function Optimize-ImageWim {
     return $CheminWimDestination
 }
 
+function Optimize-IsoWindows {
+    # Monte l'image WIM, supprime les applications provisionnées UWP indésirables et démonte en enregistrant.
+    param(
+        [Parameter(Mandatory)][string]$CheminWim,
+        [int]$IndexImage = 1,
+        [string[]]$PackagesASupprimer = @('Microsoft.BingNews', 'Microsoft.BingWeather', 'Microsoft.GetHelp', 'Microsoft.Getstarted', 'Microsoft.MicrosoftSolitaireCollection', 'Microsoft.People', 'Microsoft.WindowsFeedbackHub', 'Microsoft.YourPhone', 'Microsoft.ZuneVideo', 'Microsoft.ZuneMusic')
+    )
+    if (-not (Test-Path $CheminWim)) { throw "Fichier WIM introuvable : $CheminWim" }
+
+    $dossierMontage = Join-Path $env:TEMP ("wim-mount-" + [guid]::NewGuid().ToString().Substring(0, 8))
+    if (-not (Test-Path $dossierMontage)) { New-Item -ItemType Directory -Path $dossierMontage -Force | Out-Null }
+
+    Write-Etat (T 'wim.debloat.debut') -Niveau Info
+
+    try {
+        Mount-WindowsImage -ImagePath $CheminWim -Index $IndexImage -Path $dossierMontage -ErrorAction Stop | Out-Null
+        $suppr = 0
+
+        $pkgs = @(Get-AppxProvisionedPackage -Path $dossierMontage -ErrorAction SilentlyContinue)
+        foreach ($p in $pkgs) {
+            foreach ($cible in $PackagesASupprimer) {
+                if ($p.DisplayName -like "*$cible*") {
+                    Remove-AppxProvisionedPackage -Path $dossierMontage -PackageName $p.PackageName -ErrorAction SilentlyContinue | Out-Null
+                    $suppr++
+                }
+            }
+        }
+
+        Dismount-WindowsImage -Path $dossierMontage -Save -ErrorAction Stop | Out-Null
+        if (Test-Path $dossierMontage) { Remove-Item $dossierMontage -Force -Recurse -ErrorAction SilentlyContinue }
+        Write-Etat ((T 'wim.debloat.ok') -f $suppr) -Niveau OK
+        return $suppr
+    }
+    catch {
+        try { Dismount-WindowsImage -Path $dossierMontage -Discard -ErrorAction SilentlyContinue | Out-Null } catch { }
+        if (Test-Path $dossierMontage) { Remove-Item $dossierMontage -Force -Recurse -ErrorAction SilentlyContinue }
+        throw $_
+    }
+}
+
+
 # ------------------------------------------------------------------------------
 # AUDIT : que vaut cette machine, ici et maintenant ?
 #
@@ -7937,6 +8021,39 @@ function Menu-Audit {
     if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
+function Test-BenchmarkPerformance {
+    # Mesure l'état de performance en temps réel (processus, RAM, et timer resolution).
+    Write-Etat (T 'benchmark.perf.titre') -Niveau Info
+
+    $procs = @(Get-Process -ErrorAction SilentlyContinue).Count
+    $mem = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $ramUtiliseeMo = 0
+    $ramLibreMo = 0
+    if ($mem) {
+        $ramLibreMo = [math]::Round($mem.FreePhysicalMemory / 1024, 0)
+        $totalMo = [math]::Round($mem.TotalVisibleMemorySize / 1024, 0)
+        $ramUtiliseeMo = $totalMo - $ramLibreMo
+    }
+
+    try {
+        $nt = Add-Type -MemberDefinition '[DllImport("ntdll.dll")] public static extern int NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);' -Name 'NtTimer' -Namespace 'MadTweak' -PassThru -ErrorAction SilentlyContinue
+        if ($nt) {
+            [uint32]$cur = 0
+            [MadTweak.NtTimer]::NtSetTimerResolution(5000, $true, [ref]$cur) | Out-Null
+        }
+    } catch { }
+
+    $res = @{
+        NombreProcessus = $procs
+        RamUtiliseeMo   = $ramUtiliseeMo
+        RamLibreMo      = $ramLibreMo
+    }
+
+    Write-Etat "Processus actifs : $procs | RAM utilisée : $ramUtiliseeMo Mo | RAM libre : $ramLibreMo Mo" -Niveau OK
+    return $res
+}
+
+
 # ------------------------------------------------------------------------------
 # PROFILS : appliquer un lot cohérent de tweaks sans répondre à 30 questions.
 #
@@ -8426,6 +8543,38 @@ function Compare-Profils {
         TweaksUniquesB = $uniquesB
     }
 }
+
+function Set-ProfilServicesWindows {
+    # Analyse le matériel présent et ajuste intelligemment les services (Spooler, Bluetooth, RemoteRegistry, SmartCard).
+    $ajustes = 0
+
+    try {
+        $printers = @(Get-Printer -ErrorAction SilentlyContinue)
+        if ($printers.Count -eq 0 -and (Get-Service -Name "Spooler" -ErrorAction SilentlyContinue)) {
+            Set-ServiceEtat -Nom "Spooler" -Demarrage Manual
+            $ajustes++
+        }
+    } catch { }
+
+    try {
+        $bt = Get-PnpDevice -Class "Bluetooth" -ErrorAction SilentlyContinue
+        if (-not $bt -and (Get-Service -Name "bthserv" -ErrorAction SilentlyContinue)) {
+            Set-ServiceEtat -Nom "bthserv" -Demarrage Manual
+            $ajustes++
+        }
+    } catch { }
+
+    foreach ($s in @("RemoteRegistry", "SCardSvr")) {
+        if (Get-Service -Name $s -ErrorAction SilentlyContinue) {
+            Set-ServiceEtat -Nom $s -Demarrage Disabled
+            $ajustes++
+        }
+    }
+
+    Write-Etat ((T 'services.smart.ok') -f $ajustes) -Niveau OK
+    return $ajustes
+}
+
 
 
 

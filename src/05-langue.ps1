@@ -368,7 +368,15 @@ $script:Textes = @{
     'ram.purger.ok'              = @{ fr = "Purge de la mémoire RAM terminée."; en = "RAM cache purge completed." }
     'repair.systeme.debut'       = @{ fr = "Lancement de la réparation intégrale du système (SFC + DISM + Cache Icônes)..."; en = "Starting full system repair (SFC + DISM + Icon Cache)..." }
     'repair.systeme.ok'          = @{ fr = "Réparation système terminée avec succès."; en = "System repair completed successfully." }
+
+    # --- Ultra-Advanced Features ---
+    'wim.debloat.debut'          = @{ fr = "Nettoyage et suppression des paquets UWP superflus dans l'image WIM..."; en = "Cleaning up superfluous UWP packages from WIM image..." }
+    'wim.debloat.ok'             = @{ fr = "Nettoyage WIM réussi : {0} paquets supprimés."; en = "WIM debloating succeeded: {0} packages removed." }
+    'benchmark.perf.titre'       = @{ fr = "Mesure des performances système"; en = "System Performance Benchmark" }
+    'hosts.telemetrie.ok'        = @{ fr = "Blocage des serveurs de télémétrie dans le fichier hosts appliqué ({0} domaines)."; en = "Telemetry server blocking applied to hosts file ({0} domains)." }
+    'services.smart.ok'          = @{ fr = "Optimisation intelligente des services terminée ({0} service(s) ajusté(s))."; en = "Smart service optimization completed ({0} service(s) adjusted)." }
 }
+
 
 
 

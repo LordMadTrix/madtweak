@@ -488,5 +488,37 @@ function Compare-Profils {
     }
 }
 
+function Set-ProfilServicesWindows {
+    # Analyse le matériel présent et ajuste intelligemment les services (Spooler, Bluetooth, RemoteRegistry, SmartCard).
+    $ajustes = 0
+
+    try {
+        $printers = @(Get-Printer -ErrorAction SilentlyContinue)
+        if ($printers.Count -eq 0 -and (Get-Service -Name "Spooler" -ErrorAction SilentlyContinue)) {
+            Set-ServiceEtat -Nom "Spooler" -Demarrage Manual
+            $ajustes++
+        }
+    } catch { }
+
+    try {
+        $bt = Get-PnpDevice -Class "Bluetooth" -ErrorAction SilentlyContinue
+        if (-not $bt -and (Get-Service -Name "bthserv" -ErrorAction SilentlyContinue)) {
+            Set-ServiceEtat -Nom "bthserv" -Demarrage Manual
+            $ajustes++
+        }
+    } catch { }
+
+    foreach ($s in @("RemoteRegistry", "SCardSvr")) {
+        if (Get-Service -Name $s -ErrorAction SilentlyContinue) {
+            Set-ServiceEtat -Nom $s -Demarrage Disabled
+            $ajustes++
+        }
+    }
+
+    Write-Etat ((T 'services.smart.ok') -f $ajustes) -Niveau OK
+    return $ajustes
+}
+
+
 
 

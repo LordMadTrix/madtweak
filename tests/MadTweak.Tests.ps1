@@ -146,11 +146,13 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     BeforeAll {
         . (Join-Path $srcDir "05-langue.ps1")
         . (Join-Path $srcDir "10-socle.ps1")
+        . (Join-Path $srcDir "30-simulation-et-tweaks.ps1")
         . (Join-Path $srcDir "51-menu-avances.ps1")
         . (Join-Path $srcDir "53-menu-materiel-reseau.ps1")
         . (Join-Path $srcDir "56-menu-maintenance.ps1")
         . (Join-Path $srcDir "59-menu-nettoyage.ps1")
     }
+
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
         $res = Get-AnalyseCachesApplications
@@ -165,7 +167,20 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     It "Clear-MemoireRAM doit s'exécuter sans lever d'exception" {
         { Clear-MemoireRAM } | Should Not Throw
     }
+
+    It "Test-BenchmarkPerformance doit mesurer l'état du système et renvoyer un hashtable" {
+        . (Join-Path $srcDir "70-audit.ps1")
+        $res = Test-BenchmarkPerformance
+        $res | Should Not BeNullOrEmpty
+        $res.NombreProcessus | Should BeGreaterThan 0
+    }
+
+    It "Set-ProfilServicesWindows doit analyser le matériel et ajuster les services" {
+        . (Join-Path $srcDir "80-profils.ps1")
+        { Set-ProfilServicesWindows } | Should Not Throw
+    }
 }
+
 
 
 

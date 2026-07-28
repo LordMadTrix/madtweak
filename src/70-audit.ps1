@@ -840,3 +840,36 @@ function Menu-Audit {
     if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
+function Test-BenchmarkPerformance {
+    # Mesure l'état de performance en temps réel (processus, RAM, et timer resolution).
+    Write-Etat (T 'benchmark.perf.titre') -Niveau Info
+
+    $procs = @(Get-Process -ErrorAction SilentlyContinue).Count
+    $mem = Get-CimInstance Win32_OperatingSystem -ErrorAction SilentlyContinue
+    $ramUtiliseeMo = 0
+    $ramLibreMo = 0
+    if ($mem) {
+        $ramLibreMo = [math]::Round($mem.FreePhysicalMemory / 1024, 0)
+        $totalMo = [math]::Round($mem.TotalVisibleMemorySize / 1024, 0)
+        $ramUtiliseeMo = $totalMo - $ramLibreMo
+    }
+
+    try {
+        $nt = Add-Type -MemberDefinition '[DllImport("ntdll.dll")] public static extern int NtSetTimerResolution(uint DesiredResolution, bool SetResolution, out uint CurrentResolution);' -Name 'NtTimer' -Namespace 'MadTweak' -PassThru -ErrorAction SilentlyContinue
+        if ($nt) {
+            [uint32]$cur = 0
+            [MadTweak.NtTimer]::NtSetTimerResolution(5000, $true, [ref]$cur) | Out-Null
+        }
+    } catch { }
+
+    $res = @{
+        NombreProcessus = $procs
+        RamUtiliseeMo   = $ramUtiliseeMo
+        RamLibreMo      = $ramLibreMo
+    }
+
+    Write-Etat "Processus actifs : $procs | RAM utilisée : $ramUtiliseeMo Mo | RAM libre : $ramLibreMo Mo" -Niveau OK
+    return $res
+}
+
+

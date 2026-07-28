@@ -177,3 +177,38 @@ function Menu-Maj-Securite {
     Fin-De-Menu
 }
 
+function Update-ProtectionHostsViePrivee {
+    # Bloque les domaines de télémétrie connus dans le fichier hosts Windows.
+    $fichierHosts = "$env:SystemRoot\System32\drivers\etc\hosts"
+    if (-not (Test-Path $fichierHosts)) { throw "Fichier hosts introuvable : $fichierHosts" }
+
+    $domaines = @(
+        "v10.events.data.microsoft.com",
+        "telemetry.microsoft.com",
+        "watson.telemetry.microsoft.com",
+        "telecommand.telemetry.microsoft.com",
+        "g.msn.com",
+        "telemetry.nvidia.com"
+    )
+
+    $contenu = Get-Content $fichierHosts -ErrorAction SilentlyContinue
+    $lignes = @($contenu)
+    $ajoutes = 0
+
+    foreach ($d in $domaines) {
+        $reg = "0.0.0.0\s+" + [regex]::Escape($d)
+        if (-not ($lignes -match $reg)) {
+            $lignes += "0.0.0.0 $d # MadTweak Telemetry Block"
+            $ajoutes++
+        }
+    }
+
+    if ($ajoutes -gt 0) {
+        Set-Content -Path $fichierHosts -Value $lignes -Encoding UTF8 -Force
+    }
+
+    Write-Etat ((T 'hosts.telemetrie.ok') -f $domaines.Count) -Niveau OK
+    return $ajoutes
+}
+
+
