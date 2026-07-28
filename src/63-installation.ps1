@@ -198,8 +198,13 @@ function Convert-EsdVersWim {
 
         Un .esd ne se découpe pas ; un .wim, si. C'est le seul chemin pour poser
         une image de plus de 4 Go sur du FAT32, seul système de fichiers que tout
-        micrologiciel UEFI sait lire au démarrage. Bénéfice secondaire : on
-        n'emporte qu'une édition au lieu des onze, donc un fichier bien plus petit.
+        micrologiciel UEFI sait lire au démarrage.
+
+        Attendre un fichier plus petit serait une erreur : le .esd est compressé
+        en LZMS, plus agressif que le LZX d'un .wim. La conversion FAIT GROSSIR le
+        fichier — 6,57 Go donnent 9,02 Go sur une image mesurée. N'extraire qu'une
+        édition compense quand l'image en contient plusieurs, mais beaucoup n'en
+        contiennent qu'une : ne pas compter dessus.
     #>
     param(
         [Parameter(Mandatory)][string]$CheminEsd,
@@ -228,15 +233,23 @@ function Convert-EsdVersWim {
     }
     if (-not (Test-Path $DossierSortie)) { New-Item -ItemType Directory -Path $DossierSortie -Force | Out-Null }
 
-    # La place se vérifie AVANT, pas au bout de vingt minutes de travail.
-    $libre = (Get-PSDrive -Name ($DossierSortie.Substring(0, 1))).Free
+    # La place se vérifie AVANT, pas au bout de sept minutes de travail.
+    #
+    # Et il en faut PLUS que la taille de la source : un .esd est compressé en LZMS,
+    # bien plus agressif que le LZX maximal d'un .wim. La conversion GROSSIT le
+    # fichier. Mesuré sur une image réelle : 6,57 Go de .esd donnent 9,02 Go de
+    # .wim, soit +37 %. Le facteur 2 laisse la marge nécessaire — une première
+    # version de ce contrôle comparait à la taille de la source et aurait laissé
+    # démarrer une conversion vouée à finir sur un disque plein.
     $taille = (Get-Item $CheminEsd).Length
-    if ($libre -lt $taille) {
-        throw "Place insuffisante sur $($DossierSortie.Substring(0,2)) : $([math]::Round($libre/1GB,1)) Go libres, $([math]::Round($taille/1GB,1)) Go nécessaires."
+    $requis = $taille * 2
+    $libre = (Get-PSDrive -Name ($DossierSortie.Substring(0, 1))).Free
+    if ($libre -lt $requis) {
+        throw "Place insuffisante sur $($DossierSortie.Substring(0,2)) : $([math]::Round($libre/1GB,1)) Go libres, $([math]::Round($requis/1GB,1)) Go nécessaires (le .wim produit est plus gros que le .esd source)."
     }
 
     $sortie = Join-Path $DossierSortie 'install.wim'
-    Write-Etat "Conversion vers .wim, édition « $nomGarde » (long : 10 à 25 minutes)..." -Niveau Info
+    Write-Etat "Conversion vers .wim, édition « $nomGarde » (compter 5 à 15 minutes selon le disque)..." -Niveau Info
     Export-WindowsImage -SourceImagePath $CheminEsd -SourceIndex $index `
         -DestinationImagePath $sortie -CompressionType Max -ErrorAction Stop | Out-Null
     Write-Etat "Converti : $([math]::Round((Get-Item $sortie).Length/1GB,2)) Go (source : $([math]::Round($taille/1GB,2)) Go)." -Niveau OK
