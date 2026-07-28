@@ -1710,6 +1710,6 @@ function Menu-Installation {
     }
 
     if (-not (Test-SansInteraction)) {
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
     }
 }

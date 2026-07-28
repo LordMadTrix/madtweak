@@ -1527,9 +1527,16 @@ $script:CategorieCourante = "Divers"
 
 function Test-SansInteraction {
     # Vrai quand personne n'est là pour lire l'écran ni répondre à une invite :
-    # sous profil (le lot s'applique sans question) et en inventaire (on ne fait
-    # que recenser). Dans les deux cas, ni Clear-Host, ni décor, ni Read-Host.
-    return ([bool]$script:ProfilActif -or $script:ModeInventaire)
+    # sous profil (le lot s'applique sans question), en inventaire (on ne fait
+    # que recenser), et en mode silencieux (-Profil depuis un fichier de réponses).
+    # Dans tous ces cas, ni Clear-Host, ni décor, ni Read-Host.
+    #
+    # Le troisième cas vient d'une installation réelle : appelé par
+    # FirstLogonCommands, le script s'est arrêté sur « Appuie sur Entrée pour
+    # revenir au menu principal », derrière l'écran bleu de l'OOBE. Personne ne
+    # voyait cette console, donc personne ne pouvait appuyer, et l'installation
+    # ne se terminait jamais.
+    return ([bool]$script:ProfilActif -or $script:ModeInventaire -or $script:SansQuestion)
 }
 
 function Invoke-Tweak {
@@ -1671,7 +1678,7 @@ function Fin-De-Menu {
     Write-Host "  ----------------------------------------------------" -ForegroundColor DarkGray
     if ($script:Simulation) {
         Write-Host "  SIMULATION : $script:SimuCompteur modification(s) auraient été faites. Rien n'a été écrit." -ForegroundColor Cyan
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
     Write-Host "  Bilan : $script:CompteurOK réussi(s), $script:CompteurEchec échec(s)." -ForegroundColor $(if ($script:CompteurEchec -gt 0) { "Yellow" } else { "Green" })
@@ -1684,7 +1691,7 @@ function Fin-De-Menu {
         }
     }
     Show-RedemarrageRequis
-    Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
 function Show-RedemarrageRequis {
@@ -2818,9 +2825,7 @@ function Menu-Logiciels-Extra {
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-Etat "winget est introuvable. Installe 'Programme d'installation d'application' depuis le Microsoft Store." -Niveau Echec
-        if (-not (Test-SansInteraction)) {
-            Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
-        }
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
 
@@ -3622,7 +3627,7 @@ function Menu-Nettoyage {
 
     if ($total -lt 50MB) {
         Write-Etat "Moins de 50 Mo à récupérer : ta machine est déjà propre, ça n'en vaut pas la peine." -Niveau Info
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
 
@@ -6494,7 +6499,7 @@ function Menu-Installation {
     }
 
     if (-not (Test-SansInteraction)) {
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
     }
 }
 # ------------------------------------------------------------------------------
@@ -7254,7 +7259,7 @@ function Menu-Audit {
     Write-Host "  [OUI] = actif. [ - ] = laissé au défaut Windows. [ ? ] = ne s'applique pas à cette machine." -ForegroundColor DarkGray
     Write-Host "  Un [ - ] n'est pas un problème : c'est un choix que tu n'as pas (encore) fait." -ForegroundColor DarkGray
 
-    Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
 # ------------------------------------------------------------------------------
@@ -7639,7 +7644,7 @@ function Invoke-Profil {
     Write-Host "  ----------------------------------------------------" -ForegroundColor DarkGray
     if ($script:Simulation) {
         Write-Host "  SIMULATION du profil « $Nom » : $script:SimuCompteur modification(s) auraient été faites. Rien n'a été écrit." -ForegroundColor Cyan
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
     Write-Host "  Profil « $Nom » : $script:CompteurOK réussi(s), $script:CompteurEchec échec(s)." -ForegroundColor $(if ($script:CompteurEchec -gt 0) { "Yellow" } else { "Green" })
@@ -7653,7 +7658,7 @@ function Invoke-Profil {
         Write-Etat "Explorateur redémarré." -Niveau OK
     }
     Show-RedemarrageRequis
-    Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
 function Menu-Profils {

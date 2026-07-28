@@ -163,7 +163,7 @@ function Menu-Nettoyage {
 
     if ($total -lt 50MB) {
         Write-Etat "Moins de 50 Mo à récupérer : ta machine est déjà propre, ça n'en vaut pas la peine." -Niveau Info
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
 

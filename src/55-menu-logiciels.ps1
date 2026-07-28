@@ -44,9 +44,7 @@ function Menu-Logiciels-Extra {
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         Write-Etat "winget est introuvable. Installe 'Programme d'installation d'application' depuis le Microsoft Store." -Niveau Echec
-        if (-not (Test-SansInteraction)) {
-            Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
-        }
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
 

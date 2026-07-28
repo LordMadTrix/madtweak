@@ -755,6 +755,6 @@ function Menu-Audit {
     Write-Host "  [OUI] = actif. [ - ] = laissé au défaut Windows. [ ? ] = ne s'applique pas à cette machine." -ForegroundColor DarkGray
     Write-Host "  Un [ - ] n'est pas un problème : c'est un choix que tu n'as pas (encore) fait." -ForegroundColor DarkGray
 
-    Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 

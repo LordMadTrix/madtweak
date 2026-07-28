@@ -380,7 +380,7 @@ function Invoke-Profil {
     Write-Host "  ----------------------------------------------------" -ForegroundColor DarkGray
     if ($script:Simulation) {
         Write-Host "  SIMULATION du profil « $Nom » : $script:SimuCompteur modification(s) auraient été faites. Rien n'a été écrit." -ForegroundColor Cyan
-        Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+        if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
         return
     }
     Write-Host "  Profil « $Nom » : $script:CompteurOK réussi(s), $script:CompteurEchec échec(s)." -ForegroundColor $(if ($script:CompteurEchec -gt 0) { "Yellow" } else { "Green" })
@@ -394,7 +394,7 @@ function Invoke-Profil {
         Write-Etat "Explorateur redémarré." -Niveau OK
     }
     Show-RedemarrageRequis
-    Read-Host "`nAppuie sur Entrée pour revenir au menu principal"
+    if (-not (Test-SansInteraction)) { Read-Host "`nAppuie sur Entrée pour revenir au menu principal" }
 }
 
 function Menu-Profils {
