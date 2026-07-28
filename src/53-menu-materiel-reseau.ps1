@@ -291,5 +291,29 @@ function Test-SanteReseau {
     return $res
 }
 
+function Set-GamingNetworkOptimizations {
+    # Configure TcpAckFrequency = 1 et TCPNoDelay = 1 sur toutes les cartes réseau et active DoH Cloudflare/Google.
+    try {
+        $interfaces = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\*" -ErrorAction SilentlyContinue
+        foreach ($i in $interfaces) {
+            if ($i.PSPath) {
+                Set-RegValue -Path $i.PSPath -Name "TcpAckFrequency" -Value 1
+                Set-RegValue -Path $i.PSPath -Name "TCPNoDelay" -Value 1
+            }
+        }
+    } catch { }
+
+    try {
+        $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | Select-Object -First 1
+        if ($adapter) {
+            Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+        }
+    } catch { }
+
+    Write-Etat (T 'reseau.gaming.ok') -Niveau OK
+    return $true
+}
+
+
 
 

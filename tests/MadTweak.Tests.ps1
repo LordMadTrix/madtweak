@@ -179,7 +179,25 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         . (Join-Path $srcDir "80-profils.ps1")
         { Set-ProfilServicesWindows } | Should Not Throw
     }
+
+    It "Export-ScriptAutonome doit générer un fichier script PS1 valide" {
+        . (Join-Path $srcDir "30-simulation-et-tweaks.ps1")
+        $tmpPs1 = Join-Path $env:TEMP "test-standalone.ps1"
+        if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
+        Export-ScriptAutonome -CheminSortiePs1 $tmpPs1 -ClesTweaks @() | Out-Null
+        (Test-Path $tmpPs1) | Should Be $true
+        if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
+    }
+
+    It "Set-GamingNetworkOptimizations doit s'exécuter sans lever d'exception" {
+        { Set-GamingNetworkOptimizations } | Should Not Throw
+    }
+
+    It "Clear-RegistreOrphelin doit s'exécuter sans lever d'exception" {
+        { Clear-RegistreOrphelin } | Should Not Throw
+    }
 }
+
 
 
 

@@ -273,4 +273,27 @@ function Clear-CachesApplications {
     return $mo
 }
 
+function Clear-RegistreOrphelin {
+    # Purge les historiques MRU et nettoie les clés d'applications temporaires orphelines.
+    $mrus = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths"
+    )
+
+    $purges = 0
+    foreach ($m in $mrus) {
+        if (Test-Path $m) {
+            try {
+                Remove-ItemProperty -Path $m -Name * -ErrorAction SilentlyContinue
+                $purges++
+            } catch { }
+        }
+    }
+
+    Write-Etat (T 'registre.orphelin.ok') -Niveau OK
+    return $purges
+}
+
+
 

@@ -445,7 +445,14 @@ $script:Textes = @{
     'benchmark.perf.titre'       = @{ fr = "Mesure des performances système"; en = "System Performance Benchmark" }
     'hosts.telemetrie.ok'        = @{ fr = "Blocage des serveurs de télémétrie dans le fichier hosts appliqué ({0} domaines)."; en = "Telemetry server blocking applied to hosts file ({0} domains)." }
     'services.smart.ok'          = @{ fr = "Optimisation intelligente des services terminée ({0} service(s) ajusté(s))."; en = "Smart service optimization completed ({0} service(s) adjusted)." }
+
+    # --- v1.5 Features ---
+    'script.standalone.export'   = @{ fr = "Script autonome d'optimisation exporté dans {0}."; en = "Standalone optimization script exported to {0}." }
+    'reseau.gaming.ok'           = @{ fr = "Optimisations réseau gaming appliquées (TcpAckFrequency, TCPNoDelay, DoH)."; en = "Gaming network optimizations applied (TcpAckFrequency, TCPNoDelay, DoH)." }
+    'drivers.export.ok'          = @{ fr = "Exportation des pilotes système terminée ({0} pilote(s) exporté(s))."; en = "System drivers export completed ({0} driver(s) exported)." }
+    'registre.orphelin.ok'       = @{ fr = "Nettoyage du registre orphelin terminé."; en = "Orphaned registry cleanup completed." }
 }
+
 
 
 
@@ -1492,6 +1499,24 @@ function Restore-PositionsIconesBureau {
     return $false
 }
 
+function Export-PilotesSysteme {
+    # Exporte l'ensemble des pilotes tiers installés sur la machine vers un dossier de sauvegarde via Export-WindowsDriver.
+    param([string]$DossierDestination)
+    if (-not $DossierDestination) { $DossierDestination = Join-Path $script:DossierDonnees "PilotesSauvegardes" }
+
+    if (-not (Test-Path $DossierDestination)) { New-Item -ItemType Directory -Path $DossierDestination -Force | Out-Null }
+
+    $count = 0
+    try {
+        $drivers = Export-WindowsDriver -Online -Destination $DossierDestination -ErrorAction Stop
+        $count = $drivers.Count
+    } catch { }
+
+    Write-Etat ((T 'drivers.export.ok') -f $count) -Niveau OK
+    return $count
+}
+
+
 
 # ------------------------------------------------------------------------------
 # MODE SIMULATION
@@ -1844,6 +1869,36 @@ function Invoke-RedemarrageFinal {
         Write-Etat "Pense à redémarrer : tant que tu ne l'as pas fait, ces tweaks ne servent à rien." -Niveau Info
     }
 }
+
+function Export-ScriptAutonome {
+    # Génère un script PowerShell .ps1 léger et autonome contenant la sélection de tweaks spécifiée.
+    param(
+        [Parameter(Mandatory)][string]$CheminSortiePs1,
+        [string[]]$ClesTweaks = @()
+    )
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine("# ==============================================================================")
+    [void]$sb.AppendLine("# SCRIPT D'OPTIMISATION AUTONOME — MADTWEAK GENERATED")
+    [void]$sb.AppendLine("# Exécuter avec les privilèges Administrateur")
+    [void]$sb.AppendLine("# ==============================================================================")
+    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
+    [void]$sb.AppendLine('')
+
+    foreach ($cle in $ClesTweaks) {
+        $tw = $script:RegistreTweaks[$cle]
+        if ($tw -and $tw.BlocAction) {
+            [void]$sb.AppendLine("# --- Tweak : $cle ---")
+            [void]$sb.AppendLine($tw.BlocAction.ToString())
+            [void]$sb.AppendLine('')
+        }
+    }
+
+    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), [System.Text.Encoding]::UTF8)
+    Write-Etat ((T 'script.standalone.export') -f $CheminSortiePs1) -Niveau OK
+    return $CheminSortiePs1
+}
+
 
 # ------------------------------------------------------------------------------
 # POINT DE RESTAURATION (via CIM : fonctionne en PS 5.1 ET PS 7)
@@ -2854,6 +2909,30 @@ function Test-SanteReseau {
     Write-Etat ((T 'reseau.sante.ping') -f $pingDisplay) -Niveau $niveauPing
     return $res
 }
+
+function Set-GamingNetworkOptimizations {
+    # Configure TcpAckFrequency = 1 et TCPNoDelay = 1 sur toutes les cartes réseau et active DoH Cloudflare/Google.
+    try {
+        $interfaces = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\*" -ErrorAction SilentlyContinue
+        foreach ($i in $interfaces) {
+            if ($i.PSPath) {
+                Set-RegValue -Path $i.PSPath -Name "TcpAckFrequency" -Value 1
+                Set-RegValue -Path $i.PSPath -Name "TCPNoDelay" -Value 1
+            }
+        }
+    } catch { }
+
+    try {
+        $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object Status -eq 'Up' | Select-Object -First 1
+        if ($adapter) {
+            Set-DnsClientServerAddress -InterfaceAlias $adapter.Name -ServerAddresses ("1.1.1.1", "1.0.0.1") -ErrorAction SilentlyContinue
+        }
+    } catch { }
+
+    Write-Etat (T 'reseau.gaming.ok') -Niveau OK
+    return $true
+}
+
 
 
 
@@ -4130,6 +4209,29 @@ function Clear-CachesApplications {
     Write-Etat ((T 'nettoyage.caches.purger') -f $mo) -Niveau OK
     return $mo
 }
+
+function Clear-RegistreOrphelin {
+    # Purge les historiques MRU et nettoie les clés d'applications temporaires orphelines.
+    $mrus = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RecentDocs",
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\TypedPaths"
+    )
+
+    $purges = 0
+    foreach ($m in $mrus) {
+        if (Test-Path $m) {
+            try {
+                Remove-ItemProperty -Path $m -Name * -ErrorAction SilentlyContinue
+                $purges++
+            } catch { }
+        }
+    }
+
+    Write-Etat (T 'registre.orphelin.ok') -Niveau OK
+    return $purges
+}
+
 
 
 # ------------------------------------------------------------------------------

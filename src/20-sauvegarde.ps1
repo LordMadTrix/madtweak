@@ -330,4 +330,22 @@ function Restore-PositionsIconesBureau {
     return $false
 }
 
+function Export-PilotesSysteme {
+    # Exporte l'ensemble des pilotes tiers installés sur la machine vers un dossier de sauvegarde via Export-WindowsDriver.
+    param([string]$DossierDestination)
+    if (-not $DossierDestination) { $DossierDestination = Join-Path $script:DossierDonnees "PilotesSauvegardes" }
+
+    if (-not (Test-Path $DossierDestination)) { New-Item -ItemType Directory -Path $DossierDestination -Force | Out-Null }
+
+    $count = 0
+    try {
+        $drivers = Export-WindowsDriver -Online -Destination $DossierDestination -ErrorAction Stop
+        $count = $drivers.Count
+    } catch { }
+
+    Write-Etat ((T 'drivers.export.ok') -f $count) -Niveau OK
+    return $count
+}
+
+
 

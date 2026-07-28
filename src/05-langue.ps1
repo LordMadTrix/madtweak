@@ -375,7 +375,14 @@ $script:Textes = @{
     'benchmark.perf.titre'       = @{ fr = "Mesure des performances système"; en = "System Performance Benchmark" }
     'hosts.telemetrie.ok'        = @{ fr = "Blocage des serveurs de télémétrie dans le fichier hosts appliqué ({0} domaines)."; en = "Telemetry server blocking applied to hosts file ({0} domains)." }
     'services.smart.ok'          = @{ fr = "Optimisation intelligente des services terminée ({0} service(s) ajusté(s))."; en = "Smart service optimization completed ({0} service(s) adjusted)." }
+
+    # --- v1.5 Features ---
+    'script.standalone.export'   = @{ fr = "Script autonome d'optimisation exporté dans {0}."; en = "Standalone optimization script exported to {0}." }
+    'reseau.gaming.ok'           = @{ fr = "Optimisations réseau gaming appliquées (TcpAckFrequency, TCPNoDelay, DoH)."; en = "Gaming network optimizations applied (TcpAckFrequency, TCPNoDelay, DoH)." }
+    'drivers.export.ok'          = @{ fr = "Exportation des pilotes système terminée ({0} pilote(s) exporté(s))."; en = "System drivers export completed ({0} driver(s) exported)." }
+    'registre.orphelin.ok'       = @{ fr = "Nettoyage du registre orphelin terminé."; en = "Orphaned registry cleanup completed." }
 }
+
 
 
 

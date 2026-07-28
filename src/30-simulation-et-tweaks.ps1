@@ -350,3 +350,33 @@ function Invoke-RedemarrageFinal {
     }
 }
 
+function Export-ScriptAutonome {
+    # Génère un script PowerShell .ps1 léger et autonome contenant la sélection de tweaks spécifiée.
+    param(
+        [Parameter(Mandatory)][string]$CheminSortiePs1,
+        [string[]]$ClesTweaks = @()
+    )
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine("# ==============================================================================")
+    [void]$sb.AppendLine("# SCRIPT D'OPTIMISATION AUTONOME — MADTWEAK GENERATED")
+    [void]$sb.AppendLine("# Exécuter avec les privilèges Administrateur")
+    [void]$sb.AppendLine("# ==============================================================================")
+    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
+    [void]$sb.AppendLine('')
+
+    foreach ($cle in $ClesTweaks) {
+        $tw = $script:RegistreTweaks[$cle]
+        if ($tw -and $tw.BlocAction) {
+            [void]$sb.AppendLine("# --- Tweak : $cle ---")
+            [void]$sb.AppendLine($tw.BlocAction.ToString())
+            [void]$sb.AppendLine('')
+        }
+    }
+
+    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), [System.Text.Encoding]::UTF8)
+    Write-Etat ((T 'script.standalone.export') -f $CheminSortiePs1) -Niveau OK
+    return $CheminSortiePs1
+}
+
+

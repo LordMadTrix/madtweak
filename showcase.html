@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MadTweak v1.4 — Showcase & Présentation Vidéo Complète</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card: #131620;
+      --accent: #e20018;
+      --accent-glow: rgba(226, 0, 24, 0.4);
+      --cyan: #00f0ff;
+      --green: #00ff88;
+      --yellow: #ffcc00;
+      --text: #e0e6ed;
+      --muted: #8a99ad;
+      --border: #202636;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', sans-serif;
+      overflow-x: hidden;
+      line-height: 1.6;
+    }
+    header {
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      background: rgba(13, 16, 24, 0.9);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+    }
+    .logo span { color: var(--accent); }
+    .badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-left: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; }
+    nav button {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    nav button:hover, nav button.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .hero {
+      text-align: center;
+      padding: 60px 20px 40px;
+      background: radial-gradient(circle at center, rgba(226, 0, 24, 0.18) 0%, transparent 70%);
+    }
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 900;
+      margin-bottom: 15px;
+      letter-spacing: -1px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--cyan), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 850px;
+      margin: 0 auto 30px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 15px;
+      max-width: 1200px;
+      margin: 0 auto 40px;
+      padding: 0 20px;
+    }
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 20px 15px;
+      border-radius: 12px;
+      text-align: center;
+      transition: transform 0.3s;
+    }
+    .stat-card:hover { transform: translateY(-4px); border-color: var(--cyan); }
+    .stat-num { font-size: 32px; font-weight: 900; color: var(--cyan); }
+    .stat-label { color: var(--muted); font-size: 11px; text-transform: uppercase; margin-top: 4px; font-weight: 700; }
+
+    .main-demo {
+      max-width: 1240px;
+      margin: 0 auto 60px;
+      padding: 0 20px;
+    }
+    .tabs-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 35px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    }
+    .feature-section { display: none; }
+    .feature-section.active { display: block; animation: fadeIn 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .feature-title { font-size: 26px; font-weight: 800; margin-bottom: 10px; color: var(--cyan); display: flex; align-items: center; gap: 10px; }
+    .feature-desc { color: var(--muted); margin-bottom: 25px; font-size: 15px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .box {
+      background: #0b0d14;
+      border: 1px solid var(--border);
+      padding: 20px;
+      border-radius: 10px;
+    }
+    .box h4 { font-size: 16px; margin-bottom: 12px; color: var(--green); }
+    ul { list-style: none; }
+    ul li { margin-bottom: 8px; font-size: 14px; display: flex; align-items: center; }
+    ul li::before { content: "✓"; color: var(--green); font-weight: 900; margin-right: 8px; }
+
+    .terminal {
+      background: #040508;
+      border: 1px solid var(--border);
+      font-family: 'JetBrains Mono', monospace;
+      padding: 18px;
+      border-radius: 10px;
+      color: #00ff88;
+      font-size: 12px;
+      height: 260px;
+      overflow-y: auto;
+      line-height: 1.5;
+    }
+    .terminal .cmd { color: #fff; font-weight: 600; }
+    .terminal .warn { color: var(--yellow); }
+    .terminal .ok { color: var(--green); }
+    .terminal .info { color: var(--cyan); }
+
+    .menu-tag {
+      background: #1a2030;
+      color: var(--cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Mad<span>Tweak</span> <span class="badge">v1.4 Master Edition</span></div>
+    <nav>
+      <button onclick="showTab('accueil')" class="active" id="btn-accueil">Overview</button>
+      <button onclick="showTab('usb')" id="btn-usb">Clé USB 24H2+</button>
+      <button onclick="showTab('audit')" id="btn-audit">Audit & BSOD</button>
+      <button onclick="showTab('uwt5')" id="btn-uwt5">Supériorité UWT5</button>
+      <button onclick="showTab('ultra')" id="btn-ultra">Ultra-Avancé</button>
+      <button onclick="showTab('gui')" id="btn-gui">WPF & ROG</button>
+      <button onclick="showTab('menus')" id="btn-menus">16 Menus</button>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>Démonstration Exhaustive — <span>MadTweak v1.4</span></h1>
+    <p>La suite complète d'optimisation, de sécurité, d'audit et d'installation sans assistance pour Windows 10 & 11.</p>
+  </section>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-num">150+</div><div class="stat-label">Tweaks Réversibles</div></div>
+    <div class="stat-card"><div class="stat-num">16</div><div class="stat-label">Menus Console</div></div>
+    <div class="stat-card"><div class="stat-num">5</div><div class="stat-label">Profils Déédiés</div></div>
+    <div class="stat-card"><div class="stat-num">104</div><div class="stat-label">Tests Audit /100</div></div>
+    <div class="stat-card"><div class="stat-num">24H2+</div><div class="stat-label">Bypasses Win11</div></div>
+    <div class="stat-card"><div class="stat-num">17/17</div><div class="stat-label">Tests Pester CI</div></div>
+  </div>
+
+  <div class="main-demo">
+    <div class="tabs-content">
+      
+      <!-- TAB 0: OVERVIEW -->
+      <div id="accueil" class="feature-section active">
+        <div class="feature-title">⚡ Vue d'Ensemble du Projet MadTweak</div>
+        <div class="feature-desc">Un script PowerShell 5.1/7 autonome (10 848 lignes dans dist/MadTweak.ps1) zéro dépendance tierce.</div>
+        <div class="grid-3">
+          <div class="box">
+            <h4>🛡️ Confidentialité & Nettoyage</h4>
+            <ul>
+              <li>150+ tweaks réversibles (Télémétrie, Copilot, Recall)</li>
+              <li>Nettoyage mesuré du disque et temporaires</li>
+              <li>Purge des caches Shader GPU (NVIDIA/AMD/DirectX)</li>
+              <li>Purge des caches d'apps (Discord, Spotify, Chrome/Edge)</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>🔍 Audit & Diagnostic</h4>
+            <ul>
+              <li>Score de santé global sur 100 points</li>
+              <li>Analyse du démarrage et coût des programmes en sec.</li>
+              <li>Isolateur de plantages BSOD par driver .sys</li>
+              <li>Détecteur de dérive des réglages post-MAJ</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>💾 Déploiement & Interface</h4>
+            <ul>
+              <li>Clé USB automatisée 24H2/25H2 avec bypasses</li>
+              <li>Interface graphique WPF thémable (6 thèmes)</li>
+              <li>Contrôle RGB HID direct des claviers ASUS ROG</li>
+              <li>Sauvegarde binaire des icônes du bureau</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 1: USB -->
+      <div id="usb" class="feature-section">
+        <div class="feature-title">💾 Module Clé d'Installation Windows 11 (24H2 / 25H2)</div>
+        <div class="feature-desc">Créateur de support d'installation USB automatisé avec contournement matériel et personnalisation totale.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Bypasses Matériels & Réseau Inclus</h4>
+            <ul>
+              <li>BypassTPMCheck (Exigence TPM 2.0)</li>
+              <li>BypassSecureBootCheck (Démarrage Sécurisé)</li>
+              <li>BypassRAMCheck (Mémoire RAM 4Go)</li>
+              <li>BypassCPUCheck (Processeur non supporté)</li>
+              <li>BypassDiskCheck (Taille de disque minimale)</li>
+              <li>BypassNRO (Compte local sans obligation Microsoft)</li>
+              <li>Add-PilotesVersCle (Pilotes OEM/RST dans $WinPEDriver$)</li>
+            </ul>
+          </div>
+          <div class="terminal">
+            <span class="cmd">> Test-VitesseCleUSB -Lettre "E:"</span><br>
+            <span class="ok">[OK] Débit d'écriture USB : 142.5 Mo/s (Satisfaisant)</span><br><br>
+            <span class="cmd">> Add-PilotesVersCle -LettreCle "E:" -DossierPilotesSource "C:\Drivers\RST"</span><br>
+            <span class="ok">[OK] 14 fichier(s) de pilotes copiés vers $WinPEDriver$</span><br><br>
+            <span class="cmd">> Get-HashIsoWindows -CheminIso "Win11_25H2_French.iso"</span><br>
+            <span class="ok">[OK] SHA-256 : 9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08</span><br><br>
+            <span class="cmd">> Export-AutounattendConfig -CheminSortieJson "template-win11.json"</span><br>
+            <span class="ok">[OK] Modèle de configuration exporté avec succès</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: AUDIT -->
+      <div id="audit" class="feature-section">
+        <div class="feature-title">🔍 Diagnostic de Santé /100, Rapports & Drivers BSOD</div>
+        <div class="feature-desc">Analyse complète du système, calcul de score de santé, détection de dérives et diagnostic des plantages.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Analyses & Rapports Multi-formats</h4>
+            <ul>
+              <li>Score global de santé calculé sur 104 critères</li>
+              <li>Analyseur d'événements 1001 pour isoler les .sys défaillants</li>
+              <li>Exportation autonome HTML, Markdown et JSON</li>
+              <li>Sauvegarde & Restauration binaire des icônes du bureau</li>
+            </ul>
+          </div>
+          <div class="terminal">
+            <span class="cmd">> Export-RapportAuditMarkdown -CheminSortie "rapport-sante.md"</span><br>
+            <span class="ok">[OK] Rapport d'audit Markdown généré avec succès</span><br><br>
+            <span class="cmd">> Get-DiagnosticPlantages</span><br>
+            <span class="warn">[!] Dernier BSOD : BugCheck 0x000000D1 (DRIVER_IRQL_NOT_LESS_OR_EQUAL)</span><br>
+            <span class="ok">[OK] Pilote responsable identifié : nvlddmkm.sys (NVIDIA Driver)</span><br><br>
+            <span class="cmd">> Backup-PositionsIconesBureau</span><br>
+            <span class="ok">[OK] Position des icônes du bureau sauvegardée dans le registre</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: UWT5 -->
+      <div id="uwt5" class="feature-section">
+        <div class="feature-title">🏆 Supériorité sur Ultimate Windows Tweaker 5 (UWT5)</div>
+        <div class="feature-desc">MadTweak dépasse UWT5 sur tous les plans : menus contextuels, purge RAM et réparation système.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Fonctionnalités Exclusives MadTweak</h4>
+            <ul>
+              <li>Menu contextuel : Prendre la propriété & PowerShell Admin</li>
+              <li>Restauration du menu contextuel classique Win10 sous Win11</li>
+              <li>Purge instantanée mémoire RAM (EmptyWorkingSet)</li>
+              <li>Réparation système 1-clic (DISM + SFC + Flush DNS)</li>
+            </ul>
+          </div>
+          <div class="terminal">
+            <span class="cmd">> Clear-MemoireRAM</span><br>
+            <span class="ok">[OK] Purge de la mémoire RAM terminée (2.4 Go libérés)</span><br><br>
+            <span class="cmd">> Repair-SystemeIntegral</span><br>
+            <span class="ok">[OK] DISM /RestoreHealth : Image réparée</span><br>
+            <span class="ok">[OK] SFC /scannow : Fichiers sains</span><br>
+            <span class="ok">[OK] Réparation système terminée avec succès</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: ULTRA -->
+      <div id="ultra" class="feature-section">
+        <div class="feature-title">⚡ Capacités Ultra-Avancées Inédites</div>
+        <div class="feature-desc">Fonctionnalités uniques de debloat WIM live, benchmarking et optimisation intelligente des services.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Innovations Inédites</h4>
+            <ul>
+              <li>Optimize-IsoWindows : Live WIM Debloater direct</li>
+              <li>Test-BenchmarkPerformance & Timer Resolution (0.5ms)</li>
+              <li>Update-ProtectionHostsViePrivee : Blocage DNS Hosts</li>
+              <li>Set-ProfilServicesWindows : Ajustement selon matériel</li>
+            </ul>
+          </div>
+          <div class="terminal">
+            <span class="cmd">> Test-BenchmarkPerformance</span><br>
+            <span class="ok">[OK] Processus : 114 | RAM Utilisée : 3.8 Go | Timer Resolution : 0.5 ms</span><br><br>
+            <span class="cmd">> Set-ProfilServicesWindows</span><br>
+            <span class="ok">[OK] Imprimante absente : Service Spooler passé en Manuel</span><br>
+            <span class="ok">[OK] Optimisation intelligente terminée (4 services ajustés)</span><br><br>
+            <span class="cmd">> Update-ProtectionHostsViePrivee</span><br>
+            <span class="ok">[OK] 6 domaines de télémétrie bloqués dans C:\Windows\...\hosts</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: GUI & ROG -->
+      <div id="gui" class="feature-section">
+        <div class="feature-title">🎨 Interface Graphique WPF & Extras ASUS ROG</div>
+        <div class="feature-desc">6 thèmes d'interface, 7 accents Windows ROG, fonds d'écran générés par du code et contrôleur RGB HID.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>Personnalisation Esthétique & Matérielle</h4>
+            <ul>
+              <li>6 Thèmes WPF (Sombre Moderne, Abysse, Dracula, Émeraude, Cyberpunk, Clair)</li>
+              <li>7 Accents Windows ROG (Rouge, Bleu, Cyan, Vert, Violet, Orange, Rose)</li>
+              <li>Génération procédurale de fonds d'écran « MadTrix » à la couleur du thème</li>
+              <li>Contrôle direct HID du clavier RGB ASUS ROG (canal ITE 0xFF31)</li>
+              <li>Curseur de luminosité écran natif WMI (0-100%)</li>
+            </ul>
+          </div>
+          <div class="terminal">
+            <span class="cmd">> Set-ClavierAura -R 226 -G 0 -B 24 -Mode "Statique"</span><br>
+            <span class="ok">[OK] Couleur RGB envoyée directement au contrôleur HID ASUS</span><br><br>
+            <span class="cmd">> Set-LuminositeEcran -Pourcentage 85</span><br>
+            <span class="ok">[OK] Luminosité de l'écran ajustée à 85%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: MENUS -->
+      <div id="menus" class="feature-section">
+        <div class="feature-title">📋 Catalogue des 16 Menus Console</div>
+        <div class="feature-desc">Une organisation modulaire claire et réversible pour piloter chaque aspect du système.</div>
+        <div class="grid-2">
+          <div class="box">
+            <h4>16 Menus Thématiques</h4>
+            <ul>
+              <li><span class="menu-tag">01</span> PROFILS (Minimal, Vie Privée, Gamer...)</li>
+              <li><span class="menu-tag">02</span> AUDIT (Bilan de santé /100)</li>
+              <li><span class="menu-tag">03</span> TWEAKS DE BASE (Télémétrie, Bloatwares)</li>
+              <li><span class="menu-tag">04</span> TWEAKS AVANCÉS (Animations, Mémoire, Edge)</li>
+              <li><span class="menu-tag">05</span> EXPLORATEUR & PRIVÉ (Clic droit, Caches)</li>
+              <li><span class="menu-tag">06</span> MATÉRIEL & RÉSEAU (GPU, Nagle, DoH)</li>
+              <li><span class="menu-tag">07</span> MAJ, SÉCURITÉ & IA (VBS, Copilot, Recall)</li>
+              <li><span class="menu-tag">08</span> WINDOWS 11 24H2+ (Pubs, Widgets, Start)</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h4>Suite des Menus</h4>
+            <ul>
+              <li><span class="menu-tag">09</span> APPARENCE & VISUEL (Thème sombre)</li>
+              <li><span class="menu-tag">10</span> SIGNATURE MADTRIX (Fond & Accents)</li>
+              <li><span class="menu-tag">11</span> NETTOYAGE DISQUE (Temporaires & Caches)</li>
+              <li><span class="menu-tag">12</span> DÉMARRAGE & SERVICES (Boot, Coût ms)</li>
+              <li><span class="menu-tag">13</span> LOGICIELS EXTRA (Winget mes-apps.json)</li>
+              <li><span class="menu-tag">14</span> MAINTENANCE & FIX (DISM, SFC)</li>
+              <li><span class="menu-tag">15</span> CLÉ D'INSTALLATION (Autounattend USB)</li>
+              <li><span class="menu-tag">16</span> ANNULER (Restauration exacte)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function showTab(tabId) {
+      document.querySelectorAll('.feature-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      document.getElementById('btn-' + tabId).classList.add('active');
+    }
+  </script>
+</body>
+</html>
