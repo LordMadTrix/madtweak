@@ -1094,7 +1094,12 @@ function New-AutounattendXml {
         # Resolve-NomProfil le retrouve a l'arrivee. Un accent mal transcode ici se
         # solderait par un « profil inconnu » sur une machine fraichement installee,
         # ou personne ne lirait le message.
-        $cleProfil = ConvertTo-CleComparable $Profil
+        # Plusieurs profils possibles. Chaque nom est réduit SÉPARÉMENT puis rejoint
+        # par des virgules : la réduction supprime toute ponctuation, donc réduire la
+        # liste entière d'un coup effacerait les séparateurs et fondrait les noms en
+        # un seul mot illisible.
+        $cleProfil = (($Profil -split ',' | ForEach-Object { $_.Trim() } |
+                Where-Object { $_ } | ForEach-Object { ConvertTo-CleComparable $_ }) -join ',')
         # Le « else » n'est pas decoratif : si MadTweak.ps1 n'a pas ete copie sur la
         # cle, rien ne se passerait et rien ne le dirait. Le journal tranche entre
         # « le profil a echoue » et « le script n'etait pas la ».
@@ -1485,11 +1490,36 @@ function Menu-Installation {
 
     # --- Profil MadTweak ------------------------------------------------------
     Write-Host ""
-    $profils = [ordered]@{ "Aucun (ne rien appliquer)" = "" }
-    foreach ($k in $script:Profils.Keys) { $profils[$k] = $k }
-    Write-Host "  Le profil sera appliqué à la première ouverture de session, à condition" -ForegroundColor DarkGray
-    Write-Host "  que MadTweak.ps1 soit copié à la racine de la même clé USB." -ForegroundColor DarkGray
-    $profil = $profils[(Read-ChoixListe $profils "Quel profil appliquer ?" 1)]
+    Write-Host "  Les profils seront appliqués à la première ouverture de session, à" -ForegroundColor DarkGray
+    Write-Host "  condition que MadTweak.ps1 soit copié à la racine de la même clé." -ForegroundColor DarkGray
+    Write-Host "  Tu peux en combiner PLUSIEURS : sur une machine neuve, un seul ne" -ForegroundColor DarkGray
+    Write-Host "  suffit généralement pas. « Gamer » règle la latence et les FPS mais" -ForegroundColor DarkGray
+    Write-Host "  ne touche pas à l'apparence — le thème sombre et la barre des tâches" -ForegroundColor DarkGray
+    Write-Host "  à gauche sont dans « Interface épurée »." -ForegroundColor DarkGray
+    Write-Host ""
+    $nomsProfils = @($script:Profils.Keys)
+    for ($i = 0; $i -lt $nomsProfils.Count; $i++) {
+        Write-Host ("   {0,2} - {1}" -f ($i + 1), $nomsProfils[$i]) -ForegroundColor Gray
+    }
+    Write-Host "    0 - Aucun" -ForegroundColor Gray
+    $rep = (Read-Host "  Numéros séparés par une virgule (ex : 1,4) [0]").Trim()
+    $choisis = @()
+    foreach ($m in ($rep -split ',')) {
+        $n = 0
+        if ([int]::TryParse($m.Trim(), [ref]$n) -and $n -ge 1 -and $n -le $nomsProfils.Count) {
+            $choisis += $nomsProfils[$n - 1]
+        }
+    }
+    $choisis = @($choisis | Select-Object -Unique)
+    $profil = ($choisis -join ',')
+    if ($choisis.Count -gt 0) {
+        # Le cumul se voit tout de suite : additionner deux profils ne double pas
+        # le nombre de tweaks, ils se recouvrent en partie.
+        $cumul = @()
+        foreach ($p in $choisis) { $cumul += $script:Profils[$p].Cles }
+        Write-Etat "$($choisis.Count) profil(s) : $($choisis -join ' + ') — $((@($cumul | Select-Object -Unique)).Count) tweaks au total." -Niveau OK
+    }
+    else { Write-Etat "Aucun profil : rien ne sera appliqué au premier démarrage." -Niveau Info }
     Write-Host ""
 
     # --- Applications ---------------------------------------------------------

@@ -47,10 +47,22 @@ try {
     if ($Profil) {
         # Installation automatisée : on applique le profil et on sort. Ni interface,
         # ni menu -- il n'y a pas de session de travail ici, juste un lot à jouer.
-        $nomExact = Resolve-NomProfil $Profil
-        if (-not $nomExact) {
-            Write-Etat "Profil « $Profil » inconnu." -Niveau Erreur
+        # Plusieurs profils possibles, separes par des virgules. On les resout TOUS
+        # avant d'en appliquer un seul : mieux vaut refuser tout de suite un nom
+        # fautif que d'appliquer la moitie du lot et s'arreter au milieu.
+        $demandes = @($Profil -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $aJouer = @()
+        $inconnus = @()
+        foreach ($d in $demandes) {
+            $r = Resolve-NomProfil $d
+            if ($r) { $aJouer += $r } else { $inconnus += $d }
+        }
+        if ($inconnus.Count -gt 0) {
+            Write-Etat "Profil(s) inconnu(s) : $($inconnus -join ', ')" -Niveau Erreur
             Write-Etat "Profils disponibles : $($script:Profils.Keys -join ' | ')" -Niveau Info
+        }
+        elseif ($aJouer.Count -eq 0) {
+            Write-Etat "Aucun profil à appliquer." -Niveau Avert
         }
         else {
             # Le mode silencieux vaut pour TOUT le passage, question de redémarrage
@@ -61,7 +73,14 @@ try {
             # Personne ne voit la console, personne ne peut répondre, et l'OOBE
             # reste bloqué indéfiniment. Constaté sur une vraie installation.
             $script:SansQuestion = $true
-            Invoke-Profil $nomExact
+            $n = 0
+            foreach ($p in $aJouer) {
+                $n++
+                if ($aJouer.Count -gt 1) {
+                    Write-Etat "--- Profil $n sur $($aJouer.Count) : « $p » ---" -Niveau Info
+                }
+                Invoke-Profil $p
+            }
             # On ne propose PAS le redémarrage ici, et on ne le déclenche pas non
             # plus : couper une installation qui n'a pas fini de se configurer
             # serait pire que d'attendre. Les tweaks qui l'exigent prendront effet

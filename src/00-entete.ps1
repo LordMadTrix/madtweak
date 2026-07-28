@@ -27,11 +27,17 @@ param(
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
     [string]$Langue,
-    # Applique un profil complet SANS poser de question, puis rend la main.
+    # Applique un ou PLUSIEURS profils SANS poser de question, puis rend la main.
     # Écrit pour les installations automatisées : le fichier de réponses généré
     # par le menu « Clé d'installation » appelle le script ainsi à la première
-    # ouverture de session. Le nom attendu est celui affiché dans le menu Profils
-    # (« Minimal / sûr », « Gamer ROG »...). Un nom inconnu est signalé, pas deviné.
+    # ouverture de session. Les noms attendus sont ceux du menu Profils
+    # (« Minimal / sûr », « Gamer »...), séparés par des virgules. Un nom inconnu
+    # est signalé, pas deviné.
+    #
+    # Plusieurs profils, parce qu'un seul ne suffit pas sur une machine neuve :
+    # « Gamer » s'occupe de latence et de FPS, pas d'apparence. Le thème sombre et
+    # la barre des tâches à gauche vivent dans « Interface épurée ». Constaté après
+    # une vraie installation, où il manquait visiblement la moitié du travail.
     [string]$Profil,
     # Répétition à blanc : montre tout ce qui changerait, n'écrit RIEN. Sans elle,
     # la seule façon d'éprouver un profil non interactif était de l'appliquer pour
