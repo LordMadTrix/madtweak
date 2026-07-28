@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.3.1
+  # 🔴 MadTweak v1.4
 
   **L'optimisation maîtrisée de votre Windows 10 / 11**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.3.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.4-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **Français** · [English](README.en.md)
@@ -41,9 +41,11 @@
 - ✅ **Mode simulation** : tout voir sans rien écrire
 
 ### 💾 **Installer Windows sans y assister**
-- ✅ **Fichier de réponses** généré pour ta clé USB : plus aucune question à l'installation
+- ✅ **Télécharge l'ISO officielle** depuis Microsoft, sans outil tiers
+- ✅ **Construit la clé USB** : formatage FAT32, découpage de l'image, démarrage UEFI natif
 - ✅ **Compte, langue, fuseau, édition, applications** décidés à l'avance
 - ✅ **Un profil MadTweak appliqué au premier démarrage**, machine propre d'emblée
+- ✅ **Éprouvé de bout en bout** sur du vrai matériel, pas seulement en théorie
 
 ### 🎨 **Interface & personnalisation**
 - ✅ **Interface graphique** thémable (6 thèmes) ou 16 menus console
@@ -265,12 +267,31 @@ Trois choses à savoir avant de s'en servir :
 - **Rien n'est effacé sans demande explicite.** Par défaut, l'installeur pose sa question
   habituelle et tu choisis ta partition. L'effacement automatique du disque 0 existe, mais
   il faut taper `EFFACER` en toutes lettres (console) ou confirmer une boîte d'alerte (interface).
-- **Windows 11 24H2 et 25H2 :** le nouvel installeur de Microsoft (`SetupPrep.exe`, dit
-  « ConX ») applique bien le disque, l'édition et la langue, mais **ignore souvent la partie
-  compte utilisateur** — l'écran de création de compte peut réapparaître. Un contournement
-  connu est inclus (relecture depuis `C:\Windows\Panther`), sans garantie possible puisqu'il
-  ne vient pas de la documentation Microsoft. **Windows 10 et Windows 11 jusqu'à 23H2**
-  utilisent l'ancien installeur et ne sont pas concernés.
+- **Une image déjà personnalisée peut ignorer ce fichier.** Une build « maison » sysprepée
+  embarque son propre fichier de réponses dans `C:\Windows\Panther`, avec ses passages
+  marqués comme traités : celui posé sur la clé ne reprend alors pas la main. Le paramètre
+  `-ForcerPassages` existe pour ce cas, et **seulement** pour lui — sur une image d'origine
+  il casse l'installation. Constaté dans les deux sens.
+
+### Ce qui a été mesuré, et non supposé
+
+Le parcours complet a été éprouvé sur du vrai matériel, avec une **ISO Microsoft d'origine
+téléchargée par MadTweak** (Windows 11 25H2 français) :
+
+| Étape | Résultat |
+|---|---|
+| Support FAT32 construit par MadTweak | 4,3 min, démarrage **UEFI natif** sans chargeur tiers |
+| Écran de compte Microsoft | sauté |
+| Compte local | créé seul |
+| Profil appliqué au premier démarrage | 27 tweaks sur 33 |
+
+Les 6 échecs sont ceux attendus sur une machine neuve, et l'outil les nomme : winget pas
+encore approvisionné, service Fax inexistant, stratégie Widgets refusée.
+
+Une réserve souvent lue ailleurs ne s'est **pas** vérifiée ici : le nouvel installeur de
+Microsoft (`SetupPrep.exe`, dit « ConX », introduit en 24H2) est réputé ignorer le passage
+`oobeSystem`. Sur cette image 25H2, il l'a pleinement honoré. Un seul essai ne fait pas une
+règle — mais il vaut mieux qu'un avertissement recopié.
 
 ## Les profils
 

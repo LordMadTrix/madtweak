@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.3.1
+  # 🔴 MadTweak v1.4
 
   **Windows 10 / 11 optimisation you stay in control of**
 
@@ -9,7 +9,7 @@
 
   [![Windows](https://img.shields.io/badge/OS-Windows_10_%7C_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
   [![PowerShell](https://img.shields.io/badge/PowerShell-5.1-5391FE?style=for-the-badge&logo=powershell&logoColor=white)](https://learn.microsoft.com/powershell/)
-  [![Version](https://img.shields.io/badge/Version-1.3.1-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
+  [![Version](https://img.shields.io/badge/Version-1.4-ff003c?style=for-the-badge)](https://github.com/LordMadTrix/madtweak/releases/latest)
   [![Licence](https://img.shields.io/badge/Licence-MIT-2ea44f?style=for-the-badge)](LICENSE)
 
   **English** · [Français](README.md)
@@ -53,9 +53,11 @@
 - ✅ **Simulation mode**: see everything, write nothing
 
 ### 💾 **Install Windows without sitting through it**
-- ✅ **Answer file** generated for your USB stick: setup stops asking questions
+- ✅ **Downloads the official ISO** from Microsoft, no third-party tool
+- ✅ **Builds the USB stick**: FAT32 format, image splitting, native UEFI boot
 - ✅ **Account, language, time zone, edition, applications** decided up front
 - ✅ **A MadTweak profile applied at first boot**, clean machine from the start
+- ✅ **Verified end to end** on real hardware, not just on paper
 
 ### 🎨 **Interface & personalisation**
 - ✅ **Themeable GUI** (6 themes) or 16 console menus
@@ -156,12 +158,30 @@ Three things to know before using it:
 - **Nothing is erased unless you ask.** By default Setup asks the usual question and you
   pick your partition. Automatic wiping of disk 0 exists, but requires typing `EFFACER`
   in full (console) or confirming an alert dialog (GUI).
-- **Windows 11 24H2 and 25H2:** Microsoft's new setup engine (`SetupPrep.exe`, "ConX")
-  applies disk, edition and language correctly, but **often ignores the user-account
-  section** — the account creation screen may come back. A known workaround is included
-  (re-read from `C:\Windows\Panther`), with no possible guarantee since it does not come
-  from Microsoft documentation. **Windows 10 and Windows 11 up to 23H2** use the older
-  setup engine and are unaffected.
+- **An already-customised image may ignore this file.** A sysprepped "home-made" build
+  carries its own answer file in `C:\Windows\Panther`, with its passes marked as processed:
+  the one on your stick then never takes over. The `-ForcerPassages` parameter exists for
+  that case and **only** that case — on a stock image it breaks the install. Observed both ways.
+
+### Measured, not assumed
+
+The whole path was exercised on real hardware, with a **stock Microsoft ISO downloaded by
+MadTweak** (Windows 11 25H2, French):
+
+| Step | Result |
+|---|---|
+| FAT32 media built by MadTweak | 4.3 min, **native UEFI boot**, no third-party loader |
+| Microsoft account screen | skipped |
+| Local account | created on its own |
+| Profile applied at first boot | 27 tweaks out of 33 |
+
+The 6 failures are the ones expected on a fresh machine, and the tool names them: winget not
+provisioned yet, no Fax service, Widgets policy refused.
+
+One caveat often repeated elsewhere did **not** hold here: Microsoft's new setup engine
+(`SetupPrep.exe`, "ConX", introduced in 24H2) is reputed to ignore the `oobeSystem` pass. On
+this 25H2 image it honoured it fully. One run is not a rule — but it beats a warning copied
+from somewhere else.
 
 ---
 
