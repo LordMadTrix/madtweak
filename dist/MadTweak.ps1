@@ -729,6 +729,9 @@ $script:TextesTweaks = @{
     'widgets-dsh.t' = "Fully disable Widgets? ('Dsh' policy, the one that works since 24H2)"
     'widgets-dsh.e' = "Fully disables the Widgets panel. This is the policy that actually works from 24H2 onwards: the old « Windows Feeds » key that most guides recommend no longer even exists."
 
+    'widgets-paquet.t' = "UNINSTALL the Widgets package? (when the policy is refused)"
+    'widgets-paquet.e' = "Removes the « Web Experience » package that IS the Widgets panel, instead of relying on a policy Windows may refuse to apply. More radical, but the only reliable way: on a fresh 25H2 install the policy was rejected with « operation not allowed » while Widgets were still there. Reinstallable from the Microsoft Store."
+
     'barre-taches-gauche.t' = "Align the taskbar LEFT (like Windows 10)?"
     'barre-taches-gauche.e' = "Aligns the taskbar to the left, as in Windows 10 and every earlier version, instead of the Windows 11 centring. Purely a matter of habit."
 
@@ -1905,7 +1908,19 @@ function Menu-Tweaks-Base {
             "*Microsoft.Getstarted*", "*WindowsFeedbackHub*", "*BingFinance*", "*BingSports*",
             "*Microsoft.Office.OneNote*", "*Microsoft.SkypeApp*", "*Microsoft.Wallet*",
             "*Microsoft.MicrosoftStickyNotes*", "*Microsoft.Todos*", "*LinkedIn*",
-            "*Microsoft.OutlookForWindows*", "*Microsoft.Copilot*", "*Microsoft.549981C3F5F10*"
+            "*Microsoft.OutlookForWindows*", "*Microsoft.Copilot*", "*Microsoft.549981C3F5F10*",
+            # Ajouts constatés sur une installation neuve de Windows 11 25H2 : ces
+            # paquets n'existaient pas quand la liste a été écrite, et passaient donc
+            # au travers. Relevés en listant Get-AppxPackage sur la machine installée,
+            # plutôt qu'en devinant ce que Microsoft ajoute d'une version à l'autre.
+            "*MSTeams*", "*Microsoft.BingSearch*", "*Windows.DevHome*",
+            "*PowerAutomateDesktop*", "*QuickAssist*",
+            # Vignettes promotionnelles : ces applications ne sont PAS installées sur
+            # une machine neuve, seulement proposées dans le menu Démarrer. Elles
+            # s'installent au premier clic. Les lister ici les retire si elles l'ont
+            # déjà été ; pour empêcher leur apparition, c'est « bloquer-sug-store ».
+            "*WhatsApp*", "*Instagram*", "*Facebook*", "*Netflix*",
+            "*PrimeVideo*", "*AmazonVideo*", "*Booking*"
         )
         # NB : Microsoft.549981C3F5F10 = l'ancienne app Cortana.
         # Volontairement ABSENTS de cette liste, car les retirer casse Windows :
@@ -2996,6 +3011,37 @@ function Menu-Windows11-Recent {
         # l'ancienne clé "Windows Feeds", qui n'existe même plus sur cette machine.
         Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Dsh" -Name "AllowNewsAndInterests" -Value 0
         Set-RegValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0
+    }
+
+    Invoke-Tweak "DÉSINSTALLER le paquet Widgets ? (quand la stratégie est refusée)" -Cle "widgets-paquet" `
+        -Explication "Retire le paquet « Expérience Web » qui EST le panneau Widgets, au lieu de se contenter d'une stratégie que Windows peut refuser d'appliquer. Plus radical, mais c'est le seul moyen fiable : sur une installation neuve de 25H2, la stratégie a été rejetée avec « opération non autorisée » alors que les Widgets étaient bien là. Réinstallable depuis le Microsoft Store." {
+        # Constaté sur une installation neuve 25H2 : la stratégie Dsh est refusee
+        # (« Tentative d'execution d'une operation non autorisee ») et les Widgets
+        # restent. Le paquet, lui, se retire. C'est ce qui marche vraiment.
+        $cible = "MicrosoftWindows.Client.WebExperience"
+        try { $catalogue = @(Get-AppxPackage -AllUsers -ErrorAction Stop) }
+        catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
+
+        $paquets = @($catalogue | Where-Object { $_.Name -like "*$cible*" })
+        if ($paquets.Count -eq 0) {
+            Write-Etat "Vérifié : le paquet Widgets n'est pas installé. Rien à faire." -Niveau Info
+            return
+        }
+        foreach ($p in $paquets) {
+            Invoke-Action "désinstallerait le paquet $($p.Name)" {
+                Remove-AppxPackage -Package $p.PackageFullName -AllUsers -ErrorAction Stop
+            }
+            if (-not $script:Simulation) { Write-Etat "Supprimé : $($p.Name)" -Niveau OK }
+        }
+        Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*$cible*" } | ForEach-Object {
+            try {
+                Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
+                    Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                }
+                if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($_.DisplayName)" -Niveau OK }
+            }
+            catch { }
+        }
     }
 
     Invoke-Tweak "Aligner la barre des tâches à GAUCHE (comme Windows 10) ?" -Cle "barre-taches-gauche" `
@@ -7338,7 +7384,8 @@ $script:Profils = [ordered]@{
             "aero-shake", "snap-layouts", "barres-defilement", "qualite-fond-ecran",
             "pubs-demarrer", "pubs-explorateur", "widgets-chat",
             "menu-delay", "disable-lock-screen", "disable-login-blur",
-            "clic-droit-possession", "photo-classique", "god-mode"
+            "clic-droit-possession", "photo-classique", "god-mode",
+            "widgets-paquet"
         )
     }
     "Vie privée" = @{
@@ -7357,7 +7404,8 @@ $script:Profils = [ordered]@{
             "service-registre-distant", "service-retaildemo",
             "edge-telemetrie", "amd-telemetrie", "browsers-telemetrie",
             "office-telemetrie", "bloquer-sug-store", "dev-telemetrie",
-            "disable-web-search-start", "thirdparty-telemetrie"
+            "disable-web-search-start", "thirdparty-telemetrie",
+            "widgets-paquet"
         )
     }
     "Gamer" = @{
@@ -7375,7 +7423,8 @@ $script:Profils = [ordered]@{
             "hags-gpu", "pcie-power-management", "xbox-gamebar", "menu-delay",
             "demarrage-rapide", "defender-cpu-limit",
             "explorer-separate-process", "kill-timeouts", "auto-restart-shell",
-            "ntfs-performance", "disable-web-search-start"
+            "ntfs-performance", "disable-web-search-start",
+            "widgets-paquet", "bloquer-sug-store"
         )
     }
     "Portable / batterie" = @{

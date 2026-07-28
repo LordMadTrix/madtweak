@@ -62,7 +62,19 @@ function Menu-Tweaks-Base {
             "*Microsoft.Getstarted*", "*WindowsFeedbackHub*", "*BingFinance*", "*BingSports*",
             "*Microsoft.Office.OneNote*", "*Microsoft.SkypeApp*", "*Microsoft.Wallet*",
             "*Microsoft.MicrosoftStickyNotes*", "*Microsoft.Todos*", "*LinkedIn*",
-            "*Microsoft.OutlookForWindows*", "*Microsoft.Copilot*", "*Microsoft.549981C3F5F10*"
+            "*Microsoft.OutlookForWindows*", "*Microsoft.Copilot*", "*Microsoft.549981C3F5F10*",
+            # Ajouts constatés sur une installation neuve de Windows 11 25H2 : ces
+            # paquets n'existaient pas quand la liste a été écrite, et passaient donc
+            # au travers. Relevés en listant Get-AppxPackage sur la machine installée,
+            # plutôt qu'en devinant ce que Microsoft ajoute d'une version à l'autre.
+            "*MSTeams*", "*Microsoft.BingSearch*", "*Windows.DevHome*",
+            "*PowerAutomateDesktop*", "*QuickAssist*",
+            # Vignettes promotionnelles : ces applications ne sont PAS installées sur
+            # une machine neuve, seulement proposées dans le menu Démarrer. Elles
+            # s'installent au premier clic. Les lister ici les retire si elles l'ont
+            # déjà été ; pour empêcher leur apparition, c'est « bloquer-sug-store ».
+            "*WhatsApp*", "*Instagram*", "*Facebook*", "*Netflix*",
+            "*PrimeVideo*", "*AmazonVideo*", "*Booking*"
         )
         # NB : Microsoft.549981C3F5F10 = l'ancienne app Cortana.
         # Volontairement ABSENTS de cette liste, car les retirer casse Windows :

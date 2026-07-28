@@ -38,7 +38,8 @@ $script:Profils = [ordered]@{
             "aero-shake", "snap-layouts", "barres-defilement", "qualite-fond-ecran",
             "pubs-demarrer", "pubs-explorateur", "widgets-chat",
             "menu-delay", "disable-lock-screen", "disable-login-blur",
-            "clic-droit-possession", "photo-classique", "god-mode"
+            "clic-droit-possession", "photo-classique", "god-mode",
+            "widgets-paquet"
         )
     }
     "Vie privée" = @{
@@ -57,7 +58,8 @@ $script:Profils = [ordered]@{
             "service-registre-distant", "service-retaildemo",
             "edge-telemetrie", "amd-telemetrie", "browsers-telemetrie",
             "office-telemetrie", "bloquer-sug-store", "dev-telemetrie",
-            "disable-web-search-start", "thirdparty-telemetrie"
+            "disable-web-search-start", "thirdparty-telemetrie",
+            "widgets-paquet"
         )
     }
     "Gamer" = @{
@@ -75,7 +77,8 @@ $script:Profils = [ordered]@{
             "hags-gpu", "pcie-power-management", "xbox-gamebar", "menu-delay",
             "demarrage-rapide", "defender-cpu-limit",
             "explorer-separate-process", "kill-timeouts", "auto-restart-shell",
-            "ntfs-performance", "disable-web-search-start"
+            "ntfs-performance", "disable-web-search-start",
+            "widgets-paquet", "bloquer-sug-store"
         )
     }
     "Portable / batterie" = @{

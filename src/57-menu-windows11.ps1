@@ -51,6 +51,37 @@ function Menu-Windows11-Recent {
         Set-RegValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "TaskbarDa" -Value 0
     }
 
+    Invoke-Tweak "DÉSINSTALLER le paquet Widgets ? (quand la stratégie est refusée)" -Cle "widgets-paquet" `
+        -Explication "Retire le paquet « Expérience Web » qui EST le panneau Widgets, au lieu de se contenter d'une stratégie que Windows peut refuser d'appliquer. Plus radical, mais c'est le seul moyen fiable : sur une installation neuve de 25H2, la stratégie a été rejetée avec « opération non autorisée » alors que les Widgets étaient bien là. Réinstallable depuis le Microsoft Store." {
+        # Constaté sur une installation neuve 25H2 : la stratégie Dsh est refusee
+        # (« Tentative d'execution d'une operation non autorisee ») et les Widgets
+        # restent. Le paquet, lui, se retire. C'est ce qui marche vraiment.
+        $cible = "MicrosoftWindows.Client.WebExperience"
+        try { $catalogue = @(Get-AppxPackage -AllUsers -ErrorAction Stop) }
+        catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
+
+        $paquets = @($catalogue | Where-Object { $_.Name -like "*$cible*" })
+        if ($paquets.Count -eq 0) {
+            Write-Etat "Vérifié : le paquet Widgets n'est pas installé. Rien à faire." -Niveau Info
+            return
+        }
+        foreach ($p in $paquets) {
+            Invoke-Action "désinstallerait le paquet $($p.Name)" {
+                Remove-AppxPackage -Package $p.PackageFullName -AllUsers -ErrorAction Stop
+            }
+            if (-not $script:Simulation) { Write-Etat "Supprimé : $($p.Name)" -Niveau OK }
+        }
+        Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like "*$cible*" } | ForEach-Object {
+            try {
+                Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
+                    Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                }
+                if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($_.DisplayName)" -Niveau OK }
+            }
+            catch { }
+        }
+    }
+
     Invoke-Tweak "Aligner la barre des tâches à GAUCHE (comme Windows 10) ?" -Cle "barre-taches-gauche" `
         -Explication "Aligne la barre des tâches à gauche, comme dans Windows 10 et toutes les versions précédentes, au lieu du centrage de Windows 11. Purement une question d'habitude." {
         # Sur une installation neuve de Windows 11, elle est centrée.

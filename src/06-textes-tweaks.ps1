@@ -325,6 +325,9 @@ $script:TextesTweaks = @{
     'widgets-dsh.t' = "Fully disable Widgets? ('Dsh' policy, the one that works since 24H2)"
     'widgets-dsh.e' = "Fully disables the Widgets panel. This is the policy that actually works from 24H2 onwards: the old « Windows Feeds » key that most guides recommend no longer even exists."
 
+    'widgets-paquet.t' = "UNINSTALL the Widgets package? (when the policy is refused)"
+    'widgets-paquet.e' = "Removes the « Web Experience » package that IS the Widgets panel, instead of relying on a policy Windows may refuse to apply. More radical, but the only reliable way: on a fresh 25H2 install the policy was rejected with « operation not allowed » while Widgets were still there. Reinstallable from the Microsoft Store."
+
     'barre-taches-gauche.t' = "Align the taskbar LEFT (like Windows 10)?"
     'barre-taches-gauche.e' = "Aligns the taskbar to the left, as in Windows 10 and every earlier version, instead of the Windows 11 centring. Purely a matter of habit."
 
