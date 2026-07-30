@@ -4938,7 +4938,13 @@ function Set-FondEcran {
     # Applique le fond via SystemParametersInfo (effet immédiat), après avoir noté
     # le fond précédent pour pouvoir le remettre. On sauvegarde AUSSI dans le JSON
     # via Save-EtatAvant, pour que la « Restauration EXACTE » le connaisse.
+    #
+    # Simulation gérée ICI (pas chez l'appelant) : la GUI applique ce fond en direct
+    # depuis un ComboBox, sans passer par un site d'appel qui filtre déjà la
+    # simulation -- contrairement au menu console. Sans ce garde-fou, cocher
+    # « simuler » puis choisir un fond dans la GUI l'aurait quand même appliqué.
     param([Parameter(Mandatory)][string]$Chemin)
+    if ($script:Simulation) { Write-Simu "appliquerait le fond d'écran $Chemin"; return }
     Add-Type -Namespace MadTweak -Name Bureau -MemberDefinition @'
 [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
 public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
@@ -4951,12 +4957,12 @@ public static extern int SystemParametersInfo(int uAction, int uParam, string lp
         [System.IO.File]::WriteAllText($memoire, "$ancien")
     }
     Save-EtatAvant -Path "HKCU:\Control Panel\Desktop" -Name "WallPaper"
-    Save-EtatAvant -Path "HKCU:\Control Panel\Desktop" -Name "WallpaperStyle"
-    Save-EtatAvant -Path "HKCU:\Control Panel\Desktop" -Name "TileWallpaper"
 
     # 10 = « Remplir », 0 = pas de mosaïque : le fond couvre tout l'écran.
-    Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value "10"
-    Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name TileWallpaper -Value "0"
+    # -Type String : ces deux valeurs sont des REG_SZ sur ce chemin ; le type par
+    # défaut de Set-RegValue (DWord) les aurait changées de type d'un coup.
+    Set-RegValue -Path "HKCU:\Control Panel\Desktop" -Name "WallpaperStyle" -Value "10" -Type String
+    Set-RegValue -Path "HKCU:\Control Panel\Desktop" -Name "TileWallpaper" -Value "0" -Type String
     # 0x0014 = SPI_SETDESKWALLPAPER ; 3 = met à jour le registre ET rafraîchit.
     $r = [MadTweak.Bureau]::SystemParametersInfo(0x0014, 0, $Chemin, 3)
     if ($r -eq 0) { throw "Windows a refusé d'appliquer le fond d'écran (SystemParametersInfo a renvoyé 0)." }
@@ -5480,8 +5486,8 @@ function Menu-Signature {
             }
             "4" {
                 $dossier = Join-Path ([Environment]::GetFolderPath("Desktop")) "signatures-madtrix"
-                if (-not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
                 if ($script:Simulation) { Write-Simu "générerait les 3 fonds dans $dossier"; break }
+                if (-not (Test-Path $dossier)) { New-Item -ItemType Directory -Path $dossier -Force | Out-Null }
                 foreach ($style in $script:StylesSignature) {
                     $chemin = Join-Path $dossier "madtrix-$style.png"
                     New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin | Out-Null
@@ -11199,8 +11205,13 @@ function Show-Gui {
                     $script:JournalGui.AppendText("   [$($s.Gravite)] $($s.Nom)`r`n         -> $($s.Conseil)`r`n")
                     if ($s.Cle -eq 'modern-standby') {
                         try {
-                            Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "PlatformAoAcOverride" -Force -ErrorAction Stop
-                            $script:JournalGui.AppendText("         >> CORRIGÉ : veille moderne S0 restaurée. REDÉMARRE pour finaliser.`r`n")
+                            # Remove-RegValue (pas Remove-ItemProperty en direct) : respecte la
+                            # simulation et verse la correction dans l'historique de la
+                            # restauration sélective, comme n'importe quel autre tweak.
+                            Remove-RegValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "PlatformAoAcOverride"
+                            if (-not $script:Simulation) {
+                                $script:JournalGui.AppendText("         >> CORRIGÉ : veille moderne S0 restaurée. REDÉMARRE pour finaliser.`r`n")
+                            }
                         }
                         catch { $script:JournalGui.AppendText("         >> Correction auto impossible : $($_.Exception.Message)`r`n") }
                     }

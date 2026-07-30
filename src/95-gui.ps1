@@ -2098,8 +2098,13 @@ function Show-Gui {
                     $script:JournalGui.AppendText("   [$($s.Gravite)] $($s.Nom)`r`n         -> $($s.Conseil)`r`n")
                     if ($s.Cle -eq 'modern-standby') {
                         try {
-                            Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "PlatformAoAcOverride" -Force -ErrorAction Stop
-                            $script:JournalGui.AppendText("         >> CORRIGÉ : veille moderne S0 restaurée. REDÉMARRE pour finaliser.`r`n")
+                            # Remove-RegValue (pas Remove-ItemProperty en direct) : respecte la
+                            # simulation et verse la correction dans l'historique de la
+                            # restauration sélective, comme n'importe quel autre tweak.
+                            Remove-RegValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power" -Name "PlatformAoAcOverride"
+                            if (-not $script:Simulation) {
+                                $script:JournalGui.AppendText("         >> CORRIGÉ : veille moderne S0 restaurée. REDÉMARRE pour finaliser.`r`n")
+                            }
                         }
                         catch { $script:JournalGui.AppendText("         >> Correction auto impossible : $($_.Exception.Message)`r`n") }
                     }
