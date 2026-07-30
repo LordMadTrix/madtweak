@@ -1,8 +1,8 @@
 ﻿# ==============================================================================
-# TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Compatible Pester v3 & v5)
+# TESTS AUTOMATISÉS PESTER POUR MADTWEAK (Pester 5+, syntaxe "Should -Be")
 # ==============================================================================
 
-# Pester 5 exige que les variables partagées soient dans $global: pour survivre à la passe Discovery
+# Pester 5+ exige que les variables partagées soient dans $global: pour survivre à la passe Discovery
 $global:racine = if ($PSScriptRoot) { (Resolve-Path (Join-Path $PSScriptRoot "..")).Path } else { (Get-Location).Path }
 if (-not (Test-Path (Join-Path $global:racine "src"))) {
     $global:racine = (Get-Item ".").FullName
@@ -25,21 +25,21 @@ $global:srcDir = Join-Path $global:racine "src"
 
 Describe "Build Verification" {
     It "Doit valider que dist\MadTweak.ps1 est parfaitement à jour avec src\" {
-        { & $global:buildScript -Verifier } | Should Not Throw
+        { & $global:buildScript -Verifier } | Should -Not -Throw
     }
 
     It "Chaque module src\*.ps1 doit posséder un BOM UTF-8 (0xEF, 0xBB, 0xBF)" {
         $modules = Get-ChildItem -Path $global:srcDir -Filter "*.ps1"
-        $modules.Count | Should BeGreaterThan 0
+        $modules.Count | Should -BeGreaterThan 0
 
         foreach ($m in $modules) {
             $tete = [byte[]]::new(3)
             $fs = [System.IO.File]::OpenRead($m.FullName)
             try { $lu = $fs.Read($tete, 0, 3) } finally { $fs.Dispose() }
-            $lu | Should Be 3
-            $tete[0] | Should Be 0xEF
-            $tete[1] | Should Be 0xBB
-            $tete[2] | Should Be 0xBF
+            $lu | Should -Be 3
+            $tete[0] | Should -Be 0xEF
+            $tete[1] | Should -Be 0xBB
+            $tete[2] | Should -Be 0xBF
         }
     }
 }
@@ -51,7 +51,7 @@ Describe "Dictionnaire de langues (i18n)" {
     }
 
     It "Chaque clé de traduction dans `$script:Textes doit posséder des entrées FR et EN" {
-        $script:Textes | Should Not BeNullOrEmpty
+        $script:Textes | Should -Not -BeNullOrEmpty
         $clesManquantes = @()
 
         foreach ($cle in $script:Textes.Keys) {
@@ -61,7 +61,7 @@ Describe "Dictionnaire de langues (i18n)" {
             }
         }
 
-        $clesManquantes.Count | Should Be 0
+        $clesManquantes.Count | Should -Be 0
     }
 }
 
@@ -73,16 +73,16 @@ Describe "Fonctions du Socle" {
 
     It "Get-LangueSysteme doit renvoyer 'fr' ou 'en'" {
         $langue = Get-LangueSysteme
-        ($langue -in @('fr', 'en')) | Should Be $true
+        ($langue -in @('fr', 'en')) | Should -Be $true
     }
 
     It "Test-NPU doit s'exécuter sans erreur et renvoyer un booléen" {
         $res = Test-NPU
-        $res -is [bool] | Should Be $true
+        $res -is [bool] | Should -Be $true
     }
 
     It "Get-TemperatureCPU doit s'exécuter sans lever d'exception" {
-        { Get-TemperatureCPU } | Should Not Throw
+        { Get-TemperatureCPU } | Should -Not -Throw
     }
 }
 
@@ -100,17 +100,17 @@ Describe "Fonctionnalités Phase 2" {
     It "Compare-Profils doit comparer deux profils et retourner les tweaks communs et uniques" {
         $keys = @($script:Profils.Keys)
         $comp = Compare-Profils -NomProfilA $keys[0] -NomProfilB $keys[3]
-        $comp | Should Not BeNullOrEmpty
-        $comp.ProfilA | Should Be $keys[0]
-        $comp.ProfilB | Should Be $keys[3]
-        $comp.TweaksCommuns.Count | Should BeGreaterThan 0
+        $comp | Should -Not -BeNullOrEmpty
+        $comp.ProfilA | Should -Be $keys[0]
+        $comp.ProfilB | Should -Be $keys[3]
+        $comp.TweaksCommuns.Count | Should -BeGreaterThan 0
     }
 
     It "Export-RapportAuditJson doit exporter un fichier JSON d'audit valide" {
         $tmp = Join-Path $env:TEMP "test-audit.json"
         if (Test-Path $tmp) { Remove-Item $tmp -Force }
         $out = Export-RapportAuditJson -CheminSortie $tmp
-        (Test-Path $tmp) | Should Be $true
+        (Test-Path $tmp) | Should -Be $true
         if (Test-Path $tmp) { Remove-Item $tmp -Force }
     }
 
@@ -118,7 +118,7 @@ Describe "Fonctionnalités Phase 2" {
         $tmp = Join-Path $env:TEMP "test-audit.md"
         if (Test-Path $tmp) { Remove-Item $tmp -Force }
         $out = Export-RapportAuditMarkdown -CheminSortie $tmp
-        (Test-Path $tmp) | Should Be $true
+        (Test-Path $tmp) | Should -Be $true
         if (Test-Path $tmp) { Remove-Item $tmp -Force }
     }
 }
@@ -132,17 +132,17 @@ Describe "Installation USB & Autounattend" {
 
     It "Test-VitesseCleUSB doit s'exécuter sur le lecteur système C: sans lever d'exception" {
         $res = Test-VitesseCleUSB -Lettre "C:"
-        $res | Should Not BeNullOrEmpty
-        $res.MoParSeconde | Should BeGreaterThan 0
+        $res | Should -Not -BeNullOrEmpty
+        $res.MoParSeconde | Should -BeGreaterThan 0
     }
 
     It "New-AutounattendXml doit générer un fichier XML valide sans avertissements" {
         $tmpXml = Join-Path $env:TEMP "test-autounattend.xml"
         if (Test-Path $tmpXml) { Remove-Item $tmpXml -Force }
         $out = New-AutounattendXml -Chemin $tmpXml -NomUtilisateur "TestUser" -SansTPM
-        (Test-Path $tmpXml) | Should Be $true
+        (Test-Path $tmpXml) | Should -Be $true
         $pbs = Test-AutounattendXml -Chemin $tmpXml
-        $pbs.Count | Should Be 0
+        $pbs.Count | Should -Be 0
         if (Test-Path $tmpXml) { Remove-Item $tmpXml -Force }
     }
 
@@ -151,9 +151,9 @@ Describe "Installation USB & Autounattend" {
         if (Test-Path $tmpJson) { Remove-Item $tmpJson -Force }
         $cfg = @{ NomUtilisateur = "TestUser"; Version = "11"; SansTPM = $true }
         Export-AutounattendConfig -CheminSortieJson $tmpJson -Configuration $cfg | Out-Null
-        (Test-Path $tmpJson) | Should Be $true
+        (Test-Path $tmpJson) | Should -Be $true
         $read = Import-AutounattendConfig -CheminJsonSource $tmpJson
-        $read.NomUtilisateur | Should Be "TestUser"
+        $read.NomUtilisateur | Should -Be "TestUser"
         if (Test-Path $tmpJson) { Remove-Item $tmpJson -Force }
     }
 }
@@ -182,28 +182,28 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
         $res = Get-AnalyseCachesApplications
-        $res | Should Not BeNullOrEmpty
+        $res | Should -Not -BeNullOrEmpty
     }
 
     It "Test-SanteReseau doit s'exécuter et renvoyer un objet de diagnostic" {
         $res = Test-SanteReseau
-        $res | Should Not BeNullOrEmpty
+        $res | Should -Not -BeNullOrEmpty
     }
 
     It "Clear-MemoireRAM doit s'exécuter sans lever d'exception" {
-        { Clear-MemoireRAM } | Should Not Throw
+        { Clear-MemoireRAM } | Should -Not -Throw
     }
 
     It "Test-BenchmarkPerformance doit mesurer l'état du système et renvoyer un hashtable" {
         . (Join-Path $global:srcDir "70-audit.ps1")
         $res = Test-BenchmarkPerformance
-        $res | Should Not BeNullOrEmpty
-        $res.NombreProcessus | Should BeGreaterThan 0
+        $res | Should -Not -BeNullOrEmpty
+        $res.NombreProcessus | Should -BeGreaterThan 0
     }
 
     It "Set-ProfilServicesWindows doit analyser le matériel et ajuster les services" {
         . (Join-Path $global:srcDir "80-profils.ps1")
-        { Set-ProfilServicesWindows } | Should Not Throw
+        { Set-ProfilServicesWindows } | Should -Not -Throw
     }
 
     It "Export-ScriptAutonome doit générer un fichier script PS1 valide" {
@@ -211,49 +211,49 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         $tmpPs1 = Join-Path $env:TEMP "test-standalone.ps1"
         if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
         Export-ScriptAutonome -CheminSortiePs1 $tmpPs1 -ClesTweaks @() | Out-Null
-        (Test-Path $tmpPs1) | Should Be $true
+        (Test-Path $tmpPs1) | Should -Be $true
         if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
     }
 
     It "Set-GamingNetworkOptimizations doit s'exécuter sans lever d'exception" {
-        { Set-GamingNetworkOptimizations } | Should Not Throw
+        { Set-GamingNetworkOptimizations } | Should -Not -Throw
     }
 
     It "Clear-RegistreOrphelin doit s'exécuter sans lever d'exception" {
-        { Clear-RegistreOrphelin } | Should Not Throw
+        { Clear-RegistreOrphelin } | Should -Not -Throw
     }
 
     It "Get-AuditConformiteSecurite doit exécuter l'audit de sécurité sans lever d'exception" {
         . (Join-Path $global:srcDir "70-audit.ps1")
         $res = Get-AuditConformiteSecurite
-        $res | Should Not BeNullOrEmpty
+        $res | Should -Not -BeNullOrEmpty
     }
 
     It "Set-CpuCoreParkingAndFrequency doit s'exécuter sans lever d'exception" {
-        { Set-CpuCoreParkingAndFrequency } | Should Not Throw
+        { Set-CpuCoreParkingAndFrequency } | Should -Not -Throw
     }
 
     It "Clear-TelechargementsAnciens doit s'exécuter sans lever d'exception" {
-        { Clear-TelechargementsAnciens } | Should Not Throw
+        { Clear-TelechargementsAnciens } | Should -Not -Throw
     }
 
     It "Optimize-LecteursStockageSsd doit s'exécuter sans lever d'exception" {
-        { Optimize-LecteursStockageSsd } | Should Not Throw
+        { Optimize-LecteursStockageSsd } | Should -Not -Throw
     }
 
     It "Set-ProtectionDefenderViePrivee doit s'exécuter sans lever d'exception" {
-        { Set-ProtectionDefenderViePrivee } | Should Not Throw
+        { Set-ProtectionDefenderViePrivee } | Should -Not -Throw
     }
 
     It "Clear-FichiersMajWindowsOld doit s'exécuter sans lever d'exception" {
-        { Clear-FichiersMajWindowsOld } | Should Not Throw
+        { Clear-FichiersMajWindowsOld } | Should -Not -Throw
     }
 
     It "Export-RapportAuditPdf doit générer un fichier rapport HTML/PDF valide" {
         $tmpPdf = Join-Path $env:TEMP "test-report.html"
         if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
         Export-RapportAuditPdf -CheminSortie $tmpPdf | Out-Null
-        (Test-Path $tmpPdf) | Should Be $true
+        (Test-Path $tmpPdf) | Should -Be $true
         if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
     }
 }

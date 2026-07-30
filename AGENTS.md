@@ -97,13 +97,15 @@ protestent au démarrage.
 ## 5. Tests
 
 ```powershell
-Import-Module Pester -RequiredVersion 3.4.0 -Force
+Install-Module -Name Pester -RequiredVersion 6.0.1 -Force -SkipPublisherCheck -Scope CurrentUser  # une fois
+Import-Module Pester -RequiredVersion 6.0.1 -Force
 Invoke-Pester .\tests\MadTweak.Tests.ps1
 ```
 
-**Pester 3.4.0**, celui livré avec Windows — syntaxe `Should Be`, pas `Should -Be`.
-Installer Pester 5 fait échouer la totalité des tests. Une conversion vers Pester 5
-serait souhaitable, mais c'est une réécriture complète des assertions.
+**Pester 6.0.1**, syntaxe `Should -Be`, pas `Should Be` (Pester 3, celui livré avec
+Windows, ne la comprend pas). La CI installe cette version explicitement — ne pas
+compter sur celle préinstallée par l'image `windows-latest`, elle change sans
+préavis.
 
 **Un test ne doit jamais modifier la machine de qui le lance.** Les tests qui
 appellent des fonctions de nettoyage doivent activer la simulation *après* le
