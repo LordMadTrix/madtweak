@@ -98,6 +98,11 @@ $script:TitresMenus = @{
 # ------------------------------------------------------------------------------
 $script:Textes = @{
 
+    # --- Barre de titre personnalisée ---
+    'titre.reduire'        = @{ fr = "Réduire"; en = "Minimize" }
+    'titre.agrandir'       = @{ fr = "Agrandir / Restaurer"; en = "Maximize / Restore" }
+    'titre.fermer'         = @{ fr = "Fermer"; en = "Close" }
+
     # --- En-tête de l'interface ---
     'app.soustitre'        = @{ fr = "Configuration système"; en = "System configuration" }
     'entete.fond'          = @{ fr = "Fond d'écran : "; en = "Wallpaper: " }

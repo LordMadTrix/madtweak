@@ -169,6 +169,11 @@ $script:TitresMenus = @{
 # ------------------------------------------------------------------------------
 $script:Textes = @{
 
+    # --- Barre de titre personnalisée ---
+    'titre.reduire'        = @{ fr = "Réduire"; en = "Minimize" }
+    'titre.agrandir'       = @{ fr = "Agrandir / Restaurer"; en = "Maximize / Restore" }
+    'titre.fermer'         = @{ fr = "Fermer"; en = "Close" }
+
     # --- En-tête de l'interface ---
     'app.soustitre'        = @{ fr = "Configuration système"; en = "System configuration" }
     'entete.fond'          = @{ fr = "Fond d'écran : "; en = "Wallpaper: " }
@@ -9260,9 +9265,31 @@ finally {
 $script:XamlInterface = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="MadTweak — Configuration système" Height="740" Width="1060"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource WindowBgBrush}"
-        WindowState="Maximized">
+        WindowState="Maximized" WindowStyle="None" AllowsTransparency="False" ResizeMode="CanResize">
+  <!-- Chrome personnalisé : la barre de titre native suit l'accent Windows du
+       moment (rouge, bleu...) et jure avec le thème choisi DANS l'appli — capturé
+       en vrai, c'était le décalage visuel le plus criant. WindowChrome garde le
+       redimensionnement, l'ombre native et l'accrochage Windows (Snap), mais laisse
+       dessiner la zone de titre nous-mêmes. -->
+  <shell:WindowChrome.WindowChrome>
+    <shell:WindowChrome CaptionHeight="38" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </shell:WindowChrome.WindowChrome>
+  <!-- Piège vérifié : sans cette marge, une fenêtre WindowChrome MAXIMISÉE déborde
+       de quelques pixels sur tous les écrans (le bord de redimensionnement invisible
+       passe hors écran). Valeur classique de contournement : ~7px, seulement quand
+       maximisée. -->
+  <Window.Style>
+    <Style TargetType="Window">
+      <Style.Triggers>
+        <Trigger Property="WindowState" Value="Maximized">
+          <Setter Property="BorderThickness" Value="7"/>
+        </Trigger>
+      </Style.Triggers>
+    </Style>
+  </Window.Style>
   <Window.Resources>
     <SolidColorBrush x:Key="WindowBgBrush" Color="#FF1B1B1F"/>
     <SolidColorBrush x:Key="PanelBgBrush" Color="#FF232329"/>
@@ -9529,7 +9556,92 @@ $script:XamlInterface = @'
       <Setter Property="MaxWidth" Value="320"/>
       <Setter Property="HasDropShadow" Value="True"/>
     </Style>
+
+    <!-- Boutons de la barre de titre personnalisée : plats, fond transparent au
+         repos, léger survol — « Fermer » vire au rouge, seul bouton qui casse
+         quelque chose. -->
+    <Style x:Key="BtnCaption" TargetType="Button">
+      <Setter Property="Width" Value="44"/>
+      <Setter Property="Height" Value="38"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="Margin" Value="0"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}"/>
+      <Setter Property="Cursor" Value="Arrow"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="fond" Background="{TemplateBinding Background}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="fond" Property="Background" Value="{DynamicResource ButtonBgBrush}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="BtnCaptionFermer" TargetType="Button" BasedOn="{StaticResource BtnCaption}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="fond" Background="{TemplateBinding Background}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="fond" Property="Background" Value="#FFE81123"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
+
+  <DockPanel LastChildFill="True">
+    <!-- Barre de titre personnalisée. WindowChrome.CaptionHeight (défini plus haut)
+         couvre exactement cette rangée : elle devient déplaçable par glisser et
+         double-clic (agrandir/restaurer) SANS code, sauf sur les trois boutons ci-
+         dessous, explicitement exclus via IsHitTestVisibleInChrome. -->
+    <Grid x:Name="BarreTitre" DockPanel.Dock="Top" Height="38" Background="{DynamicResource PanelBgBrush}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False">
+        <Border Width="20" Height="20" CornerRadius="4" Margin="0,0,8,0">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+              <GradientStop Color="#FFE01008" Offset="0"/>
+              <GradientStop Color="#FF7A0A0A" Offset="1"/>
+            </LinearGradientBrush>
+          </Border.Background>
+          <TextBlock Text="M" FontFamily="Segoe UI Black" FontWeight="Black" FontSize="11" Foreground="White"
+                     HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        </Border>
+        <TextBlock x:Name="TxtTitreBarre" Text="MADTWEAK" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"
+                   Foreground="{DynamicResource TextPrimaryBrush}"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2" Orientation="Horizontal">
+        <Button x:Name="BtnReduireTitre" Style="{StaticResource BtnCaption}" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                ToolTip="{{titre.reduire}}">
+          <Path Data="M 0,0 L 10,0" Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.3"/>
+        </Button>
+        <Button x:Name="BtnAgrandirTitre" Style="{StaticResource BtnCaption}" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                ToolTip="{{titre.agrandir}}">
+          <Rectangle Width="9" Height="9" Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.2"/>
+        </Button>
+        <Button x:Name="BtnFermerTitre" Style="{StaticResource BtnCaptionFermer}" shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                ToolTip="{{titre.fermer}}">
+          <Path Data="M 0,0 L 10,10 M 10,0 L 0,10" Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.3"/>
+        </Button>
+      </StackPanel>
+    </Grid>
 
   <Grid x:Name="GridPrincipal" Margin="12">
     <Grid.RowDefinitions>
@@ -9559,26 +9671,41 @@ $script:XamlInterface = @'
         </StackPanel>
         <TextBlock x:Name="TxtSysteme" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0"/>
       </StackPanel>
-      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-        <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-        <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="{{entete.fond.info}}"/>
-        <TextBlock Text="{{entete.accent}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-        <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,0"
-                  ToolTip="{{entete.accent.info}}"/>
-        <TextBlock Text="{{entete.theme}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-        <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center"
-                  ToolTip="{{entete.theme.info}}"/>
-        <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-        <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center"
-                  ToolTip="{{entete.langue.info}}"/>
-        <StackPanel x:Name="PanelEcran" Orientation="Horizontal" VerticalAlignment="Center">
-          <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <Slider x:Name="SliderEcran" Width="110" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
-                  ToolTip="{{entete.ecran.info}}"/>
-          <TextBlock x:Name="TxtEcran" Width="38" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"/>
-        </StackPanel>
-      </StackPanel>
+      <!-- Regroupées dans une carte : avant, cinq réglages flottaient côte à côte
+           sans repère visuel, et le dernier (Thème) était parfois coupé à droite de
+           la fenêtre. Un WrapPanel dans une bordure : ça se lit comme UN bandeau de
+           personnalisation, et un réglage en trop passe à la ligne au lieu de
+           disparaître hors champ.
+           MaxWidth EXPLICITE, indispensable : une colonne de Grid en "Auto" mesure
+           son contenu avec une largeur DISPONIBLE infinie (c'est sa définition même),
+           donc un WrapPanel logé dedans ne voit jamais de bord contre lequel passer à
+           la ligne : il s'étale sur une seule ligne, point. Vérifié en mesurant en
+           direct : sans ce plafond, la carte fait ~1210px de large et déborde sur les
+           écrans plus étroits que ~1600px. Un MaxWidth force une largeur finie, donc
+           un vrai retour à la ligne quand ça ne rentre pas. -->
+      <Border Grid.Column="1" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}"
+              BorderThickness="1" CornerRadius="6" Padding="12,8" VerticalAlignment="Center" MaxWidth="900">
+        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,4"
+                    ToolTip="{{entete.fond.info}}"/>
+          <TextBlock Text="{{entete.accent}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,4"
+                    ToolTip="{{entete.accent.info}}"/>
+          <TextBlock Text="{{entete.theme}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,0,4"
+                    ToolTip="{{entete.theme.info}}"/>
+          <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center" Margin="0,0,0,4"
+                    ToolTip="{{entete.langue.info}}"/>
+          <StackPanel x:Name="PanelEcran" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+            <Slider x:Name="SliderEcran" Width="110" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
+                    ToolTip="{{entete.ecran.info}}"/>
+            <TextBlock x:Name="TxtEcran" Width="38" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          </StackPanel>
+        </WrapPanel>
+      </Border>
     </Grid>
 
     <!-- Profils -->
@@ -9591,8 +9718,18 @@ $script:XamlInterface = @'
       </StackPanel>
     </Border>
 
-    <!-- Onglets de tweaks -->
-    <TabControl x:Name="TabsCategories" Grid.Row="2" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+    <!-- Onglets de tweaks. Onglets nombreux (11) : le TabPanel par défaut ne fait ni
+         retour à la ligne ni défilement — au-delà d'une certaine largeur, les
+         derniers débordaient hors fenêtre, invisibles et incliquables. Un WrapPanel
+         comme conteneur des en-têtes règle ça : au-delà d'une ligne, les onglets en
+         trop passent sur une seconde rangée au lieu de disparaître. -->
+    <TabControl x:Name="TabsCategories" Grid.Row="2" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}">
+      <TabControl.ItemsPanel>
+        <ItemsPanelTemplate>
+          <WrapPanel Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+      </TabControl.ItemsPanel>
+    </TabControl>
 
     <!-- Actions -->
     <StackPanel Grid.Row="3" Margin="0,10,0,10">
@@ -9705,6 +9842,7 @@ $script:XamlInterface = @'
       <TextBlock x:Name="TxtEtat" FontSize="11" Foreground="{DynamicResource TextMutedBrush}"/>
     </StackPanel>
   </Grid>
+  </DockPanel>
 </Window>
 '@
 
@@ -10440,14 +10578,65 @@ function New-IconeApp {
     return $rtb
 }
 
+function New-LigneProfilGrid {
+    # Ligne d'un profil dans le panneau PROFILS : pastille couleur + bouton + description.
+    # Un Grid à colonnes explicites -- pas un DockPanel dans un StackPanel, comme avant.
+    # Constaté : cette ancienne combinaison ne passait JAMAIS la description à la
+    # ligne malgré TextWrapping="Wrap" -- elle débordait hors fenêtre, coupée net.
+    # Un Grid garantit une largeur FINIE pour la colonne "*", donc un vrai retour à
+    # la ligne.
+    $ligne = New-Object System.Windows.Controls.Grid
+    $ligne.Margin = "0,0,0,8"
+    $colBadge = New-Object System.Windows.Controls.ColumnDefinition; $colBadge.Width = [System.Windows.GridLength]::Auto
+    $colBouton = New-Object System.Windows.Controls.ColumnDefinition; $colBouton.Width = [System.Windows.GridLength]::Auto
+    $colDesc = New-Object System.Windows.Controls.ColumnDefinition; $colDesc.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+    $ligne.ColumnDefinitions.Add($colBadge) | Out-Null
+    $ligne.ColumnDefinitions.Add($colBouton) | Out-Null
+    $ligne.ColumnDefinitions.Add($colDesc) | Out-Null
+    return $ligne
+}
+
+function New-BadgeLettre {
+    # Pastille de couleur avec une lettre : repère visuel rapide par profil.
+    # DESSINÉE (Border + TextBlock), pas une police d'icônes : un glyphe absent ou
+    # mal identifié afficherait un carré vide, pire que pas d'icône -- même principe
+    # que New-IconeApp pour le logo de l'appli.
+    param([Parameter(Mandatory)][string]$Lettre, [Parameter(Mandatory)][string]$Couleur)
+    $badge = New-Object System.Windows.Controls.Border
+    $badge.Width = 30; $badge.Height = 30; $badge.CornerRadius = 6
+    $badge.Background = New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($Couleur))
+    $badge.VerticalAlignment = 'Top'; $badge.Margin = "0,2,10,0"
+    $txt = New-Object System.Windows.Controls.TextBlock
+    $txt.Text = $Lettre; $txt.FontWeight = [System.Windows.FontWeights]::Bold; $txt.FontSize = 13
+    $txt.Foreground = [System.Windows.Media.Brushes]::White
+    $txt.HorizontalAlignment = 'Center'; $txt.VerticalAlignment = 'Center'
+    $badge.Child = $txt
+    return $badge
+}
+
+# Une couleur par profil intégré, FIXE (pas liée au thème appli) : l'identité
+# visuelle d'un profil doit rester reconnaissable même en changeant de thème --
+# même logique que le bouton « Gamer ROG » qui garde son rouge dans les 6 thèmes.
+$script:ProfilCouleurs = @{
+    "Minimal / sûr"       = "#FF4FA6E8"
+    "Interface épurée"    = "#FFBD93F9"
+    "Vie privée"          = "#FF10B981"
+    "Gamer"               = "#FFE01008"
+    "Portable / batterie" = "#FF00D2FF"
+}
+
 function Add-BoutonProfilPerso {
     # Ajoute à la zone Profils une ligne pour un profil personnalisé, chargée comme
     # un profil intégré (coche ses clés). Lit les clés dans $script:ProfilsPersoCache
     # (rafraîchi à chaque enregistrement), donc pas de closure fragile.
     param([string]$Nom)
     $cles = @($script:ProfilsPersoCache[$Nom])
-    $ligne = New-Object System.Windows.Controls.DockPanel
-    $ligne.Margin = "0,0,0,6"; $ligne.LastChildFill = $true
+    $ligne = New-LigneProfilGrid
+
+    $badge = New-BadgeLettre -Lettre $Nom.Substring(0, 1).ToUpper() -Couleur "#FF6B7280"
+    [System.Windows.Controls.Grid]::SetColumn($badge, 0)
+    $ligne.Children.Add($badge) | Out-Null
+
     $b = New-Object System.Windows.Controls.Button
     $b.Content = "$Nom  ($($cles.Count))"
     $b.Width = 180; $b.VerticalAlignment = 'Top'; $b.Margin = "0,0,10,0"; $b.Tag = $Nom
@@ -10461,13 +10650,16 @@ function Add-BoutonProfilPerso {
         $script:JournalGui.AppendText("`r`n=== Profil perso « $($emetteur.Tag) » : $n tweak(s) cochés. Ajuste puis « Appliquer ». ===`r`n")
         $script:JournalGui.ScrollToEnd()
     }) | Out-Null
-    [System.Windows.Controls.DockPanel]::SetDock($b, 'Left')
+    [System.Windows.Controls.Grid]::SetColumn($b, 1)
     $ligne.Children.Add($b) | Out-Null
+
     $desc = New-Object System.Windows.Controls.TextBlock
     $desc.Text = "Profil personnalisé — $($cles.Count) tweak(s), enregistré par toi."
     $desc.TextWrapping = 'Wrap'; $desc.FontSize = 11; $desc.VerticalAlignment = 'Center'
     $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+    [System.Windows.Controls.Grid]::SetColumn($desc, 2)
     $ligne.Children.Add($desc) | Out-Null
+
     $script:PanelProfilsRef.Children.Add($ligne) | Out-Null
 }
 
@@ -10484,6 +10676,16 @@ function Show-Gui {
     $fenetre.Title = "MadTweak v$($script:Version) — $(T 'app.soustitre')"
     $titreHaut = $fenetre.FindName("TxtTitre")
     if ($titreHaut) { $titreHaut.Text = "MADTWEAK  v$($script:Version)" }
+    $titreBarre = $fenetre.FindName("TxtTitreBarre")
+    if ($titreBarre) { $titreBarre.Text = "MadTweak v$($script:Version)" }
+
+    # Boutons de la barre de titre personnalisée (voir le commentaire XAML sur
+    # WindowChrome : seuls ces trois-là sont exclus de la zone déplaçable).
+    $fenetre.FindName("BtnReduireTitre").Add_Click({ $fenetre.WindowState = 'Minimized' }.GetNewClosure()) | Out-Null
+    $fenetre.FindName("BtnAgrandirTitre").Add_Click({
+        $fenetre.WindowState = if ($fenetre.WindowState -eq 'Maximized') { 'Normal' } else { 'Maximized' }
+    }.GetNewClosure()) | Out-Null
+    $fenetre.FindName("BtnFermerTitre").Add_Click({ $fenetre.Close() }.GetNewClosure()) | Out-Null
     # Le score reste caché tant que l'audit n'a pas tourné : afficher « 0/100 » avant
     # d'avoir mesuré serait un mensonge.
     $script:GuiTxtScore = $fenetre.FindName("TxtScore")
@@ -10784,13 +10986,17 @@ function Show-Gui {
     # ce qu'il fait derrière un survol.
     foreach ($nomProfil in $script:Profils.Keys) {
         $profil = $script:Profils[$nomProfil]
+        $nomAffiche = Get-NomProfil $nomProfil
 
-        $ligne = New-Object System.Windows.Controls.DockPanel
-        $ligne.Margin = "0,0,0,6"
-        $ligne.LastChildFill = $true
+        $ligne = New-LigneProfilGrid
+
+        $couleurBadge = if ($script:ProfilCouleurs.ContainsKey($nomProfil)) { $script:ProfilCouleurs[$nomProfil] } else { "#FF4FA6E8" }
+        $badge = New-BadgeLettre -Lettre $nomAffiche.Substring(0, 1).ToUpper() -Couleur $couleurBadge
+        [System.Windows.Controls.Grid]::SetColumn($badge, 0)
+        $ligne.Children.Add($badge) | Out-Null
 
         $bouton = New-Object System.Windows.Controls.Button
-        $bouton.Content = "$(Get-NomProfil $nomProfil)  ($($profil.Cles.Count))"
+        $bouton.Content = "$nomAffiche  ($($profil.Cles.Count))"
         $bouton.Width = 180
         $bouton.VerticalAlignment = 'Top'
         $bouton.Margin = "0,0,10,0"
@@ -10806,7 +11012,7 @@ function Show-Gui {
             $script:JournalGui.AppendText("Rien n'est encore appliqué : ajuste les cases, puis Simuler ou Appliquer.`r`n")
             $script:JournalGui.ScrollToEnd()
         }) | Out-Null
-        [System.Windows.Controls.DockPanel]::SetDock($bouton, 'Left')
+        [System.Windows.Controls.Grid]::SetColumn($bouton, 1)
         $ligne.Children.Add($bouton) | Out-Null
 
         $desc = New-Object System.Windows.Controls.TextBlock
@@ -10815,6 +11021,7 @@ function Show-Gui {
         $desc.FontSize = 11
         $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
         $desc.VerticalAlignment = 'Center'
+        [System.Windows.Controls.Grid]::SetColumn($desc, 2)
         $ligne.Children.Add($desc) | Out-Null
 
         $panelProfils.Children.Add($ligne) | Out-Null
