@@ -9350,6 +9350,58 @@ $script:XamlInterface = @'
       <Setter Property="Margin" Value="0,0,8,0"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Cursor" Value="Hand"/>
+      <!-- Micro-interactions : sans template, le bouton n'a AUCUN retour visuel au
+           survol ni au clic (juste le rendu Aero par défaut, disparate avec le
+           reste). Trois états ajoutés ici : survol (contour accent), pression
+           (léger tassement animé, retour tactile), désactivé (estompé + curseur
+           normal : « Appliquer » grisé pendant un traitement doit se VOIR, pas
+           juste refuser silencieusement le clic). -->
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="fond" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" SnapsToDevicePixels="True">
+              <Border.RenderTransform>
+                <ScaleTransform x:Name="echelle" ScaleX="1" ScaleY="1"/>
+              </Border.RenderTransform>
+              <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="fond" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="fond" Property="Opacity" Value="0.90"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Trigger.EnterActions>
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="echelle" Storyboard.TargetProperty="ScaleX" To="0.96" Duration="0:0:0.08"/>
+                      <DoubleAnimation Storyboard.TargetName="echelle" Storyboard.TargetProperty="ScaleY" To="0.96" Duration="0:0:0.08"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                  <BeginStoryboard>
+                    <Storyboard>
+                      <DoubleAnimation Storyboard.TargetName="echelle" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.12"/>
+                      <DoubleAnimation Storyboard.TargetName="echelle" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.12"/>
+                    </Storyboard>
+                  </BeginStoryboard>
+                </Trigger.ExitActions>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="fond" Property="Opacity" Value="0.42"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsEnabled" Value="False">
+          <Setter Property="Cursor" Value="Arrow"/>
+        </Trigger>
+      </Style.Triggers>
     </Style>
     <!-- Champs de saisie : sans style explicite, WPF les peint en blanc sur blanc
          dès que le thème est sombre. Même remède que pour les cases et les onglets. -->
@@ -9656,10 +9708,14 @@ $script:XamlInterface = @'
     <!-- En-tête -->
     <Grid Grid.Row="0" Margin="0,0,0,10">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*"/>
+        <!-- MinWidth : sans ça, une carte de réglages sur deux lignes (colonne 1)
+             pouvait revendiquer assez de place pour écraser le sous-titre système
+             (une seule ligne, texte long) contre le bord de la fenêtre. Le titre a
+             maintenant un plancher garanti, quoi qu'il arrive à droite. -->
+        <ColumnDefinition Width="*" MinWidth="280"/>
         <ColumnDefinition Width="Auto"/>
       </Grid.ColumnDefinitions>
-      <StackPanel Grid.Column="0">
+      <StackPanel Grid.Column="0" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal">
           <TextBlock x:Name="TxtTitre" Text="MADTWEAK" FontSize="21" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}"/>
           <Border x:Name="BorderScore" Background="{DynamicResource ButtonBgBrush}" BorderBrush="{DynamicResource BorderBrush}"
@@ -9669,7 +9725,11 @@ $script:XamlInterface = @'
             <TextBlock x:Name="TxtScore" FontSize="13" FontWeight="SemiBold"/>
           </Border>
         </StackPanel>
-        <TextBlock x:Name="TxtSysteme" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0"/>
+        <!-- TextWrapping : ce sous-titre (build, édition, avertissement famille) est
+             une longue phrase sur une seule ligne à l'origine. Sans enroulement,
+             une colonne resserrée le tronquait net contre le bord au lieu de passer
+             à la ligne. -->
+        <TextBlock x:Name="TxtSysteme" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,3,0,0" TextWrapping="Wrap"/>
       </StackPanel>
       <!-- Regroupées dans une carte : avant, cinq réglages flottaient côte à côte
            sans repère visuel, et le dernier (Thème) était parfois coupé à droite de
@@ -9952,6 +10012,11 @@ function Invoke-LancerGui {
     }
 }
 
+# TextMuted doit rester au-dessus de 4.5:1 (WCAG AA, texte normal) contre WindowBg :
+# c'est la couleur des descriptions de tweaks, la majorité du texte visible dans
+# l'appli. Quatre des six thèmes (Dracula, Forêt Émeraude, Cyberpunk, Clair Élégant)
+# tombaient sous ce seuil à la création -- mesuré, pas estimé (3.0 à 4.2:1) -- et ont
+# été éclaircis/assombris jusqu'à repasser au-dessus, sans changer de teinte.
 $script:Themes = [ordered]@{
     "Sombre Moderne" = @{
         WindowBg      = "#FF1B1B1F"
@@ -9979,7 +10044,7 @@ $script:Themes = [ordered]@{
         WindowBg      = "#FF282A36"
         PanelBg       = "#FF1E1F29"
         TextPrimary   = "#FFF8F8F2"
-        TextMuted     = "#FF6272A4"
+        TextMuted     = "#FF9AA6C7"
         Accent        = "#FFBD93F9"
         Border        = "#FF44475A"
         ButtonBg      = "#FF343746"
@@ -9990,7 +10055,7 @@ $script:Themes = [ordered]@{
         WindowBg      = "#FF0F1715"
         PanelBg       = "#FF16221F"
         TextPrimary   = "#FFE2E8F0"
-        TextMuted     = "#FF64748B"
+        TextMuted     = "#FF8FA0B8"
         Accent        = "#FF10B981"
         Border        = "#FF2D3F3A"
         ButtonBg      = "#FF1E2E2A"
@@ -10001,7 +10066,7 @@ $script:Themes = [ordered]@{
         WindowBg      = "#FF0D0211"
         PanelBg       = "#FF1A0524"
         TextPrimary   = "#FFFFF5FA"
-        TextMuted     = "#FFA131B6"
+        TextMuted     = "#FFD183E8"
         Accent        = "#FFFF007F"
         Border        = "#FF520775"
         ButtonBg      = "#FF330647"
@@ -10012,7 +10077,7 @@ $script:Themes = [ordered]@{
         WindowBg      = "#FFF0F2F5"
         PanelBg       = "#FFFFFFFF"
         TextPrimary   = "#FF1A1D20"
-        TextMuted     = "#FF70757A"
+        TextMuted     = "#FF5B6066"
         Accent        = "#FF0066CC"
         Border        = "#FFD1D5DB"
         ButtonBg      = "#FFE5E7EB"
