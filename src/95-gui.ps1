@@ -2489,11 +2489,10 @@ function Show-Gui {
     }) | Out-Null
 
     & $majSelection
-    $script:JournalGui.AppendText("Interface prête. $($script:GuiCases.Count) tweaks pilotables, $($script:Profils.Count) profils.`r`n")
-    $script:JournalGui.AppendText("Tous les tweaks (y compris Edge, OneDrive, Windows Update, VBS, DISM/SFC, logiciels et nettoyage) sont désormais disponibles directement via cette interface.`r`n`r`n")
-    $script:JournalGui.AppendText("Conseil : commence par « Simuler ». Rien ne sera écrit, et tu verras`r`n")
-    $script:JournalGui.AppendText("exactement quelle valeur changerait, et en quoi.`r`n")
-    $script:GuiTxtEtat.Text = "Prêt. Données de session : $script:DossierDonnees"
+    $script:JournalGui.AppendText(((T 'jrn.pret') -f $script:GuiCases.Count, $script:Profils.Count) + "`r`n")
+    $script:JournalGui.AppendText((T 'jrn.dispo') + "`r`n`r`n")
+    $script:JournalGui.AppendText((T 'jrn.conseil') + "`r`n")
+    $script:GuiTxtEtat.Text = (T 'etat.pret') -f $script:DossierDonnees
 
     # Minimisation de la console pendant que l'IHM est affichée
     $hwnd = [IntPtr]::Zero

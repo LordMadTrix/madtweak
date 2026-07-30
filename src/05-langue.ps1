@@ -280,6 +280,8 @@ $script:Textes = @{
 
     # --- Journal / états ---
     'jrn.pret'             = @{ fr = "Interface prête. {0} tweaks pilotables, {1} profils."; en = "Interface ready. {0} controllable tweaks, {1} profiles." }
+    'jrn.dispo'            = @{ fr = "Tous les tweaks (y compris Edge, OneDrive, Windows Update, VBS, DISM/SFC, logiciels et nettoyage) sont désormais disponibles directement via cette interface."
+        en = "All tweaks (including Edge, OneDrive, Windows Update, VBS, DISM/SFC, software and cleanup) are now available directly through this interface." }
     'jrn.conseil'          = @{ fr = "Conseil : commence par « Simuler ». Rien ne sera écrit, et tu verras exactement quelle valeur changerait, et en quoi."
         en = "Tip: start with Simulate. Nothing will be written, and you'll see exactly which value would change, and how." }
     'etat.pret'            = @{ fr = "Prêt. Données de session : {0}"; en = "Ready. Session data: {0}" }
