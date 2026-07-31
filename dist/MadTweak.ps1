@@ -10053,6 +10053,7 @@ $script:Themes = [ordered]@{
     "Sombre Moderne" = @{
         WindowBg      = "#FF1B1B1F"
         PanelBg       = "#FF232329"
+        RowAltBg      = "#FF2A2A31"
         TextPrimary   = "#FFD8D8DC"
         TextMuted     = "#FF8A8A92"
         Accent        = "#FF4FA6E8"
@@ -10064,6 +10065,7 @@ $script:Themes = [ordered]@{
     "Abysse" = @{
         WindowBg      = "#FF0A0F1D"
         PanelBg       = "#FF11192E"
+        RowAltBg      = "#FF182036"
         TextPrimary   = "#FFE0E6ED"
         TextMuted     = "#FF6B7C96"
         Accent        = "#FF00D2FF"
@@ -10075,6 +10077,7 @@ $script:Themes = [ordered]@{
     "Dracula" = @{
         WindowBg      = "#FF282A36"
         PanelBg       = "#FF1E1F29"
+        RowAltBg      = "#FF252631"
         TextPrimary   = "#FFF8F8F2"
         TextMuted     = "#FF9AA6C7"
         Accent        = "#FFBD93F9"
@@ -10086,6 +10089,7 @@ $script:Themes = [ordered]@{
     "Foret Emeraude" = @{
         WindowBg      = "#FF0F1715"
         PanelBg       = "#FF16221F"
+        RowAltBg      = "#FF1D2927"
         TextPrimary   = "#FFE2E8F0"
         TextMuted     = "#FF8FA0B8"
         Accent        = "#FF10B981"
@@ -10097,6 +10101,7 @@ $script:Themes = [ordered]@{
     "Cyberpunk" = @{
         WindowBg      = "#FF0D0211"
         PanelBg       = "#FF1A0524"
+        RowAltBg      = "#FF210C2C"
         TextPrimary   = "#FFFFF5FA"
         TextMuted     = "#FFD183E8"
         Accent        = "#FFFF007F"
@@ -10108,6 +10113,7 @@ $script:Themes = [ordered]@{
     "Clair Elegant" = @{
         WindowBg      = "#FFF0F2F5"
         PanelBg       = "#FFFFFFFF"
+        RowAltBg      = "#FFF7F8F9"
         TextPrimary   = "#FF1A1D20"
         TextMuted     = "#FF5B6066"
         Accent        = "#FF0066CC"
@@ -10128,7 +10134,7 @@ function Set-Theme {
     if (-not $script:Themes.Contains($NomTheme)) { return }
     $t = $script:Themes[$NomTheme]
     
-    $keys = @("WindowBg", "PanelBg", "TextPrimary", "TextMuted", "Accent", "Border", "ButtonBg", "JournalBg", "JournalFg")
+    $keys = @("WindowBg", "PanelBg", "RowAltBg", "TextPrimary", "TextMuted", "Accent", "Border", "ButtonBg", "JournalBg", "JournalFg")
     foreach ($k in $keys) {
         $brushKey = $k + "Brush"
         # Piège vérifié : « New-Object SolidColorBrush -ArgumentList $couleur » avec
