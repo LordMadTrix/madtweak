@@ -188,6 +188,10 @@ $script:XamlInterface = @'
     <SolidColorBrush x:Key="ButtonBgBrush" Color="#FF2D2D33"/>
     <SolidColorBrush x:Key="JournalBgBrush" Color="#FF141417"/>
     <SolidColorBrush x:Key="JournalFgBrush" Color="#FFC8C8CE"/>
+    <!-- Alternance de fond des lignes de profils : distincte de PanelBgBrush (le
+         fond de la carte qui les contient), sinon invisible. Juste assez de relief
+         pour rompre l'aplat des 5 lignes identiques, sans créer un vrai contraste. -->
+    <SolidColorBrush x:Key="RowAltBgBrush" Color="#FF2A2A31"/>
 
     <Style TargetType="TextBlock">
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
@@ -320,8 +324,8 @@ $script:XamlInterface = @'
         <Setter.Value>
           <ControlTemplate TargetType="TabItem">
             <Border x:Name="onglet" Background="{DynamicResource ButtonBgBrush}"
-                    BorderThickness="0,0,0,2" BorderBrush="Transparent" Margin="0,0,2,0" CornerRadius="3,3,0,0">
-              <ContentPresenter ContentSource="Header" Margin="12,6"
+                    BorderThickness="0,0,0,2" BorderBrush="Transparent" Margin="0,0,3,0" CornerRadius="4,4,0,0">
+              <ContentPresenter ContentSource="Header" Margin="15,8"
                                 HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
@@ -583,13 +587,20 @@ $script:XamlInterface = @'
       </StackPanel>
     </Grid>
 
-  <Grid x:Name="GridPrincipal" Margin="12">
+  <Grid x:Name="GridPrincipal" Margin="18">
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="*"/>
+      <!-- Onglets + liste des tweaks : "*" pur affamé à zéro sur un petit écran
+           (constaté à 1366x768 en fenêtre réelle — toute cette zone disparaissait,
+           coincée entre les profils et la barre d'outils). Le journal en dessous
+           (Height="190" fixe) ne cédait JAMAIS de terrain, quelle que soit la place
+           restante. Les deux partagent maintenant l'espace en proportion (4:1, ~190px
+           de journal sur un 1440p — comme avant), et un MinHeight garantit que ni
+           l'un ni l'autre ne descend sous un seuil utilisable. -->
+      <RowDefinition Height="4*" MinHeight="180"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="190"/>
+      <RowDefinition Height="1*" MinHeight="70"/>
       <RowDefinition Height="Auto"/>
     </Grid.RowDefinitions>
 
@@ -635,19 +646,26 @@ $script:XamlInterface = @'
               BorderThickness="1" CornerRadius="6" Padding="12,8" VerticalAlignment="Center" MaxWidth="900">
         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,4"
+          <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
                     ToolTip="{{entete.fond.info}}"/>
+          <!-- Séparateurs entre réglages : 5 champs indépendants à la suite dans un
+               WrapPanel se lisaient comme une liste continue plutôt que 5 réglages
+               distincts, surtout une fois repliés sur 2 lignes. -->
+          <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}" Margin="0,0,12,4" VerticalAlignment="Center"/>
           <TextBlock Text="{{entete.accent}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,16,4"
+          <ComboBox x:Name="ComboAccent" Width="170" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
                     ToolTip="{{entete.accent.info}}"/>
+          <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}" Margin="0,0,12,4" VerticalAlignment="Center"/>
           <TextBlock Text="{{entete.theme}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,0,4"
+          <ComboBox x:Name="ComboTheme" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
                     ToolTip="{{entete.theme.info}}"/>
-          <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center" Margin="0,0,0,4"
+          <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}" Margin="0,0,12,4" VerticalAlignment="Center"/>
+          <TextBlock Text="{{entete.langue}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+          <ComboBox x:Name="ComboLangue" Width="118" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
                     ToolTip="{{entete.langue.info}}"/>
+          <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}" Margin="0,0,12,4" VerticalAlignment="Center"/>
           <StackPanel x:Name="PanelEcran" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="16,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
+            <TextBlock Text="{{entete.ecran}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
             <Slider x:Name="SliderEcran" Width="110" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True" VerticalAlignment="Center"
                     ToolTip="{{entete.ecran.info}}"/>
             <TextBlock x:Name="TxtEcran" Width="38" VerticalAlignment="Center" Margin="6,0,0,0" Foreground="{DynamicResource TextMutedBrush}"/>
@@ -657,12 +675,24 @@ $script:XamlInterface = @'
     </Grid>
 
     <!-- Profils -->
+    <!-- MaxHeight sur le ScrollViewer interne, PAS sur la Border : constaté sur un
+         écran 1366x768 en fenêtre réelle (pas un redimensionnement externe, qui fausse
+         tout à 150% d'échelle — mesuré en DIP, la vraie unité WPF) — sans plafond,
+         cette carte (hauteur "Auto") grossit avec les descriptions qui repassent à la
+         ligne, et écrase totalement la rangée des onglets ("*", Grid.Row=2) jusqu'à
+         zéro. Résultat : la zone des onglets ET la liste des tweaks disparaissaient
+         purement et simplement de la fenêtre. 290px : les 5 profils intégrés tiennent
+         sans défiler sur les résolutions confortables (mesuré en vrai, pas estimé) ;
+         au-delà (profils perso ajoutés, ou fenêtre étroite qui force plus de lignes),
+         défilement interne au lieu d'affamer le reste de la fenêtre. -->
     <Border x:Name="BorderProfils" Grid.Row="1" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
             CornerRadius="4" Padding="10" Margin="0,0,0,10">
       <StackPanel>
         <TextBlock Text="{{profils.entete}}"
                    FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,8"/>
-        <StackPanel x:Name="PanelProfils"/>
+        <ScrollViewer MaxHeight="290" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel x:Name="PanelProfils"/>
+        </ScrollViewer>
       </StackPanel>
     </Border>
 
@@ -1538,15 +1568,30 @@ function New-LigneProfilGrid {
     # ligne malgré TextWrapping="Wrap" -- elle débordait hors fenêtre, coupée net.
     # Un Grid garantit une largeur FINIE pour la colonne "*", donc un vrai retour à
     # la ligne.
+    #
+    # Enveloppée dans une carte (Border) avec un fond alterné (Index pair/impair) :
+    # 5 lignes identiques à l'aplat, sans le moindre repère entre elles, contribuaient
+    # au rendu jugé "austère". Une alternance très subtile (RowAltBgBrush, à peine
+    # plus claire que le fond de la carte parente) suffit à rythmer la liste sans
+    # créer un vrai contraste. Retourne la carte (à ajouter au panneau) et la grille
+    # (pour y placer badge/bouton/description) séparément.
+    param([int]$Index = 0)
     $ligne = New-Object System.Windows.Controls.Grid
-    $ligne.Margin = "0,0,0,8"
     $colBadge = New-Object System.Windows.Controls.ColumnDefinition; $colBadge.Width = [System.Windows.GridLength]::Auto
     $colBouton = New-Object System.Windows.Controls.ColumnDefinition; $colBouton.Width = [System.Windows.GridLength]::Auto
     $colDesc = New-Object System.Windows.Controls.ColumnDefinition; $colDesc.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
     $ligne.ColumnDefinitions.Add($colBadge) | Out-Null
     $ligne.ColumnDefinitions.Add($colBouton) | Out-Null
     $ligne.ColumnDefinitions.Add($colDesc) | Out-Null
-    return $ligne
+
+    $carte = New-Object System.Windows.Controls.Border
+    $carte.Padding = "8,8"
+    $carte.CornerRadius = 5
+    $carte.Margin = "0,0,0,4"
+    if ($Index % 2 -eq 1) { $carte.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "RowAltBgBrush") }
+    $carte.Child = $ligne
+
+    return [PSCustomObject]@{ Carte = $carte; Grille = $ligne }
 }
 
 function New-BadgeLettre {
@@ -1582,9 +1627,15 @@ function Add-BoutonProfilPerso {
     # Ajoute à la zone Profils une ligne pour un profil personnalisé, chargée comme
     # un profil intégré (coche ses clés). Lit les clés dans $script:ProfilsPersoCache
     # (rafraîchi à chaque enregistrement), donc pas de closure fragile.
+    # L'index d'alternance de fond suit un compteur global ($script:IndexLigneProfilSuivant,
+    # initialisé après les profils intégrés) : ce helper est appelé depuis 3 endroits
+    # (chargement initial, sauvegarde d'un nouveau profil, import), toujours à la suite
+    # visuelle des lignes déjà affichées -- pas question de faire recompter chaque appelant.
     param([string]$Nom)
     $cles = @($script:ProfilsPersoCache[$Nom])
-    $ligne = New-LigneProfilGrid
+    $carteEtGrille = New-LigneProfilGrid -Index $script:IndexLigneProfilSuivant
+    $script:IndexLigneProfilSuivant++
+    $ligne = $carteEtGrille.Grille
 
     $badge = New-BadgeLettre -Lettre $Nom.Substring(0, 1).ToUpper() -Couleur "#FF6B7280"
     [System.Windows.Controls.Grid]::SetColumn($badge, 0)
@@ -1613,7 +1664,7 @@ function Add-BoutonProfilPerso {
     [System.Windows.Controls.Grid]::SetColumn($desc, 2)
     $ligne.Children.Add($desc) | Out-Null
 
-    $script:PanelProfilsRef.Children.Add($ligne) | Out-Null
+    $script:PanelProfilsRef.Children.Add($carteEtGrille.Carte) | Out-Null
 }
 
 function Show-Gui {
@@ -1937,11 +1988,14 @@ function Show-Gui {
     # survol -- exactement le défaut qu'on reproche aux infobulles pour les tweaks.
     # Un profil applique un gros lot d'un coup : c'est le pire endroit pour cacher
     # ce qu'il fait derrière un survol.
+    $indexLigneProfil = 0
     foreach ($nomProfil in $script:Profils.Keys) {
         $profil = $script:Profils[$nomProfil]
         $nomAffiche = Get-NomProfil $nomProfil
 
-        $ligne = New-LigneProfilGrid
+        $carteEtGrille = New-LigneProfilGrid -Index $indexLigneProfil
+        $ligne = $carteEtGrille.Grille
+        $indexLigneProfil++
 
         $couleurBadge = if ($script:ProfilCouleurs.ContainsKey($nomProfil)) { $script:ProfilCouleurs[$nomProfil] } else { "#FF4FA6E8" }
         $badge = New-BadgeLettre -Lettre $nomAffiche.Substring(0, 1).ToUpper() -Couleur $couleurBadge
@@ -1977,11 +2031,12 @@ function Show-Gui {
         [System.Windows.Controls.Grid]::SetColumn($desc, 2)
         $ligne.Children.Add($desc) | Out-Null
 
-        $panelProfils.Children.Add($ligne) | Out-Null
+        $panelProfils.Children.Add($carteEtGrille.Carte) | Out-Null
     }
 
     # --- Profils PERSONNALISÉS (enregistrés par l'utilisateur), sous les intégrés ---
     $script:PanelProfilsRef = $panelProfils
+    $script:IndexLigneProfilSuivant = $indexLigneProfil
     $script:ProfilsPersoCache = Get-ProfilsPerso
     $script:ProfilsPersoAffiches = New-Object System.Collections.Generic.HashSet[string]
     foreach ($nomPP in @($script:ProfilsPersoCache.Keys)) {
