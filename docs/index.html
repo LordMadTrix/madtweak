@@ -68,6 +68,12 @@ h1 span{color:var(--rog-red)}
 .cta .primary:hover{background:#ff1a52;box-shadow:0 0 25px var(--rog-red-glow)}
 .cta .ghost{border:1px solid var(--rog-red);color:var(--rog-red)}
 .cta .ghost:hover{background:rgba(255,0,60,.1)}
+.partage{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;align-items:center;margin:1.6rem 0}
+.partage-label{color:var(--text-dim);font-weight:600;margin-right:2px}
+.partage-btn{text-decoration:none;padding:.5rem 1.1rem;border-radius:999px;font-weight:600;font-size:.85rem;
+  border:1px solid var(--border-red);color:var(--text-dim);background:transparent;cursor:pointer;
+  transition:.2s;font-family:'Rajdhani',sans-serif}
+.partage-btn:hover{border-color:var(--rog-red);color:var(--rog-red);background:rgba(255,0,60,.1)}
 section{padding:4.5rem 5%;border-top:1px solid var(--border-red)}
 h2{font-family:'Orbitron',sans-serif;font-size:clamp(1.6rem,4vw,2.4rem);text-align:center;margin-bottom:1rem}
 .section-intro{text-align:center;color:var(--text-dim);max-width:760px;margin:0 auto 3rem;font-size:1.1rem;line-height:1.6}
@@ -280,6 +286,15 @@ footer a{color:var(--rog-red);text-decoration:none}
 </section>
 
 <footer>
+  <div class="partage">
+    <span class="partage-label">Partager :</span>
+    <a class="partage-btn" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Flordmadtrix.github.io%2Fmadtweak%2F" target="_blank" rel="noopener">Facebook</a>
+    <a class="partage-btn" href="https://twitter.com/intent/tweet?url=https%3A%2F%2Flordmadtrix.github.io%2Fmadtweak%2F&text=MadTweak%20%E2%80%94%20optimisation%20Windows%20gratuite%2C%20en%20fran%C3%A7ais%2C%20100%25%20r%C3%A9versible" target="_blank" rel="noopener">X</a>
+    <a class="partage-btn" href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Flordmadtrix.github.io%2Fmadtweak%2F" target="_blank" rel="noopener">LinkedIn</a>
+    <a class="partage-btn" href="https://wa.me/?text=MadTweak%20%E2%80%94%20optimisation%20Windows%20gratuite%20%3A%20https%3A%2F%2Flordmadtrix.github.io%2Fmadtweak%2F" target="_blank" rel="noopener">WhatsApp</a>
+    <a class="partage-btn" href="https://reddit.com/submit?url=https%3A%2F%2Flordmadtrix.github.io%2Fmadtweak%2F&title=MadTweak%20%E2%80%94%20optimisation%20Windows%20gratuite%2C%20en%20fran%C3%A7ais%2C%20100%25%20r%C3%A9versible" target="_blank" rel="noopener">Reddit</a>
+    <button class="partage-btn" onclick="copierLien()" id="btn-copie-lien" type="button">Copier le lien</button>
+  </div>
   <p style="color:var(--text-dim);max-width:700px;margin:0 auto 1.4rem;line-height:1.7">
     <b style="color:var(--text-main)">MadTweak est gratuit, et le restera.</b><br>
     Pas de version « Pro », pas de fonction bridée, pas de publicité, aucune collecte de données.
@@ -293,6 +308,20 @@ function copierCommande(){
   var t = document.getElementById('cmd').innerText;
   var b = document.getElementById('btn-copie');
   var ok = function(){ b.innerText = 'Copié !'; setTimeout(function(){ b.innerText = 'Copier'; }, 1800); };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(t).then(ok, secours);
+  } else { secours(); }
+  function secours(){
+    var z = document.createElement('textarea');
+    z.value = t; document.body.appendChild(z); z.select();
+    try { document.execCommand('copy'); ok(); } catch(e){ b.innerText = 'Ctrl+C'; }
+    document.body.removeChild(z);
+  }
+}
+function copierLien(){
+  var t = 'https://lordmadtrix.github.io/madtweak/';
+  var b = document.getElementById('btn-copie-lien');
+  var ok = function(){ b.innerText = 'Copié !'; setTimeout(function(){ b.innerText = 'Copier le lien'; }, 1800); };
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(t).then(ok, secours);
   } else { secours(); }
