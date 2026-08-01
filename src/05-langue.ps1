@@ -126,8 +126,8 @@ $script:Textes = @{
 
     # --- Barre d'outils ---
     'barre.filtrer'        = @{ fr = "Filtrer : "; en = "Filter: " }
-    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."
-        en = "Filters tweaks by keyword (name or explanation), across every tab." }
+    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers toutes les catégories."
+        en = "Filters tweaks by keyword (name or explanation), across every category." }
     'menu.analyser'        = @{ fr = "Analyser  ▾"; en = "Analyse  ▾" }
     'menu.analyser.info'   = @{ fr = "Tout ce qui LIT la machine sans rien modifier."; en = "Everything that READS the machine without changing anything." }
     'menu.annuler'         = @{ fr = "Annuler  ▾"; en = "Undo  ▾" }
@@ -186,15 +186,18 @@ $script:Textes = @{
     'act.journal.cacher'   = @{ fr = "Cacher le journal"; en = "Hide log" }
     'act.journal.voir'     = @{ fr = "Afficher le journal"; en = "Show log" }
     'act.journal.info'     = @{ fr = "Replie le journal (en bas)."; en = "Collapses the log (bottom)." }
+    'act.sidebar.cacher'   = @{ fr = "Cacher le menu latéral"; en = "Hide side menu" }
+    'act.sidebar.voir'     = @{ fr = "Afficher le menu latéral"; en = "Show side menu" }
+    'act.sidebar.info'     = @{ fr = "Replie le menu des catégories (à gauche)."; en = "Collapses the category menu (left)." }
     'act.gamer'            = @{ fr = "Gamer ROG"; en = "Gamer ROG" }
     'act.gamer.info'       = @{ fr = "En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."
         en = "One click: Performance power mode + red keyboard + ticks the Gamer profile (nothing is applied until you click Apply)." }
 
     # --- Boutons d'action ---
-    'act.cocher'           = @{ fr = "Tout cocher (onglet)"; en = "Tick all (tab)" }
-    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de l'onglet actuellement affiché."; en = "Ticks every tweak in the currently shown tab." }
+    'act.cocher'           = @{ fr = "Tout cocher (catégorie)"; en = "Tick all (category)" }
+    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de la catégorie actuellement affichée."; en = "Ticks every tweak in the currently shown category." }
     'act.decocher'         = @{ fr = "Tout décocher"; en = "Untick all" }
-    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, tous onglets confondus."; en = "Unticks every tweak, across all tabs." }
+    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, toutes catégories confondues."; en = "Unticks every tweak, across all categories." }
     'act.pointresto'       = @{ fr = "Point de restauration avant d'appliquer"; en = "Restore point before applying" }
     'act.pointresto.info'  = @{ fr = "Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."
         en = "Creates a Windows restore point just before applying (30-60 s). A safety net to undo everything at worst." }

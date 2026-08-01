@@ -197,8 +197,8 @@ $script:Textes = @{
 
     # --- Barre d'outils ---
     'barre.filtrer'        = @{ fr = "Filtrer : "; en = "Filter: " }
-    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers tous les onglets."
-        en = "Filters tweaks by keyword (name or explanation), across every tab." }
+    'barre.filtrer.info'   = @{ fr = "Filtre les tweaks par mot-clé (nom ou explication), à travers toutes les catégories."
+        en = "Filters tweaks by keyword (name or explanation), across every category." }
     'menu.analyser'        = @{ fr = "Analyser  ▾"; en = "Analyse  ▾" }
     'menu.analyser.info'   = @{ fr = "Tout ce qui LIT la machine sans rien modifier."; en = "Everything that READS the machine without changing anything." }
     'menu.annuler'         = @{ fr = "Annuler  ▾"; en = "Undo  ▾" }
@@ -257,15 +257,18 @@ $script:Textes = @{
     'act.journal.cacher'   = @{ fr = "Cacher le journal"; en = "Hide log" }
     'act.journal.voir'     = @{ fr = "Afficher le journal"; en = "Show log" }
     'act.journal.info'     = @{ fr = "Replie le journal (en bas)."; en = "Collapses the log (bottom)." }
+    'act.sidebar.cacher'   = @{ fr = "Cacher le menu latéral"; en = "Hide side menu" }
+    'act.sidebar.voir'     = @{ fr = "Afficher le menu latéral"; en = "Show side menu" }
+    'act.sidebar.info'     = @{ fr = "Replie le menu des catégories (à gauche)."; en = "Collapses the category menu (left)." }
     'act.gamer'            = @{ fr = "Gamer ROG"; en = "Gamer ROG" }
     'act.gamer.info'       = @{ fr = "En un clic : mode d'alimentation Performances + clavier rouge + coche le profil Gamer (rien n'est appliqué tant que tu ne cliques pas « Appliquer »)."
         en = "One click: Performance power mode + red keyboard + ticks the Gamer profile (nothing is applied until you click Apply)." }
 
     # --- Boutons d'action ---
-    'act.cocher'           = @{ fr = "Tout cocher (onglet)"; en = "Tick all (tab)" }
-    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de l'onglet actuellement affiché."; en = "Ticks every tweak in the currently shown tab." }
+    'act.cocher'           = @{ fr = "Tout cocher (catégorie)"; en = "Tick all (category)" }
+    'act.cocher.info'      = @{ fr = "Coche tous les tweaks de la catégorie actuellement affichée."; en = "Ticks every tweak in the currently shown category." }
     'act.decocher'         = @{ fr = "Tout décocher"; en = "Untick all" }
-    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, tous onglets confondus."; en = "Unticks every tweak, across all tabs." }
+    'act.decocher.info'    = @{ fr = "Décoche tous les tweaks, toutes catégories confondues."; en = "Unticks every tweak, across all categories." }
     'act.pointresto'       = @{ fr = "Point de restauration avant d'appliquer"; en = "Restore point before applying" }
     'act.pointresto.info'  = @{ fr = "Crée un point de restauration Windows juste avant d'appliquer (30-60 s). Filet de sécurité pour tout annuler au pire."
         en = "Creates a Windows restore point just before applying (30-60 s). A safety net to undo everything at worst." }
@@ -9429,26 +9432,32 @@ $script:XamlInterface = @'
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontFamily" Value="Segoe UI"/>
     </Style>
-    <Style TargetType="TabItem">
+    <Style TargetType="RadioButton">
       <Setter Property="FontFamily" Value="Segoe UI"/>
       <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}"/>
-      <!-- Le template Aero peint l'onglet SÉLECTIONNÉ en blanc. On le redessine :
-           onglet actif = fond panneau + trait d'accent dessous ; inactif = bouton. -->
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="Margin" Value="0,0,0,2"/>
+      <!-- Menu latéral des catégories (remplace les onglets) : même principe que
+           l'ancien style TabItem (Border + ContentPresenter, coché = fond panneau +
+           liseré d'accent), mais le liseré passe à GAUCHE au lieu du dessous —
+           verticale oblige. -->
       <Setter Property="Template">
         <Setter.Value>
-          <ControlTemplate TargetType="TabItem">
-            <Border x:Name="onglet" Background="{DynamicResource ButtonBgBrush}"
-                    BorderThickness="0,0,0,2" BorderBrush="Transparent" Margin="0,0,3,0" CornerRadius="4,4,0,0">
-              <ContentPresenter ContentSource="Header" Margin="15,8"
-                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="ligne" Background="{DynamicResource ButtonBgBrush}"
+                    BorderBrush="Transparent" BorderThickness="3,0,0,0" CornerRadius="0,4,4,0"
+                    Padding="10,9" SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="onglet" Property="Background" Value="{DynamicResource PanelBgBrush}"/>
-                <Setter TargetName="onglet" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="ligne" Property="Background" Value="{DynamicResource PanelBgBrush}"/>
+                <Setter TargetName="ligne" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="onglet" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                <Setter TargetName="ligne" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -9810,18 +9819,38 @@ $script:XamlInterface = @'
       </StackPanel>
     </Border>
 
-    <!-- Onglets de tweaks. Onglets nombreux (11) : le TabPanel par défaut ne fait ni
-         retour à la ligne ni défilement — au-delà d'une certaine largeur, les
-         derniers débordaient hors fenêtre, invisibles et incliquables. Un WrapPanel
-         comme conteneur des en-têtes règle ça : au-delà d'une ligne, les onglets en
-         trop passent sur une seconde rangée au lieu de disparaître. -->
-    <TabControl x:Name="TabsCategories" Grid.Row="2" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}">
-      <TabControl.ItemsPanel>
-        <ItemsPanelTemplate>
-          <WrapPanel Orientation="Horizontal"/>
-        </ItemsPanelTemplate>
-      </TabControl.ItemsPanel>
-    </TabControl>
+    <!-- Catégories : menu latéral repliable au lieu d'onglets. 14 en-têtes sur deux
+         rangées mangeaient une hauteur fixe avant même d'afficher un seul tweak.
+         En colonne, la liste défile verticalement (elle n'a jamais besoin de passer
+         à la ligne) et la zone de contenu récupère toute la largeur, avant partagée
+         avec les en-têtes d'onglets. -->
+    <Grid x:Name="GridCategories" Grid.Row="2">
+      <Grid.ColumnDefinitions>
+        <!-- Largeur fixe, pas proportionnelle : un menu qui grossit avec la fenêtre
+             n'apporte rien, seule la liste de tweaks profite de l'espace en plus.
+             Repliée à 0 par BtnToggleSidebar (colonne fixe : Visibility seule ne
+             suffit pas, même piège que la rangée du journal). -->
+        <ColumnDefinition x:Name="ColSidebar" Width="190"/>
+        <!-- MinWidth : sans lui, un contenu (description longue) pourrait écraser
+             le menu latéral sur un petit écran, comme le MinHeight de la rangée 2
+             corrige déjà l'affamement vertical. 380 laisse une case et son
+             explication lisibles au-dessus du plancher de fenêtre non maximisée. -->
+        <ColumnDefinition Width="*" MinWidth="380"/>
+      </Grid.ColumnDefinitions>
+
+      <Border x:Name="BorderSidebar" Grid.Column="0" Background="{DynamicResource PanelBgBrush}"
+              BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4"
+              Margin="0,0,8,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="4">
+          <StackPanel x:Name="PanelCategories" Margin="4"/>
+        </ScrollViewer>
+      </Border>
+
+      <Border Grid.Column="1" Background="{DynamicResource PanelBgBrush}" BorderBrush="{DynamicResource BorderBrush}"
+              BorderThickness="1" CornerRadius="4">
+        <ContentControl x:Name="ContenuCategorie"/>
+      </Border>
+    </Grid>
 
     <!-- Actions -->
     <StackPanel Grid.Row="3" Margin="0,10,0,10">
@@ -9888,6 +9917,8 @@ $script:XamlInterface = @'
                       ToolTip="{{act.profils.info}}"/>
             <MenuItem x:Name="BtnToggleJournal" Header="{{act.journal.cacher}}"
                       ToolTip="{{act.journal.info}}"/>
+            <MenuItem x:Name="BtnToggleSidebar" Header="{{act.sidebar.cacher}}"
+                      ToolTip="{{act.sidebar.info}}"/>
           </MenuItem>
         </Menu>
 
@@ -10156,6 +10187,33 @@ function Set-Theme {
     }
 }
 
+function Add-CategorieNav {
+    # Ajoute une entrée au menu latéral et l'associe au contenu (ScrollViewer) qu'elle
+    # affiche. Remplace la construction d'un TabItem : un seul point d'ajout pour la
+    # boucle de catégories ET les deux pages spéciales (Matériel, Installation), donc
+    # un seul endroit qui connaît le nom du groupe de RadioButton.
+    # Suppose $script:GuiPanelCategories et $script:GuiContenuCategorie déjà définis.
+    param([Parameter(Mandatory)][string]$Etiquette, [Parameter(Mandatory)]$Contenu)
+    $txt = New-Object System.Windows.Controls.TextBlock
+    $txt.Text = $Etiquette
+    $txt.TextWrapping = 'Wrap'
+
+    $nav = New-Object System.Windows.Controls.RadioButton
+    $nav.GroupName = 'NavCategories'
+    $nav.Content = $txt
+    $nav.Tag = $Contenu
+    # PAS de GetNewClosure() : ce bloc lit $script:, et $this est fourni par
+    # l'événement WPF lui-même (pas par capture de fermeture) -- même règle que le
+    # reste du fichier (voir commentaire sur $script: et GetNewClosure plus loin).
+    $nav.Add_Checked({ $script:GuiContenuCategorie.Content = $this.Tag }) | Out-Null
+    $script:GuiPanelCategories.Children.Add($nav) | Out-Null
+    # PAS de sélection ici (testé : cocher le premier ajouté PENDANT la boucle de
+    # construction, avant que la fenêtre existe, ne "tenait" pas de façon fiable --
+    # un autre item se retrouvait coché à l'ouverture, pas le premier. La sélection
+    # par défaut se fait une seule fois, à la fin, dans Show-Gui.
+    return $nav
+}
+
 function Add-LigneComboClavier {
     # Ajoute au panneau une étiquette + une liste déroulante thémée, et la retourne.
     # Le style de ComboBox (template qui tue les « carrés blancs ») est assigné
@@ -10197,10 +10255,10 @@ function Add-LigneSliderClavier {
 }
 
 function Add-PageMateriel {
-    # Ajoute l'onglet « Matériel » : le mode d'alimentation Windows (toujours) et, si
-    # un clavier ASUS ROG compatible répond, les réglages RGB. L'onglet s'adapte au
+    # Ajoute la catégorie « Matériel » : le mode d'alimentation Windows (toujours) et, si
+    # un clavier ASUS ROG compatible répond, les réglages RGB. La page s'adapte au
     # matériel : la section clavier n'apparaît que si le clavier est là.
-    # Suppose $script:GuiTabs déjà défini par Show-Gui.
+    # Suppose $script:GuiPanelCategories et $script:GuiContenuCategorie déjà définis par Show-Gui.
     param($Fenetre)
 
     $styleCombo = $null
@@ -10334,10 +10392,7 @@ function Add-PageMateriel {
     $def = New-Object System.Windows.Controls.ScrollViewer
     $def.VerticalScrollBarVisibility = "Auto"
     $def.Content = $pile
-    $onglet = New-Object System.Windows.Controls.TabItem
-    $onglet.Header = T 'onglet.materiel'
-    $onglet.Content = $def
-    $script:GuiTabs.Items.Add($onglet) | Out-Null
+    Add-CategorieNav -Etiquette (T 'onglet.materiel') -Contenu $def | Out-Null
 }
 
 function Add-LigneTexte {
@@ -10603,10 +10658,7 @@ function Add-PageInstallation {
     $def = New-Object System.Windows.Controls.ScrollViewer
     $def.VerticalScrollBarVisibility = "Auto"
     $def.Content = $pile
-    $onglet = New-Object System.Windows.Controls.TabItem
-    $onglet.Header = T 'onglet.installation'
-    $onglet.Content = $def
-    $script:GuiTabs.Items.Add($onglet) | Out-Null
+    Add-CategorieNav -Etiquette (T 'onglet.installation') -Contenu $def | Out-Null
 }
 
 function Update-ScoreGui {
@@ -10976,7 +11028,10 @@ function Show-Gui {
     # fenêtre. La règle est donc : état partagé en $script:, et AUCUN GetNewClosure
     # sur les blocs qui lisent du $script: (ils sont alors liés au vrai scope).
     $script:GuiFenetre = $fenetre
-    $script:GuiTabs = $fenetre.FindName("TabsCategories")
+    $script:GuiGridCategories   = $fenetre.FindName("GridCategories")
+    $script:GuiPanelCategories  = $fenetre.FindName("PanelCategories")
+    $script:GuiContenuCategorie = $fenetre.FindName("ContenuCategorie")
+    $script:GuiBorderSidebar    = $fenetre.FindName("BorderSidebar")
     $panelProfils = $fenetre.FindName("PanelProfils")
     $script:JournalGui = $fenetre.FindName("TxtJournal")
     $script:GuiTxtEtat = $fenetre.FindName("TxtEtat")
@@ -11079,10 +11134,7 @@ function Show-Gui {
         $defilement = New-Object System.Windows.Controls.ScrollViewer
         $defilement.VerticalScrollBarVisibility = 'Auto'
         $defilement.Content = $pile
-        $onglet = New-Object System.Windows.Controls.TabItem
-        $onglet.Header = "$(Get-NomOnglet $groupe.Name)  ($($groupe.Count))"
-        $onglet.Content = $defilement
-        $script:GuiTabs.Items.Add($onglet) | Out-Null
+        Add-CategorieNav -Etiquette "$(Get-NomOnglet $groupe.Name)  ($($groupe.Count))" -Contenu $defilement | Out-Null
     }
 
     # Page MATÉRIEL : mode d'alimentation Windows (toujours) + réglages du clavier RGB
@@ -11092,6 +11144,14 @@ function Show-Gui {
     # Page CLÉ D'INSTALLATION : génère le fichier de réponses d'une installation
     # automatisée. Rien à cocher parmi les tweaks ici, uniquement de la saisie.
     Add-PageInstallation $fenetre
+
+    # Sélection par défaut : la première catégorie (« Base »), pour retrouver le
+    # SelectedIndex=0 implicite de l'ancien TabControl. Faite ici, une fois TOUTES
+    # les entrées ajoutées -- pas pendant la boucle -- après un cas constaté où le
+    # premier item coché pendant la construction ne restait pas sélectionné.
+    if ($script:GuiPanelCategories.Children.Count -gt 0) {
+        $script:GuiPanelCategories.Children[0].IsChecked = $true
+    }
 
     $majSelection = {
         $n = @($script:GuiCases.Values | Where-Object { $_.IsChecked }).Count
@@ -11167,10 +11227,12 @@ function Show-Gui {
     # --- Tout cocher / décocher ---
     $script:GuiFenetre.FindName("BtnToutCocher").Add_Click({
         if ($script:GuiOccupe) { return }
-        if ($script:GuiTabs.SelectedItem) {
-            # Le panneau contient aussi les TextBlock d'explication : sans ce filtre,
-            # on tenterait de cocher un bloc de texte.
-            foreach ($c in $script:GuiTabs.SelectedItem.Content.Content.Children) {
+        if ($script:GuiContenuCategorie.Content) {
+            # ContenuCategorie.Content -> ScrollViewer (posé par Add-CategorieNav dans
+            # .Tag), .Content -> StackPanel des cases. Le panneau contient aussi les
+            # TextBlock d'explication : sans ce filtre, on tenterait de cocher un
+            # bloc de texte.
+            foreach ($c in $script:GuiContenuCategorie.Content.Content.Children) {
                 if ($c -is [System.Windows.Controls.CheckBox]) { $c.IsChecked = $true }
             }
         }
@@ -11311,8 +11373,28 @@ function Show-Gui {
         }
         else {
             $script:GuiBorderJournal.Visibility = 'Visible'
-            $script:GuiGrid.RowDefinitions[4].Height = [System.Windows.GridLength]::new(190)
+            # Star (1*), PAS un pixel fixe : la rangée 4 partage l'espace avec la
+            # rangée 2 (catégories) en proportion 4:1 depuis le correctif de
+            # starvation sur petit écran. Remettre un GridLength en pixels ici
+            # (l'ancienne valeur "190") aurait défait ce correctif au premier
+            # cache/réaffiche du journal -- repéré en relisant ce code, pas testé
+            # en pratique, mais le bug était réel : new(190) est un GridUnitType.Pixel
+            # par défaut, pas Star.
+            $script:GuiGrid.RowDefinitions[4].Height = [System.Windows.GridLength]::new(1, [System.Windows.GridUnitType]::Star)
             $script:GuiBtnToggleJournal.Header = 'Cacher le journal'
+        }
+    }) | Out-Null
+    $script:GuiBtnToggleSidebar = $fenetre.FindName("BtnToggleSidebar")
+    $script:GuiBtnToggleSidebar.Add_Click({
+        if ($script:GuiBorderSidebar.Visibility -eq 'Visible') {
+            $script:GuiBorderSidebar.Visibility = 'Collapsed'
+            $script:GuiGridCategories.ColumnDefinitions[0].Width = [System.Windows.GridLength]::new(0)
+            $script:GuiBtnToggleSidebar.Header = 'Afficher le menu'
+        }
+        else {
+            $script:GuiBorderSidebar.Visibility = 'Visible'
+            $script:GuiGridCategories.ColumnDefinitions[0].Width = [System.Windows.GridLength]::new(190)
+            $script:GuiBtnToggleSidebar.Header = 'Cacher le menu'
         }
     }) | Out-Null
 
