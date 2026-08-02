@@ -40,9 +40,10 @@ if (-not (Test-Path $src)) { throw "Dossier src\ introuvable dans $racine." }
 $modules = @(Get-ChildItem -Path $src -Filter "*.ps1" | Sort-Object Name)
 if ($modules.Count -eq 0) { throw "Aucun module .ps1 dans $src." }
 
-# Contrôle d'ordre : 00-entete doit être le premier (il porte le #Requires, qui
-# n'a d'effet qu'en tête de fichier) et 99-lancement le dernier (il exécute).
-if ($modules[0].Name -notlike "00-*") { throw "Le premier module doit être 00-* (il porte le #Requires), or c'est $($modules[0].Name)." }
+# Contrôle d'ordre : 00-entete doit être le premier (il porte param() et
+# l'auto-élévation, qui doivent précéder tout le reste) et 99-lancement le
+# dernier (il exécute).
+if ($modules[0].Name -notlike "00-*") { throw "Le premier module doit être 00-* (il porte param()), or c'est $($modules[0].Name)." }
 if ($modules[-1].Name -notlike "99-*") { throw "Le dernier module doit être 99-* (il lance le script), or c'est $($modules[-1].Name)." }
 
 # Contrôle du BOM sur chaque module. Ce n'est pas de la coquetterie : un module
@@ -70,8 +71,6 @@ if ($sansBom.Count -gt 0) {
 # travail disparaître au build suivant. Le README le dit, mais un avertissement
 # qu'il faut aller chercher ne protège personne : celui-ci est sous les yeux de
 # quiconque ouvre le fichier.
-# (Vérifié : #Requires reste honoré même précédé de commentaires -- il n'a pas
-# besoin d'être en ligne 1.)
 $banniere = @(
     "# =============================================================================="
     "# FICHIER GÉNÉRÉ AUTOMATIQUEMENT — NE PAS ÉDITER"

@@ -12,7 +12,6 @@
 # rendrait « build.ps1 -Verifier » incapable de repérer une vraie divergence.
 # ==============================================================================
 
-#Requires -RunAsAdministrator
 # ==============================================================================
 # LE WINDOWS UTILITY INTÉGRAL V4 (VERSION FRANÇAISE)
 # Inspiré de Chris Titus Tech - Version Système Intégral Maximale
@@ -22,11 +21,19 @@
 #             illisibles sous Windows PowerShell 5.1. build.ps1 s'en charge.
 #
 # Principe de la V4 : aucune action ne se déclare "appliquée" si elle a échoué.
+#
+# PAS de #Requires -RunAsAdministrator ICI, volontairement : cette directive est
+# évaluée par PowerShell AVANT la moindre ligne du script, donc un lancement
+# sans droits admin refusait tout net avec un mur d'erreur rouge -- constaté en
+# vrai : un simple "powershell.exe -File .\MadTweak.ps1" depuis une console
+# normale (exactement la commande du site) s'arrêtait là, sans jamais proposer
+# d'élévation. À la place : le bloc juste après param() se relance lui-même en
+# administrateur (une seule fenêtre UAC), pas un message d'erreur à interpréter.
 # ==============================================================================
 
-# param() DOIT être la première instruction exécutable du script : les commentaires
-# et #Requires peuvent la précéder, rien d'autre. D'où sa place ici, en tête du
-# tout premier module.
+# param() DOIT être la première instruction exécutable du script : seuls des
+# commentaires peuvent la précéder. D'où sa place ici, en tête du tout premier
+# module.
 param(
     # Force l'ancien menu console. Par défaut le script ouvre l'interface graphique,
     # qui retombe d'elle-même sur la console si WPF est indisponible.
@@ -37,7 +44,7 @@ param(
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
     [switch]$Maintenance,
     # Force la langue. Sans ce paramètre, elle suit celle de Windows.
-    # Tout est traduit : interface, profils, onglets, les 150 tweaks et les 104
+    # Tout est traduit : interface, profils, onglets, les 155 tweaks et les 104
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
     [string]$Langue,
@@ -58,6 +65,27 @@ param(
     # de bon — donc de ne pas pouvoir l'éprouver du tout.
     [switch]$Simulation
 )
+
+# Auto-élévation : relance le script en administrateur si besoin, une seule fois.
+# Doit rester ici, juste après param() et avant tout le reste -- $PSCommandPath
+# n'est fiable qu'une fois le param() passé, et rien avant ce point ne doit
+# supposer des droits admin.
+$estAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+if (-not $estAdmin) {
+    $argumentsElevation = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+    if ($Console) { $argumentsElevation += '-Console' }
+    if ($Maintenance) { $argumentsElevation += '-Maintenance' }
+    if ($Langue) { $argumentsElevation += @('-Langue', $Langue) }
+    if ($Profil) { $argumentsElevation += @('-Profil', "`"$Profil`"") }
+    if ($Simulation) { $argumentsElevation += '-Simulation' }
+    try {
+        Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentsElevation -Verb RunAs | Out-Null
+    } catch {
+        Write-Host "Élévation refusée ou impossible : $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host 'Relance manuellement depuis un PowerShell ouvert « en tant qu''administrateur ».' -ForegroundColor Yellow
+    }
+    exit
+}
 
 $ErrorActionPreference = 'Stop'
 
@@ -5603,7 +5631,7 @@ function Menu-Signature {
 # pas concernes.
 #
 # Le fichier n'installe pas les tweaks : au premier démarrage, il APPELLE MadTweak
-# avec un profil. Les 150 tweaks, la sauvegarde et l'annulation exacte continuent
+# avec un profil. Les 155 tweaks, la sauvegarde et l'annulation exacte continuent
 # donc de fonctionner à l'identique — rien n'est dupliqué.
 # ------------------------------------------------------------------------------
 

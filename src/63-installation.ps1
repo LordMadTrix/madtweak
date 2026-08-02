@@ -29,7 +29,7 @@
 # pas concernes.
 #
 # Le fichier n'installe pas les tweaks : au premier démarrage, il APPELLE MadTweak
-# avec un profil. Les 150 tweaks, la sauvegarde et l'annulation exacte continuent
+# avec un profil. Les 155 tweaks, la sauvegarde et l'annulation exacte continuent
 # donc de fonctionner à l'identique — rien n'est dupliqué.
 # ------------------------------------------------------------------------------
 

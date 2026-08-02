@@ -18,7 +18,7 @@
 
 <div align="center">
   <img src="assets/interface.png" alt="The MadTweak interface" width="100%" />
-  <p><sub><i>The interface: profiles, 150 tweaks in tabs with their explanations, and a live log.</i></sub></p>
+  <p><sub><i>The interface: profiles, 155 tweaks in tabs with their explanations, and a live log.</i></sub></p>
 </div>
 
 ---
