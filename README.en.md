@@ -1,7 +1,7 @@
 <div align="center" markdown="1">
   <img src="assets/logo.png" alt="MadTweak Logo" width="300" />
 
-  # 🔴 MadTweak v1.5
+  # 🔴 MadTweak v1.5.1
 
   **Windows 10 / 11 optimisation you stay in control of**
 
