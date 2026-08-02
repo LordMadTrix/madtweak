@@ -295,6 +295,38 @@ $script:Textes = @{
     # --- Onglets ---
     'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
     'onglet.installation'  = @{ fr = "Clé d'installation"; en = "Install media" }
+    'onglet.image'         = @{ fr = "Image système"; en = "System image" }
+
+    # --- Page « Image système » ---
+    'img.expl1' = @{ fr = "Nettoie, répare, puis capture une image complète du disque système vers un autre disque — un vrai filet de sécurité, pas juste un point de restauration registre."
+        en = "Cleans, repairs, then captures a full system-drive image to another drive — a real safety net, not just a registry restore point." }
+    'img.expl2' = @{ fr = "La restauration ne se fait PAS depuis Windows : il faut redémarrer sur l'environnement de récupération (WinRE) ou une clé USB. Certaines installations (ISO modifiée/allégée) n'ont pas cette partition — vérifié ci-dessous avant de commencer."
+        en = "Restoring does NOT happen from within Windows: you must reboot into the recovery environment (WinRE) or a USB drive. Some installs (modified/lightweight ISO) lack that partition — checked below before starting." }
+    'img.cible' = @{ fr = "Disque cible"; en = "Target drive" }
+    'img.cible.aucune' = @{ fr = "Aucun disque externe ou secondaire détecté."; en = "No external or secondary drive detected." }
+    'img.cible.rafraichir' = @{ fr = "Rafraîchir"; en = "Refresh" }
+    'img.winre.titre' = @{ fr = "Environnement de récupération (WinRE)"; en = "Recovery environment (WinRE)" }
+    'img.winre.active' = @{ fr = "Présent et activé"; en = "Present and enabled" }
+    'img.winre.desactivee' = @{ fr = "Présent mais désactivé"; en = "Present but disabled" }
+    'img.winre.absente' = @{ fr = "ABSENT (ISO modifiée/allégée ?)"; en = "MISSING (modified/lightweight ISO?)" }
+    'img.winre.inconnu' = @{ fr = "Indéterminé"; en = "Undetermined" }
+    'img.cle.recuperation' = @{ fr = "Créer une clé de récupération"; en = "Create a recovery drive" }
+    'img.cle.recuperation.info' = @{ fr = "Lance l'outil Windows natif « Créer un lecteur de récupération » (recoverydrive.exe). MadTweak ne formate rien lui-même ici."
+        en = "Launches Windows' own 'Create a recovery drive' tool (recoverydrive.exe). MadTweak does not format anything itself here." }
+    'img.checklist.titre' = @{ fr = "Ce que fera la capture, dans l'ordre"; en = "What the capture will do, in order" }
+    'img.checklist.corps' = @{ fr = "Nettoyage (temporaires, cache Windows Update, rapports d'erreurs, cache de livraison, miniatures) → Réparation système (DISM + SFC) → Optimisation SSD/TRIM → Vérification de l'environnement de récupération → Capture de l'image (wbadmin) → Fiche de restauration."
+        en = "Cleanup (temp files, Windows Update cache, error reports, delivery cache, thumbnails) → System repair (DISM + SFC) → SSD/TRIM optimization → Recovery-environment check → Image capture (wbadmin) → Restore instructions sheet." }
+    'img.demarrer' = @{ fr = "Démarrer la capture"; en = "Start capture" }
+    'img.confirm.titre' = @{ fr = "Confirmer la capture"; en = "Confirm capture" }
+    'img.confirm' = @{ fr = "Capturer une image système vers {0}: ({1} Go libres, ~{2} Go estimés) ? Cela peut prendre 20 à 60 minutes ou plus, pendant lesquelles la machine restera utilisable mais ralentie."
+        en = "Capture a system image to {0}: ({1} GB free, ~{2} GB estimated)? This can take 20-60+ minutes, during which the machine stays usable but slower." }
+    'img.avert.batterie' = @{ fr = "Sur batterie : branche le chargeur avant de lancer une capture aussi longue."; en = "On battery: plug in before starting such a long capture." }
+    'img.erreur.cible.systeme' = @{ fr = "Le disque cible ne peut pas être le disque système."; en = "The target drive cannot be the system drive." }
+    'img.erreur.cible.introuvable' = @{ fr = "Disque {0}: introuvable."; en = "Drive {0}: not found." }
+    'img.erreur.cible.espace' = @{ fr = "Espace insuffisant : ~{0} Go estimés nécessaires, {1} Go libres."; en = "Not enough space: ~{0} GB estimated needed, {1} GB free." }
+    'img.erreur.wbadmin.absent' = @{ fr = "wbadmin est introuvable sur cette machine : capture d'image impossible."; en = "wbadmin was not found on this machine: image capture is impossible." }
+    'img.erreur.wbadmin.indisponible' = @{ fr = "wbadmin est indisponible sur cette édition/configuration de Windows : capture impossible."; en = "wbadmin is unavailable on this Windows edition/configuration: capture impossible." }
+    'img.rapport.ok' = @{ fr = "Instructions de restauration écrites dans {0}"; en = "Restore instructions written to {0}" }
 
     # --- Page « Clé d'installation » ---
     'inst.titre' = @{ fr = "Générer un fichier de réponses Windows"
@@ -1815,8 +1847,21 @@ function Invoke-Externe {
     param(
         [Parameter(Mandatory)][string]$Fichier,
         [string[]]$Arguments = @(),
-        [int[]]$CodesOK = @(0)
+        [int[]]$CodesOK = @(0),
+        # CaptureSortie : pour les commandes qu'on interroge (reagentc /info, wbadmin
+        # get versions...) plutôt que celles qui modifient la machine -- celles-là
+        # doivent quand même s'exécuter EN SIMULATION (on ne modifie rien en lisant
+        # un statut), donc ce chemin ignore $script:Simulation volontairement.
+        [switch]$CaptureSortie
     )
+    if ($CaptureSortie) {
+        try {
+            $sortie = & $Fichier @Arguments 2>&1 | Out-String
+        } catch {
+            return [pscustomobject]@{ CodeSortie = -1; Sortie = ""; Erreur = $_.Exception.Message }
+        }
+        return [pscustomobject]@{ CodeSortie = $LASTEXITCODE; Sortie = $sortie; Erreur = $null }
+    }
     if ($script:Simulation) {
         Write-Simu "commande : $([System.IO.Path]::GetFileName($Fichier)) $($Arguments -join ' ')"
         return
@@ -3453,12 +3498,16 @@ function Repair-SystemeIntegral {
     } catch { }
 
     try {
-        ipconfig /flushdns | Out-Null
+        Invoke-Externe -Fichier "ipconfig.exe" -Arguments @("/flushdns") -CodesOK @(0)
     } catch { }
 
     try {
         $iconCache = Join-Path $env:LOCALAPPDATA "IconCache.db"
-        if (Test-Path $iconCache) { Remove-Item $iconCache -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $iconCache) {
+            Invoke-Action "supprimerait le cache d'icônes ($iconCache)" {
+                Remove-Item $iconCache -Force -ErrorAction SilentlyContinue
+            }
+        }
     } catch { }
 
     Write-Etat (T 'repair.systeme.ok') -Niveau OK
@@ -7509,6 +7558,319 @@ function New-IsoMadTweakBootable {
 
 
 # ------------------------------------------------------------------------------
+# IMAGE SYSTÈME DE RÉFÉRENCE (CHECKPOINT)
+#
+# Principe : après avoir optimisé une machine, figer un état de référence complet
+# (image disque via wbadmin, pas juste un point de restauration registre) pour
+# pouvoir y revenir si le système se dégrade plus tard. Contrairement aux tweaks
+# habituels, la « restauration » ne peut PAS se faire depuis Windows : elle exige
+# de redémarrer sur un environnement de récupération (WinRE) ou une clé USB.
+# Certaines installations (notamment depuis une image Windows modifiée/allégée)
+# n'ont PAS de partition WinRE -- ce module le détecte et le dit clairement,
+# plutôt que de laisser croire qu'un simple redémarrage suffira toujours.
+#
+# On nettoie et on répare AVANT de figer l'image, pour ne pas y congeler la
+# crasse en même temps que l'optimisation -- mais jamais le nettoyage irréversible
+# (WinSxS /resetbase) : un checkpoint est le filet de sécurité qu'on veut AVANT
+# une action sans retour, pas un endroit où en glisser une par défaut.
+# ------------------------------------------------------------------------------
+
+function Get-CibleImageValide {
+    # Vérifie qu'un disque peut recevoir l'image AVANT de lancer quoi que ce soit :
+    # refuser après 20 minutes de nettoyage/réparation serait bien pire que
+    # refuser tout de suite.
+    param([Parameter(Mandatory)][string]$LettreCible)
+
+    $lettre = $LettreCible.TrimEnd(':').ToUpperInvariant()
+    $systeme = $env:SystemDrive.TrimEnd(':').ToUpperInvariant()
+
+    if ($lettre -eq $systeme) {
+        return @{ Valide = $false; Motif = (T 'img.erreur.cible.systeme'); LibreGo = 0; TotalGo = 0; EstimeGo = 0 }
+    }
+
+    $vol = Get-Volume -DriveLetter $lettre -ErrorAction SilentlyContinue
+    if (-not $vol) {
+        return @{ Valide = $false; Motif = ((T 'img.erreur.cible.introuvable') -f $lettre); LibreGo = 0; TotalGo = 0; EstimeGo = 0 }
+    }
+
+    $libreGo = [math]::Round($vol.SizeRemaining / 1GB, 1)
+    $totalGo = [math]::Round($vol.Size / 1GB, 1)
+
+    # Estimation = espace UTILISÉ sur le disque système (wbadmin copie les blocs
+    # occupés, pas les blocs libres), + 15 % de marge pour le journal VSS et les
+    # métadonnées. Une estimation, jamais un chiffre exact.
+    $disque = Get-AnalyseDisque
+    $utiliseGo = [math]::Max(0, $disque.TotalGo - $disque.LibreGo)
+    $requisGo = [math]::Round($utiliseGo * 1.15, 1)
+
+    if ($libreGo -lt $requisGo) {
+        return @{
+            Valide = $false; Motif = ((T 'img.erreur.cible.espace') -f $requisGo, $libreGo)
+            LibreGo = $libreGo; TotalGo = $totalGo; EstimeGo = $requisGo
+        }
+    }
+
+    return @{ Valide = $true; Motif = ""; LibreGo = $libreGo; TotalGo = $totalGo; EstimeGo = $requisGo }
+}
+
+function Get-DisquesCiblesPossibles {
+    # Disques candidats pour recevoir l'image : tout sauf le disque système.
+    # Contrairement à New-CleInstallation (qui DOIT cibler un disque USB, car elle
+    # l'efface entièrement), une image système est un usage parfaitement valable
+    # sur un disque interne secondaire -- pas de filtre de bus ici.
+    $systeme = $env:SystemDrive.TrimEnd(':').ToUpperInvariant()
+    $vols = @(Get-Volume -ErrorAction SilentlyContinue | Where-Object {
+        $_.DriveLetter -and $_.DriveLetter.ToString().ToUpperInvariant() -ne $systeme -and $_.DriveType -in @('Fixed', 'Removable')
+    })
+    return @($vols | ForEach-Object {
+        $libreGo = [math]::Round($_.SizeRemaining / 1GB, 1)
+        $etiquette = if ($_.FileSystemLabel) { " ($($_.FileSystemLabel))" } else { "" }
+        [pscustomobject]@{
+            Lettre    = "$($_.DriveLetter)"
+            Etiquette = "$($_.DriveLetter):$etiquette — $libreGo Go libres"
+        }
+    })
+}
+
+function Test-CapaciteWbadmin {
+    # Sonde NON destructive : wbadmin.exe est absent ou bridé sur certaines
+    # éditions de Windows (Famille, notamment). Vérifié AVANT de nettoyer/réparer
+    # quoi que ce soit -- un échec à la toute dernière étape aurait gâché du temps
+    # pour rien. Note : le texte exact renvoyé par wbadmin quand la fonctionnalité
+    # est absente n'a pas été vérifié sur toutes les éditions/langues de Windows ;
+    # le repli "Inconnu -> on laisse tenter" est volontairement prudent plutôt que
+    # de bloquer une machine qui, en réalité, supporte wbadmin.
+    if (-not (Get-Command "wbadmin.exe" -ErrorAction SilentlyContinue)) {
+        return @{ Disponible = $false; Motif = (T 'img.erreur.wbadmin.absent') }
+    }
+    $r = Invoke-Externe -Fichier "wbadmin.exe" -Arguments @("get", "versions") -CaptureSortie
+    if ($r.CodeSortie -eq -1) {
+        return @{ Disponible = $false; Motif = (T 'img.erreur.wbadmin.indisponible') }
+    }
+    if ($r.Sortie -match '(?i)ne reconnaît pas|is not recognized|not supported|pas pris en charge') {
+        return @{ Disponible = $false; Motif = (T 'img.erreur.wbadmin.indisponible') }
+    }
+    return @{ Disponible = $true; Motif = "" }
+}
+
+function Parse-SortieReagentc {
+    # Fonction PURE (aucun appel système) : sépare le parsing de l'exécution pour
+    # rester testable sans avoir une machine réelle dans chaque état (WinRE actif /
+    # désactivé / absent). reagentc.exe n'a pas de sortie structurée -- juste du
+    # texte console, en français ou en anglais selon la langue de Windows.
+    param([int]$CodeSortie, [string]$Sortie)
+
+    if ($null -eq $Sortie) { $Sortie = "" }
+
+    if ($Sortie -match '(?im)^\s*(État de Windows RE|Windows RE status)\s*:\s*(.+?)\s*$') {
+        $valeur = $Matches[2]
+        if ($valeur -match '(?i)^(Activ|Enable)') {
+            return @{ Statut = 'Active'; Message = (T 'img.winre.active'); SortieBrute = $Sortie }
+        }
+        if ($valeur -match '(?i)^(Désactiv|Disable)') {
+            return @{ Statut = 'Desactivee'; Message = (T 'img.winre.desactivee'); SortieBrute = $Sortie }
+        }
+    }
+
+    # Pas de ligne de statut reconnaissable : sur une machine sans AUCUNE partition
+    # de récupération (ISO modifiée/allégée), reagentc /info échoue plutôt que
+    # d'afficher proprement "désactivé" -- un code de sortie non nul est le signal.
+    if ($CodeSortie -ne 0) {
+        return @{ Statut = 'Absente'; Message = (T 'img.winre.absente'); SortieBrute = $Sortie }
+    }
+
+    return @{ Statut = 'Inconnu'; Message = (T 'img.winre.inconnu'); SortieBrute = $Sortie }
+}
+
+function Get-StatutWinRE {
+    if (-not (Get-Command "reagentc.exe" -ErrorAction SilentlyContinue)) {
+        return @{ Statut = 'Absente'; Message = (T 'img.winre.absente'); SortieBrute = "" }
+    }
+    $r = Invoke-Externe -Fichier "reagentc.exe" -Arguments @("/info") -CaptureSortie
+    return Parse-SortieReagentc -CodeSortie $r.CodeSortie -Sortie $r.Sortie
+}
+
+function Export-RapportImageSysteme {
+    # Même principe qu'Export-RapportAuditPdf (src/70-audit.ps1) : du HTML brut
+    # avec @media print, imprimé en PDF par l'utilisateur -- pas un vrai PDF généré
+    # ici. Les instructions changent selon la présence de WinRE au moment de la
+    # capture : c'est tout l'intérêt de stocker ce statut dans le rapport.
+    param(
+        [Parameter(Mandatory)][string]$LettreCible,
+        [Parameter(Mandatory)]$StatutWinRE,
+        [string]$CheminSortie
+    )
+    if (-not $CheminSortie) { $CheminSortie = Join-Path $script:DossierDonnees "Restauration-Image-MadTweak.html" }
+
+    $winreOk = $StatutWinRE.Statut -eq 'Active'
+    $dateJour = Get-Date -Format 'dd/MM/yyyy'
+    $instructionsWinRE = if ($winreOk) {
+        "<li>Redémarre puis maintiens <b>Maj</b> en cliquant sur Redémarrer, ou va dans Paramètres → Système → Récupération → Démarrage avancé.</li>
+    <li>Choisis <b>Dépannage → Options avancées → Récupération de l'image système</b>.</li>
+    <li>Sélectionne l'image datée du $dateJour sur le lecteur ${LettreCible}: et suis l'assistant.</li>"
+    } else {
+        "<li style='color:#ff4444'><b>Aucun environnement de récupération détecté sur cette machine</b> (fréquent sur les installations depuis une image Windows modifiée/allégée) : le redémarrage classique ne proposera pas cette option.</li>
+    <li>Utilise une <b>clé de récupération</b> créée via l'outil Windows « Créer un lecteur de récupération » (recoverydrive.exe). Démarre l'ordinateur dessus (touche de démarrage du constructeur, ex. F12/Échap/Suppr selon la marque).</li>
+    <li>Une fois démarré sur la clé : <b>Dépannage → Options avancées → Invite de commandes</b>, puis tape :<br><code>wbadmin start sysrecovery</code> (liste les images disponibles avant de choisir).</li>"
+    }
+
+    $html = @"
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8"/>
+<title>Restauration Image Système — MadTweak</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; margin: 40px; background: #0f121a; color: #e0e6ed; }
+  h1 { color: #e20018; border-bottom: 2px solid #e20018; padding-bottom: 10px; }
+  h2 { color: #00f0ff; margin-top: 30px; }
+  .info { background: #151821; border: 1px solid #232838; border-radius: 6px; padding: 16px; margin: 16px 0; }
+  li { margin-bottom: 10px; line-height: 1.5; }
+  code { background: #232838; padding: 2px 6px; border-radius: 3px; }
+  @media print { body { background: #fff; color: #000; } h1, h2 { color: #000; } .info { background: #f5f5f5; } code { background: #eee; } }
+</style>
+</head>
+<body>
+  <h1>Instructions de restauration — Image système MadTweak</h1>
+  <div class="info">
+    <p><b>Capturée le :</b> $(Get-Date -Format 'dd/MM/yyyy HH:mm')</p>
+    <p><b>Disque cible :</b> ${LettreCible}:</p>
+    <p><b>Machine :</b> $env:COMPUTERNAME</p>
+    <p><b>Environnement de récupération (WinRE) au moment de la capture :</b> $($StatutWinRE.Message)</p>
+  </div>
+  <h2>Comment restaurer</h2>
+  <ol>
+    $instructionsWinRE
+  </ol>
+  <h2>Pour les avancés</h2>
+  <p>Depuis une invite de commandes en environnement de récupération, <code>wbadmin start sysrecovery</code> liste les images disponibles avant de choisir une version précise.</p>
+  <p><b>Conserve ce document</b> : imprime-le (Ctrl+P) ou range-le ailleurs que sur le disque système.</p>
+</body>
+</html>
+"@
+
+    [System.IO.File]::WriteAllText($CheminSortie, $html, [System.Text.Encoding]::UTF8)
+    Write-Etat ((T 'img.rapport.ok') -f $CheminSortie) -Niveau OK
+    return $CheminSortie
+}
+
+function New-ImageSystemeReference {
+    <#
+        Orchestrateur du checkpoint « Image système de référence » : vérifications,
+        nettoyage, réparation, PUIS capture d'image complète via wbadmin, PUIS
+        génération d'une fiche de restauration. Chaque étape est journalisée dans
+        Etapes même en cas d'échec -- même esprit que Repair-SystemeIntegral : on
+        continue et on note, plutôt que d'interrompre tout à la première anicroche
+        (sauf pour les deux garde-fous de tout début, qui eux arrêtent net).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$LettreCible,
+        [switch]$NettoyagePrealable = $true,
+        [switch]$SansReparation,
+        [switch]$Confirme
+    )
+
+    if (-not $Confirme) {
+        throw "New-ImageSystemeReference modifie le disque cible et lance une capture longue : appelle-la avec -Confirme."
+    }
+
+    $depart = Get-Date
+    $etapes = New-Object System.Collections.Generic.List[hashtable]
+
+    $capacite = Test-CapaciteWbadmin
+    $etapes.Add(@{ Nom = "Vérification wbadmin"; Succes = $capacite.Disponible; Message = $capacite.Motif })
+    if (-not $capacite.Disponible) {
+        Write-Etat $capacite.Motif -Niveau Echec
+        return @{ Succes = $false; CheminRapport = $null; StatutWinRE = $null; DureeSecondes = 0; Etapes = $etapes }
+    }
+
+    $cible = Get-CibleImageValide -LettreCible $LettreCible
+    $etapes.Add(@{ Nom = "Vérification du disque cible"; Succes = $cible.Valide; Message = $cible.Motif })
+    if (-not $cible.Valide) {
+        Write-Etat $cible.Motif -Niveau Echec
+        return @{ Succes = $false; CheminRapport = $null; StatutWinRE = $null; DureeSecondes = 0; Etapes = $etapes }
+    }
+
+    if ($NettoyagePrealable) {
+        # Sous-ensemble volontairement sûr de Get-CiblesNettoyage : jamais
+        # Windows.old ni le /resetbase irréversible, jamais par défaut ici.
+        $nomsCibles = @(
+            "Fichiers temporaires (ton compte)",
+            "Fichiers temporaires (Windows)",
+            "Cache de Windows Update",
+            "Rapports d'erreurs Windows",
+            "Cache de Delivery Optimization",
+            "Cache des miniatures"
+        )
+        $toutesLesCibles = Get-CiblesNettoyage
+        foreach ($nom in $nomsCibles) {
+            try {
+                $c = $toutesLesCibles[$nom]
+                $r = Clear-Contenu -Chemin $c.Chemin
+                Write-Etat "$nom : $($r.Supprimes) supprimé(s), $($r.Resistants) verrouillé(s)." -Niveau Info
+                $etapes.Add(@{ Nom = $nom; Succes = $true; Message = "$($r.Supprimes) supprimé(s)" })
+            } catch {
+                $etapes.Add(@{ Nom = $nom; Succes = $false; Message = $_.Exception.Message })
+            }
+        }
+    }
+
+    if (-not $SansReparation) {
+        try {
+            Repair-SystemeIntegral | Out-Null
+            $etapes.Add(@{ Nom = "Réparation système (DISM/SFC)"; Succes = $true; Message = "" })
+        } catch {
+            $etapes.Add(@{ Nom = "Réparation système (DISM/SFC)"; Succes = $false; Message = $_.Exception.Message })
+        }
+        try {
+            Optimize-LecteursStockageSsd | Out-Null
+            $etapes.Add(@{ Nom = "Optimisation SSD/TRIM"; Succes = $true; Message = "" })
+        } catch {
+            $etapes.Add(@{ Nom = "Optimisation SSD/TRIM"; Succes = $false; Message = $_.Exception.Message })
+        }
+    }
+
+    $statutWinRE = Get-StatutWinRE
+    $etapes.Add(@{ Nom = "Statut WinRE"; Succes = $true; Message = $statutWinRE.Message })
+
+    $lettre = $LettreCible.TrimEnd(':').ToUpperInvariant()
+    $succesCapture = $true
+    $messageCapture = ""
+    try {
+        Write-Etat "Capture de l'image système vers ${lettre}: — cela peut prendre 20 à 60+ minutes." -Niveau Info
+        Invoke-Externe -Fichier "wbadmin.exe" -Arguments @(
+            "start", "backup",
+            "-backupTarget:${lettre}:",
+            "-include:$env:SystemDrive",
+            "-allCritical",
+            "-quiet"
+        ) -CodesOK @(0)
+        Write-Etat "Image système capturée avec succès." -Niveau OK
+    } catch {
+        $succesCapture = $false
+        $messageCapture = $_.Exception.Message
+        Write-Etat "Échec de la capture d'image : $messageCapture" -Niveau Echec
+    }
+    $etapes.Add(@{ Nom = "Capture wbadmin"; Succes = $succesCapture; Message = $messageCapture })
+
+    $cheminRapport = $null
+    try {
+        $cheminRapport = Export-RapportImageSysteme -LettreCible $lettre -StatutWinRE $statutWinRE
+        $etapes.Add(@{ Nom = "Fiche de restauration"; Succes = $true; Message = $cheminRapport })
+    } catch {
+        $etapes.Add(@{ Nom = "Fiche de restauration"; Succes = $false; Message = $_.Exception.Message })
+    }
+
+    $duree = [int]((Get-Date) - $depart).TotalSeconds
+    return @{
+        Succes        = $succesCapture
+        CheminRapport = $cheminRapport
+        StatutWinRE   = $statutWinRE
+        DureeSecondes = $duree
+        Etapes        = $etapes
+    }
+}
+# ------------------------------------------------------------------------------
 # AUDIT : que vaut cette machine, ici et maintenant ?
 #
 # À ne pas confondre avec le tableau du menu ANNULER : celui-ci ne connaît que ce
@@ -9267,6 +9629,100 @@ finally {
     $timer.Start()
 }
 
+function Start-ImageArrierePlan {
+    # Sœur de Start-ApplyArrierePlan ci-dessus (même patron : runspace dédié, file
+    # thread-safe, minuterie qui la vide dans le journal) -- pilote différent :
+    # New-ImageSystemeReference au lieu de rejouer un profil de tweaks. Nécessaire
+    # car wbadmin peut tourner 20-60+ minutes, bien au-delà de ce qu'un patron
+    # bloquant (Mouse.OverrideCursor) peut se permettre sans figer la fenêtre.
+    param(
+        [Parameter(Mandatory)]$Journal,
+        [Parameter(Mandatory)][string]$LettreCible,
+        [bool]$EnSimulation,
+        [Parameter(Mandatory)][scriptblock]$OnFini
+    )
+    $src = $null
+    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    }
+    if (-not $src) { throw "source-indisponible" }
+    $m = [regex]::Match($src, '(?m)^Initialize-Sauvegarde\b')
+    if (-not $m.Success) { throw "source-indisponible" }
+    $defs = $src.Substring(0, $m.Index)
+
+    $sync = [hashtable]::Synchronized(@{
+        File = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]')
+        Fini = $false; Resultat = $null
+    })
+
+    $pilote = @'
+$script:DossierDonnees   = $SeedDossier
+$script:DossierCles      = $SeedDossierCles
+$script:FichierSauvegarde = $SeedFichierSauvegarde
+$script:Sauvegarde       = $SeedSauvegarde
+$script:Machine          = $SeedMachine
+$script:InfosOS          = $SeedInfosOS
+$script:EstFamille       = $SeedEstFamille
+$script:BuildOS          = $SeedBuildOS
+$script:Simulation       = $SeedSimu
+$script:Sync = $SeedSync
+$script:SortieGui = {
+    param($m, $n)
+    $script:Sync.File.Enqueue(@($n, $m))
+}
+try {
+    $script:Sync.Resultat = New-ImageSystemeReference -LettreCible $SeedLettreCible -Confirme
+}
+catch {
+    $script:Sync.File.Enqueue(@('Echec', "ERREUR INATTENDUE : $($_.Exception.Message)"))
+}
+finally {
+    $script:Sync.Fini = $true
+}
+'@
+
+    $rs = [runspacefactory]::CreateRunspace()
+    $rs.Open()
+    $ssp = $rs.SessionStateProxy
+    $ssp.SetVariable('SeedSync', $sync)
+    $ssp.SetVariable('SeedDossier', $script:DossierDonnees)
+    $ssp.SetVariable('SeedDossierCles', $script:DossierCles)
+    $ssp.SetVariable('SeedFichierSauvegarde', $script:FichierSauvegarde)
+    $ssp.SetVariable('SeedSauvegarde', $script:Sauvegarde)
+    $ssp.SetVariable('SeedMachine', $script:Machine)
+    $ssp.SetVariable('SeedInfosOS', $script:InfosOS)
+    $ssp.SetVariable('SeedEstFamille', $script:EstFamille)
+    $ssp.SetVariable('SeedBuildOS', $script:BuildOS)
+    $ssp.SetVariable('SeedLettreCible', $LettreCible)
+    $ssp.SetVariable('SeedSimu', $EnSimulation)
+
+    $ps = [powershell]::Create()
+    $ps.Runspace = $rs
+    $ps.AddScript($defs + "`n" + $pilote) | Out-Null
+    $handle = $ps.BeginInvoke()
+
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(120)
+    $timer.Add_Tick({
+        $item = $null
+        while ($sync.File.TryDequeue([ref]$item)) {
+            $prefixe = switch ($item[0]) {
+                'OK' { '  [OK]    ' } 'Echec' { '  [ÉCHEC] ' } 'Avert' { '  [!]     ' }
+                'Simu' { '  [SIMU]  ' } 'Titre' { '' } default { '  [..]    ' }
+            }
+            $Journal.AppendText("$prefixe$($item[1])`r`n")
+        }
+        $Journal.ScrollToEnd()
+        if ($sync.Fini) {
+            $timer.Stop()
+            try { $ps.EndInvoke($handle) } catch { }
+            $ps.Dispose(); $rs.Dispose()
+            & $OnFini $sync
+        }
+    }.GetNewClosure())
+    $timer.Start()
+}
+
 $script:XamlInterface = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -10395,6 +10851,196 @@ function Add-PageMateriel {
     Add-CategorieNav -Etiquette (T 'onglet.materiel') -Contenu $def | Out-Null
 }
 
+function Add-PageImageSysteme {
+    # Page « Image système » : nettoyage + réparation, puis capture d'image
+    # complète (wbadmin) vers un disque au choix, puis fiche de restauration.
+    # Le gros du travail est dans New-ImageSystemeReference (src/64-image-systeme.ps1) ;
+    # cette page ne fait que le déclencher sur le fil d'arrière-plan (le traitement
+    # dure potentiellement des dizaines de minutes -- voir Start-ImageArrierePlan).
+    param($Fenetre)
+
+    $pile = New-Object System.Windows.Controls.StackPanel
+    $pile.Margin = "16"
+
+    $tTitre = New-Object System.Windows.Controls.TextBlock
+    $tTitre.Text = (T 'onglet.image')
+    $tTitre.FontWeight = "Bold"; $tTitre.FontSize = 15; $tTitre.Margin = "0,0,0,4"
+    $pile.Children.Add($tTitre) | Out-Null
+
+    foreach ($cle in @('img.expl1', 'img.expl2')) {
+        $s = New-Object System.Windows.Controls.TextBlock
+        $s.Text = (T $cle)
+        $s.TextWrapping = "Wrap"; $s.FontSize = 11; $s.Margin = "0,0,0,6"
+        $s.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        $pile.Children.Add($s) | Out-Null
+    }
+
+    $sep1 = New-Object System.Windows.Controls.Border
+    $sep1.Height = 1; $sep1.Margin = "0,10,0,14"
+    $sep1.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+    $pile.Children.Add($sep1) | Out-Null
+
+    # --- Disque cible ---
+    $ligneCible = New-Object System.Windows.Controls.StackPanel
+    $ligneCible.Orientation = "Horizontal"
+    $lblCible = New-Object System.Windows.Controls.TextBlock
+    $lblCible.Text = (T 'img.cible'); $lblCible.FontWeight = "SemiBold"; $lblCible.VerticalAlignment = "Center"; $lblCible.Margin = "0,0,10,0"
+    $ligneCible.Children.Add($lblCible) | Out-Null
+    $script:ImgComboCible = New-Object System.Windows.Controls.ComboBox
+    $styleCombo = $null
+    try { $styleCombo = $Fenetre.FindResource([System.Windows.Controls.ComboBox]) } catch { }
+    if ($styleCombo) { $script:ImgComboCible.Style = $styleCombo }
+    $script:ImgComboCible.Width = 320
+    $ligneCible.Children.Add($script:ImgComboCible) | Out-Null
+    $btnRafraichir = New-Object System.Windows.Controls.Button
+    $btnRafraichir.Content = (T 'img.cible.rafraichir')
+    $btnRafraichir.Margin = "10,0,0,0"
+    $ligneCible.Children.Add($btnRafraichir) | Out-Null
+    $pile.Children.Add($ligneCible) | Out-Null
+
+    $script:ImgMapCibles = @{}
+    $majCibles = {
+        $script:ImgComboCible.Items.Clear()
+        $script:ImgMapCibles = @{}
+        $disques = Get-DisquesCiblesPossibles
+        if ($disques.Count -eq 0) {
+            $script:ImgComboCible.Items.Add((T 'img.cible.aucune')) | Out-Null
+        } else {
+            foreach ($d in $disques) {
+                $script:ImgComboCible.Items.Add($d.Etiquette) | Out-Null
+                $script:ImgMapCibles[$d.Etiquette] = $d.Lettre
+            }
+        }
+        if ($script:ImgComboCible.Items.Count -gt 0) { $script:ImgComboCible.SelectedIndex = 0 }
+    }
+    & $majCibles
+    $btnRafraichir.Add_Click($majCibles) | Out-Null
+
+    # --- Statut WinRE ---
+    $ligneWinRE = New-Object System.Windows.Controls.StackPanel
+    $ligneWinRE.Orientation = "Horizontal"; $ligneWinRE.Margin = "0,14,0,0"
+    $lblWinRE = New-Object System.Windows.Controls.TextBlock
+    $lblWinRE.Text = (T 'img.winre.titre') + " : "; $lblWinRE.FontWeight = "SemiBold"; $lblWinRE.VerticalAlignment = "Center"
+    $ligneWinRE.Children.Add($lblWinRE) | Out-Null
+    $script:ImgLblWinRE = New-Object System.Windows.Controls.TextBlock
+    $script:ImgLblWinRE.VerticalAlignment = "Center"
+    $ligneWinRE.Children.Add($script:ImgLblWinRE) | Out-Null
+    $pile.Children.Add($ligneWinRE) | Out-Null
+
+    try {
+        $statutWinRE = Get-StatutWinRE
+        $script:ImgLblWinRE.Text = $statutWinRE.Message
+        $couleur = switch ($statutWinRE.Statut) {
+            'Active' { '#FF5CC86E' }
+            default { '#FFD86A5A' }
+        }
+        if ($statutWinRE.Statut -eq 'Inconnu') { $couleur = $null }
+        if ($couleur) {
+            $script:ImgLblWinRE.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+                [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($couleur))
+        } else {
+            $script:ImgLblWinRE.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        }
+    } catch {
+        $script:ImgLblWinRE.Text = (T 'img.winre.inconnu')
+        $script:ImgLblWinRE.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+    }
+
+    $btnCleRecup = New-Object System.Windows.Controls.Button
+    $btnCleRecup.Content = (T 'img.cle.recuperation')
+    $btnCleRecup.ToolTip = (T 'img.cle.recuperation.info')
+    $btnCleRecup.HorizontalAlignment = "Left"
+    $btnCleRecup.Margin = "0,8,0,0"
+    $btnCleRecup.Add_Click({
+        try { Start-Process "recoverydrive.exe" }
+        catch { $script:JournalGui.AppendText("« Créer une clé de récupération » : $($_.Exception.Message)`r`n") }
+    }) | Out-Null
+    $pile.Children.Add($btnCleRecup) | Out-Null
+
+    $sep2 = New-Object System.Windows.Controls.Border
+    $sep2.Height = 1; $sep2.Margin = "18,18,0,14"
+    $sep2.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+    $pile.Children.Add($sep2) | Out-Null
+
+    # --- Récapitulatif ---
+    $tChecklist = New-Object System.Windows.Controls.TextBlock
+    $tChecklist.Text = (T 'img.checklist.titre')
+    $tChecklist.FontWeight = "Bold"; $tChecklist.FontSize = 13; $tChecklist.Margin = "0,0,0,4"
+    $pile.Children.Add($tChecklist) | Out-Null
+    $sChecklist = New-Object System.Windows.Controls.TextBlock
+    $sChecklist.Text = (T 'img.checklist.corps')
+    $sChecklist.TextWrapping = "Wrap"; $sChecklist.FontSize = 11; $sChecklist.Margin = "0,0,0,14"
+    $sChecklist.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+    $pile.Children.Add($sChecklist) | Out-Null
+
+    # --- Démarrer ---
+    $script:ImgBtnDemarrer = New-Object System.Windows.Controls.Button
+    $script:ImgBtnDemarrer.Content = (T 'img.demarrer')
+    $script:ImgBtnDemarrer.Width = 220
+    $script:ImgBtnDemarrer.HorizontalAlignment = "Left"
+    $script:ImgBtnDemarrer.Add_Click({
+        if ($script:GuiOccupe) { return }
+        if (-not $script:ImgMapCibles -or -not $script:ImgComboCible.SelectedItem -or -not $script:ImgMapCibles.ContainsKey([string]$script:ImgComboCible.SelectedItem)) {
+            $script:JournalGui.AppendText("$(T 'img.cible.aucune')`r`n"); $script:JournalGui.ScrollToEnd()
+            return
+        }
+        $lettre = $script:ImgMapCibles[[string]$script:ImgComboCible.SelectedItem]
+        $chk = Get-CibleImageValide -LettreCible $lettre
+        if (-not $chk.Valide) {
+            [System.Windows.MessageBox]::Show($chk.Motif, (T 'img.confirm.titre'),
+                [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning) | Out-Null
+            return
+        }
+        try {
+            $batterie = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue
+            if ($batterie -and $batterie.BatteryStatus -eq 1) {
+                $script:JournalGui.AppendText("$(T 'img.avert.batterie')`r`n"); $script:JournalGui.ScrollToEnd()
+            }
+        } catch { }
+        $msg = (T 'img.confirm') -f $lettre, $chk.LibreGo, $chk.EstimeGo
+        $r = [System.Windows.MessageBox]::Show($msg, (T 'img.confirm.titre'),
+            [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($r -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+        $script:GuiOccupe = $true
+        $script:ImgBtnDemarrer.IsEnabled = $false
+        $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $false
+        $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $false
+
+        try {
+            Start-ImageArrierePlan -Journal $script:JournalGui -LettreCible $lettre -EnSimulation $script:Simulation -OnFini {
+                param($sync)
+                $script:GuiOccupe = $false
+                $script:ImgBtnDemarrer.IsEnabled = $true
+                $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $true
+                $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $true
+                $res = $sync.Resultat
+                if ($res -and $res.Succes -and $res.CheminRapport) {
+                    $script:JournalGui.AppendText("`r`n=== Capture terminée. Fiche de restauration : $($res.CheminRapport) ===`r`n")
+                    try { Start-Process $res.CheminRapport } catch { }
+                } elseif ($res) {
+                    $script:JournalGui.AppendText("`r`n=== Capture inachevée -- voir le journal ci-dessus. ===`r`n")
+                }
+                $script:JournalGui.ScrollToEnd()
+            }
+        }
+        catch {
+            $script:GuiOccupe = $false
+            $script:ImgBtnDemarrer.IsEnabled = $true
+            $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $true
+            $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $true
+            $script:JournalGui.AppendText("Démarrage impossible : $($_.Exception.Message)`r`n")
+            $script:JournalGui.ScrollToEnd()
+        }
+    }) | Out-Null
+    $pile.Children.Add($script:ImgBtnDemarrer) | Out-Null
+
+    $def = New-Object System.Windows.Controls.ScrollViewer
+    $def.VerticalScrollBarVisibility = "Auto"
+    $def.Content = $pile
+    Add-CategorieNav -Etiquette (T 'onglet.image') -Contenu $def | Out-Null
+}
+
 function Add-LigneTexte {
     # Étiquette + champ de saisie. -Secret produit un PasswordBox (points au lieu
     # des lettres) : même géométrie, contrôle différent, d'où le retour polymorphe.
@@ -11144,6 +11790,10 @@ function Show-Gui {
     # Page CLÉ D'INSTALLATION : génère le fichier de réponses d'une installation
     # automatisée. Rien à cocher parmi les tweaks ici, uniquement de la saisie.
     Add-PageInstallation $fenetre
+
+    # Page IMAGE SYSTÈME : nettoyage + réparation puis capture wbadmin vers un
+    # disque au choix, avec détection de l'environnement de récupération (WinRE).
+    Add-PageImageSysteme $fenetre
 
     # Sélection par défaut : la première catégorie (« Base »), pour retrouver le
     # SelectedIndex=0 implicite de l'ancien TabControl. Faite ici, une fois TOUTES

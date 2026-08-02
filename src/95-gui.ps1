@@ -150,6 +150,100 @@ finally {
     $timer.Start()
 }
 
+function Start-ImageArrierePlan {
+    # Sœur de Start-ApplyArrierePlan ci-dessus (même patron : runspace dédié, file
+    # thread-safe, minuterie qui la vide dans le journal) -- pilote différent :
+    # New-ImageSystemeReference au lieu de rejouer un profil de tweaks. Nécessaire
+    # car wbadmin peut tourner 20-60+ minutes, bien au-delà de ce qu'un patron
+    # bloquant (Mouse.OverrideCursor) peut se permettre sans figer la fenêtre.
+    param(
+        [Parameter(Mandatory)]$Journal,
+        [Parameter(Mandatory)][string]$LettreCible,
+        [bool]$EnSimulation,
+        [Parameter(Mandatory)][scriptblock]$OnFini
+    )
+    $src = $null
+    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
+        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    }
+    if (-not $src) { throw "source-indisponible" }
+    $m = [regex]::Match($src, '(?m)^Initialize-Sauvegarde\b')
+    if (-not $m.Success) { throw "source-indisponible" }
+    $defs = $src.Substring(0, $m.Index)
+
+    $sync = [hashtable]::Synchronized(@{
+        File = (New-Object 'System.Collections.Concurrent.ConcurrentQueue[object]')
+        Fini = $false; Resultat = $null
+    })
+
+    $pilote = @'
+$script:DossierDonnees   = $SeedDossier
+$script:DossierCles      = $SeedDossierCles
+$script:FichierSauvegarde = $SeedFichierSauvegarde
+$script:Sauvegarde       = $SeedSauvegarde
+$script:Machine          = $SeedMachine
+$script:InfosOS          = $SeedInfosOS
+$script:EstFamille       = $SeedEstFamille
+$script:BuildOS          = $SeedBuildOS
+$script:Simulation       = $SeedSimu
+$script:Sync = $SeedSync
+$script:SortieGui = {
+    param($m, $n)
+    $script:Sync.File.Enqueue(@($n, $m))
+}
+try {
+    $script:Sync.Resultat = New-ImageSystemeReference -LettreCible $SeedLettreCible -Confirme
+}
+catch {
+    $script:Sync.File.Enqueue(@('Echec', "ERREUR INATTENDUE : $($_.Exception.Message)"))
+}
+finally {
+    $script:Sync.Fini = $true
+}
+'@
+
+    $rs = [runspacefactory]::CreateRunspace()
+    $rs.Open()
+    $ssp = $rs.SessionStateProxy
+    $ssp.SetVariable('SeedSync', $sync)
+    $ssp.SetVariable('SeedDossier', $script:DossierDonnees)
+    $ssp.SetVariable('SeedDossierCles', $script:DossierCles)
+    $ssp.SetVariable('SeedFichierSauvegarde', $script:FichierSauvegarde)
+    $ssp.SetVariable('SeedSauvegarde', $script:Sauvegarde)
+    $ssp.SetVariable('SeedMachine', $script:Machine)
+    $ssp.SetVariable('SeedInfosOS', $script:InfosOS)
+    $ssp.SetVariable('SeedEstFamille', $script:EstFamille)
+    $ssp.SetVariable('SeedBuildOS', $script:BuildOS)
+    $ssp.SetVariable('SeedLettreCible', $LettreCible)
+    $ssp.SetVariable('SeedSimu', $EnSimulation)
+
+    $ps = [powershell]::Create()
+    $ps.Runspace = $rs
+    $ps.AddScript($defs + "`n" + $pilote) | Out-Null
+    $handle = $ps.BeginInvoke()
+
+    $timer = New-Object System.Windows.Threading.DispatcherTimer
+    $timer.Interval = [TimeSpan]::FromMilliseconds(120)
+    $timer.Add_Tick({
+        $item = $null
+        while ($sync.File.TryDequeue([ref]$item)) {
+            $prefixe = switch ($item[0]) {
+                'OK' { '  [OK]    ' } 'Echec' { '  [ÉCHEC] ' } 'Avert' { '  [!]     ' }
+                'Simu' { '  [SIMU]  ' } 'Titre' { '' } default { '  [..]    ' }
+            }
+            $Journal.AppendText("$prefixe$($item[1])`r`n")
+        }
+        $Journal.ScrollToEnd()
+        if ($sync.Fini) {
+            $timer.Stop()
+            try { $ps.EndInvoke($handle) } catch { }
+            $ps.Dispose(); $rs.Dispose()
+            & $OnFini $sync
+        }
+    }.GetNewClosure())
+    $timer.Start()
+}
+
 $script:XamlInterface = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -1278,6 +1372,196 @@ function Add-PageMateriel {
     Add-CategorieNav -Etiquette (T 'onglet.materiel') -Contenu $def | Out-Null
 }
 
+function Add-PageImageSysteme {
+    # Page « Image système » : nettoyage + réparation, puis capture d'image
+    # complète (wbadmin) vers un disque au choix, puis fiche de restauration.
+    # Le gros du travail est dans New-ImageSystemeReference (src/64-image-systeme.ps1) ;
+    # cette page ne fait que le déclencher sur le fil d'arrière-plan (le traitement
+    # dure potentiellement des dizaines de minutes -- voir Start-ImageArrierePlan).
+    param($Fenetre)
+
+    $pile = New-Object System.Windows.Controls.StackPanel
+    $pile.Margin = "16"
+
+    $tTitre = New-Object System.Windows.Controls.TextBlock
+    $tTitre.Text = (T 'onglet.image')
+    $tTitre.FontWeight = "Bold"; $tTitre.FontSize = 15; $tTitre.Margin = "0,0,0,4"
+    $pile.Children.Add($tTitre) | Out-Null
+
+    foreach ($cle in @('img.expl1', 'img.expl2')) {
+        $s = New-Object System.Windows.Controls.TextBlock
+        $s.Text = (T $cle)
+        $s.TextWrapping = "Wrap"; $s.FontSize = 11; $s.Margin = "0,0,0,6"
+        $s.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        $pile.Children.Add($s) | Out-Null
+    }
+
+    $sep1 = New-Object System.Windows.Controls.Border
+    $sep1.Height = 1; $sep1.Margin = "0,10,0,14"
+    $sep1.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+    $pile.Children.Add($sep1) | Out-Null
+
+    # --- Disque cible ---
+    $ligneCible = New-Object System.Windows.Controls.StackPanel
+    $ligneCible.Orientation = "Horizontal"
+    $lblCible = New-Object System.Windows.Controls.TextBlock
+    $lblCible.Text = (T 'img.cible'); $lblCible.FontWeight = "SemiBold"; $lblCible.VerticalAlignment = "Center"; $lblCible.Margin = "0,0,10,0"
+    $ligneCible.Children.Add($lblCible) | Out-Null
+    $script:ImgComboCible = New-Object System.Windows.Controls.ComboBox
+    $styleCombo = $null
+    try { $styleCombo = $Fenetre.FindResource([System.Windows.Controls.ComboBox]) } catch { }
+    if ($styleCombo) { $script:ImgComboCible.Style = $styleCombo }
+    $script:ImgComboCible.Width = 320
+    $ligneCible.Children.Add($script:ImgComboCible) | Out-Null
+    $btnRafraichir = New-Object System.Windows.Controls.Button
+    $btnRafraichir.Content = (T 'img.cible.rafraichir')
+    $btnRafraichir.Margin = "10,0,0,0"
+    $ligneCible.Children.Add($btnRafraichir) | Out-Null
+    $pile.Children.Add($ligneCible) | Out-Null
+
+    $script:ImgMapCibles = @{}
+    $majCibles = {
+        $script:ImgComboCible.Items.Clear()
+        $script:ImgMapCibles = @{}
+        $disques = Get-DisquesCiblesPossibles
+        if ($disques.Count -eq 0) {
+            $script:ImgComboCible.Items.Add((T 'img.cible.aucune')) | Out-Null
+        } else {
+            foreach ($d in $disques) {
+                $script:ImgComboCible.Items.Add($d.Etiquette) | Out-Null
+                $script:ImgMapCibles[$d.Etiquette] = $d.Lettre
+            }
+        }
+        if ($script:ImgComboCible.Items.Count -gt 0) { $script:ImgComboCible.SelectedIndex = 0 }
+    }
+    & $majCibles
+    $btnRafraichir.Add_Click($majCibles) | Out-Null
+
+    # --- Statut WinRE ---
+    $ligneWinRE = New-Object System.Windows.Controls.StackPanel
+    $ligneWinRE.Orientation = "Horizontal"; $ligneWinRE.Margin = "0,14,0,0"
+    $lblWinRE = New-Object System.Windows.Controls.TextBlock
+    $lblWinRE.Text = (T 'img.winre.titre') + " : "; $lblWinRE.FontWeight = "SemiBold"; $lblWinRE.VerticalAlignment = "Center"
+    $ligneWinRE.Children.Add($lblWinRE) | Out-Null
+    $script:ImgLblWinRE = New-Object System.Windows.Controls.TextBlock
+    $script:ImgLblWinRE.VerticalAlignment = "Center"
+    $ligneWinRE.Children.Add($script:ImgLblWinRE) | Out-Null
+    $pile.Children.Add($ligneWinRE) | Out-Null
+
+    try {
+        $statutWinRE = Get-StatutWinRE
+        $script:ImgLblWinRE.Text = $statutWinRE.Message
+        $couleur = switch ($statutWinRE.Statut) {
+            'Active' { '#FF5CC86E' }
+            default { '#FFD86A5A' }
+        }
+        if ($statutWinRE.Statut -eq 'Inconnu') { $couleur = $null }
+        if ($couleur) {
+            $script:ImgLblWinRE.Foreground = New-Object System.Windows.Media.SolidColorBrush(
+                [System.Windows.Media.Color][System.Windows.Media.ColorConverter]::ConvertFromString($couleur))
+        } else {
+            $script:ImgLblWinRE.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        }
+    } catch {
+        $script:ImgLblWinRE.Text = (T 'img.winre.inconnu')
+        $script:ImgLblWinRE.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+    }
+
+    $btnCleRecup = New-Object System.Windows.Controls.Button
+    $btnCleRecup.Content = (T 'img.cle.recuperation')
+    $btnCleRecup.ToolTip = (T 'img.cle.recuperation.info')
+    $btnCleRecup.HorizontalAlignment = "Left"
+    $btnCleRecup.Margin = "0,8,0,0"
+    $btnCleRecup.Add_Click({
+        try { Start-Process "recoverydrive.exe" }
+        catch { $script:JournalGui.AppendText("« Créer une clé de récupération » : $($_.Exception.Message)`r`n") }
+    }) | Out-Null
+    $pile.Children.Add($btnCleRecup) | Out-Null
+
+    $sep2 = New-Object System.Windows.Controls.Border
+    $sep2.Height = 1; $sep2.Margin = "18,18,0,14"
+    $sep2.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, "BorderBrush")
+    $pile.Children.Add($sep2) | Out-Null
+
+    # --- Récapitulatif ---
+    $tChecklist = New-Object System.Windows.Controls.TextBlock
+    $tChecklist.Text = (T 'img.checklist.titre')
+    $tChecklist.FontWeight = "Bold"; $tChecklist.FontSize = 13; $tChecklist.Margin = "0,0,0,4"
+    $pile.Children.Add($tChecklist) | Out-Null
+    $sChecklist = New-Object System.Windows.Controls.TextBlock
+    $sChecklist.Text = (T 'img.checklist.corps')
+    $sChecklist.TextWrapping = "Wrap"; $sChecklist.FontSize = 11; $sChecklist.Margin = "0,0,0,14"
+    $sChecklist.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+    $pile.Children.Add($sChecklist) | Out-Null
+
+    # --- Démarrer ---
+    $script:ImgBtnDemarrer = New-Object System.Windows.Controls.Button
+    $script:ImgBtnDemarrer.Content = (T 'img.demarrer')
+    $script:ImgBtnDemarrer.Width = 220
+    $script:ImgBtnDemarrer.HorizontalAlignment = "Left"
+    $script:ImgBtnDemarrer.Add_Click({
+        if ($script:GuiOccupe) { return }
+        if (-not $script:ImgMapCibles -or -not $script:ImgComboCible.SelectedItem -or -not $script:ImgMapCibles.ContainsKey([string]$script:ImgComboCible.SelectedItem)) {
+            $script:JournalGui.AppendText("$(T 'img.cible.aucune')`r`n"); $script:JournalGui.ScrollToEnd()
+            return
+        }
+        $lettre = $script:ImgMapCibles[[string]$script:ImgComboCible.SelectedItem]
+        $chk = Get-CibleImageValide -LettreCible $lettre
+        if (-not $chk.Valide) {
+            [System.Windows.MessageBox]::Show($chk.Motif, (T 'img.confirm.titre'),
+                [System.Windows.MessageBoxButton]::OK, [System.Windows.MessageBoxImage]::Warning) | Out-Null
+            return
+        }
+        try {
+            $batterie = Get-CimInstance Win32_Battery -ErrorAction SilentlyContinue
+            if ($batterie -and $batterie.BatteryStatus -eq 1) {
+                $script:JournalGui.AppendText("$(T 'img.avert.batterie')`r`n"); $script:JournalGui.ScrollToEnd()
+            }
+        } catch { }
+        $msg = (T 'img.confirm') -f $lettre, $chk.LibreGo, $chk.EstimeGo
+        $r = [System.Windows.MessageBox]::Show($msg, (T 'img.confirm.titre'),
+            [System.Windows.MessageBoxButton]::YesNo, [System.Windows.MessageBoxImage]::Warning)
+        if ($r -ne [System.Windows.MessageBoxResult]::Yes) { return }
+
+        $script:GuiOccupe = $true
+        $script:ImgBtnDemarrer.IsEnabled = $false
+        $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $false
+        $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $false
+
+        try {
+            Start-ImageArrierePlan -Journal $script:JournalGui -LettreCible $lettre -EnSimulation $script:Simulation -OnFini {
+                param($sync)
+                $script:GuiOccupe = $false
+                $script:ImgBtnDemarrer.IsEnabled = $true
+                $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $true
+                $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $true
+                $res = $sync.Resultat
+                if ($res -and $res.Succes -and $res.CheminRapport) {
+                    $script:JournalGui.AppendText("`r`n=== Capture terminée. Fiche de restauration : $($res.CheminRapport) ===`r`n")
+                    try { Start-Process $res.CheminRapport } catch { }
+                } elseif ($res) {
+                    $script:JournalGui.AppendText("`r`n=== Capture inachevée -- voir le journal ci-dessus. ===`r`n")
+                }
+                $script:JournalGui.ScrollToEnd()
+            }
+        }
+        catch {
+            $script:GuiOccupe = $false
+            $script:ImgBtnDemarrer.IsEnabled = $true
+            $script:GuiFenetre.FindName("BtnAppliquer").IsEnabled = $true
+            $script:GuiFenetre.FindName("BtnSimuler").IsEnabled = $true
+            $script:JournalGui.AppendText("Démarrage impossible : $($_.Exception.Message)`r`n")
+            $script:JournalGui.ScrollToEnd()
+        }
+    }) | Out-Null
+    $pile.Children.Add($script:ImgBtnDemarrer) | Out-Null
+
+    $def = New-Object System.Windows.Controls.ScrollViewer
+    $def.VerticalScrollBarVisibility = "Auto"
+    $def.Content = $pile
+    Add-CategorieNav -Etiquette (T 'onglet.image') -Contenu $def | Out-Null
+}
+
 function Add-LigneTexte {
     # Étiquette + champ de saisie. -Secret produit un PasswordBox (points au lieu
     # des lettres) : même géométrie, contrôle différent, d'où le retour polymorphe.
@@ -2027,6 +2311,10 @@ function Show-Gui {
     # Page CLÉ D'INSTALLATION : génère le fichier de réponses d'une installation
     # automatisée. Rien à cocher parmi les tweaks ici, uniquement de la saisie.
     Add-PageInstallation $fenetre
+
+    # Page IMAGE SYSTÈME : nettoyage + réparation puis capture wbadmin vers un
+    # disque au choix, avec détection de l'environnement de récupération (WinRE).
+    Add-PageImageSysteme $fenetre
 
     # Sélection par défaut : la première catégorie (« Base »), pour retrouver le
     # SelectedIndex=0 implicite de l'ancien TabControl. Faite ici, une fois TOUTES

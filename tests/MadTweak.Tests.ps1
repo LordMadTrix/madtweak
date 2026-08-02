@@ -257,3 +257,85 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
     }
 }
+
+Describe "Image système de référence" {
+    BeforeAll {
+        . (Join-Path $global:srcDir "05-langue.ps1")
+        . (Join-Path $global:srcDir "10-socle.ps1")
+        . (Join-Path $global:srcDir "20-sauvegarde.ps1")
+        . (Join-Path $global:srcDir "30-simulation-et-tweaks.ps1")
+        . (Join-Path $global:srcDir "53-menu-materiel-reseau.ps1")
+        . (Join-Path $global:srcDir "56-menu-maintenance.ps1")
+        . (Join-Path $global:srcDir "59-menu-nettoyage.ps1")
+        . (Join-Path $global:srcDir "70-audit.ps1")
+        . (Join-Path $global:srcDir "64-image-systeme.ps1")
+
+        # Même règle que le bloc Phase 3 ci-dessus : $script:Simulation doit être
+        # posée APRÈS le chargement, dans CE bloc -- sinon les fonctions qui
+        # modifient la machine (Repair-SystemeIntegral, wbadmin...) le feraient
+        # pour de vrai sur la machine qui lance les tests.
+        $script:Simulation = $true
+        $script:SimuCompteur = 0
+    }
+
+    It "Repair-SystemeIntegral doit s'exécuter sans lever d'exception" {
+        { Repair-SystemeIntegral } | Should -Not -Throw
+    }
+
+    It "Get-CibleImageValide doit refuser le disque système" {
+        $r = Get-CibleImageValide -LettreCible $env:SystemDrive
+        $r.Valide | Should -Be $false
+    }
+
+    It "Get-DisquesCiblesPossibles doit s'exécuter sans lever d'exception et renvoyer un tableau" {
+        $res = @(Get-DisquesCiblesPossibles)
+        { Get-DisquesCiblesPossibles } | Should -Not -Throw
+        $res | Should -Not -Be $null
+    }
+
+    It "Test-CapaciteWbadmin doit s'exécuter sans lever d'exception" {
+        { Test-CapaciteWbadmin } | Should -Not -Throw
+    }
+
+    It "Parse-SortieReagentc doit reconnaître un WinRE activé (FR et EN)" {
+        (Parse-SortieReagentc -CodeSortie 0 -Sortie "État de Windows RE : Activé(e)").Statut | Should -Be 'Active'
+        (Parse-SortieReagentc -CodeSortie 0 -Sortie "Windows RE status: Enabled").Statut | Should -Be 'Active'
+    }
+
+    It "Parse-SortieReagentc doit reconnaître un WinRE désactivé (FR et EN)" {
+        (Parse-SortieReagentc -CodeSortie 0 -Sortie "État de Windows RE : Désactivé(e)").Statut | Should -Be 'Desactivee'
+        (Parse-SortieReagentc -CodeSortie 0 -Sortie "Windows RE status: Disabled").Statut | Should -Be 'Desactivee'
+    }
+
+    It "Parse-SortieReagentc doit signaler une partition WinRE absente (code de sortie non nul, sortie illisible)" {
+        (Parse-SortieReagentc -CodeSortie 1 -Sortie "").Statut | Should -Be 'Absente'
+    }
+
+    It "Parse-SortieReagentc doit renvoyer Inconnu si rien n'est reconnaissable et le code est 0" {
+        (Parse-SortieReagentc -CodeSortie 0 -Sortie "texte inattendu sans rapport").Statut | Should -Be 'Inconnu'
+    }
+
+    It "Get-StatutWinRE doit s'exécuter sans lever d'exception" {
+        { Get-StatutWinRE } | Should -Not -Throw
+    }
+
+    It "Export-RapportImageSysteme doit générer un fichier HTML valide" {
+        $tmp = Join-Path $env:TEMP "test-restauration-image.html"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+        $statut = @{ Statut = 'Active'; Message = 'Présent et activé'; SortieBrute = '' }
+        Export-RapportImageSysteme -LettreCible "E" -StatutWinRE $statut -CheminSortie $tmp | Out-Null
+        (Test-Path $tmp) | Should -Be $true
+        (Get-Content $tmp -Raw) | Should -Match 'Restauration'
+        if (Test-Path $tmp) { Remove-Item $tmp -Force }
+    }
+
+    It "New-ImageSystemeReference doit exiger -Confirme" {
+        { New-ImageSystemeReference -LettreCible "E" } | Should -Throw
+    }
+
+    It "New-ImageSystemeReference doit refuser net le disque système, avant toute autre étape" {
+        $res = New-ImageSystemeReference -LettreCible $env:SystemDrive -Confirme
+        $res.Succes | Should -Be $false
+        ($res.Etapes | Where-Object { $_.Nom -eq "Vérification du disque cible" }).Succes | Should -Be $false
+    }
+}

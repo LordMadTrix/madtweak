@@ -53,12 +53,16 @@ function Repair-SystemeIntegral {
     } catch { }
 
     try {
-        ipconfig /flushdns | Out-Null
+        Invoke-Externe -Fichier "ipconfig.exe" -Arguments @("/flushdns") -CodesOK @(0)
     } catch { }
 
     try {
         $iconCache = Join-Path $env:LOCALAPPDATA "IconCache.db"
-        if (Test-Path $iconCache) { Remove-Item $iconCache -Force -ErrorAction SilentlyContinue }
+        if (Test-Path $iconCache) {
+            Invoke-Action "supprimerait le cache d'icônes ($iconCache)" {
+                Remove-Item $iconCache -Force -ErrorAction SilentlyContinue
+            }
+        }
     } catch { }
 
     Write-Etat (T 'repair.systeme.ok') -Niveau OK

@@ -270,8 +270,21 @@ function Invoke-Externe {
     param(
         [Parameter(Mandatory)][string]$Fichier,
         [string[]]$Arguments = @(),
-        [int[]]$CodesOK = @(0)
+        [int[]]$CodesOK = @(0),
+        # CaptureSortie : pour les commandes qu'on interroge (reagentc /info, wbadmin
+        # get versions...) plutôt que celles qui modifient la machine -- celles-là
+        # doivent quand même s'exécuter EN SIMULATION (on ne modifie rien en lisant
+        # un statut), donc ce chemin ignore $script:Simulation volontairement.
+        [switch]$CaptureSortie
     )
+    if ($CaptureSortie) {
+        try {
+            $sortie = & $Fichier @Arguments 2>&1 | Out-String
+        } catch {
+            return [pscustomobject]@{ CodeSortie = -1; Sortie = ""; Erreur = $_.Exception.Message }
+        }
+        return [pscustomobject]@{ CodeSortie = $LASTEXITCODE; Sortie = $sortie; Erreur = $null }
+    }
     if ($script:Simulation) {
         Write-Simu "commande : $([System.IO.Path]::GetFileName($Fichier)) $($Arguments -join ' ')"
         return

@@ -224,6 +224,38 @@ $script:Textes = @{
     # --- Onglets ---
     'onglet.materiel'      = @{ fr = "Matériel"; en = "Hardware" }
     'onglet.installation'  = @{ fr = "Clé d'installation"; en = "Install media" }
+    'onglet.image'         = @{ fr = "Image système"; en = "System image" }
+
+    # --- Page « Image système » ---
+    'img.expl1' = @{ fr = "Nettoie, répare, puis capture une image complète du disque système vers un autre disque — un vrai filet de sécurité, pas juste un point de restauration registre."
+        en = "Cleans, repairs, then captures a full system-drive image to another drive — a real safety net, not just a registry restore point." }
+    'img.expl2' = @{ fr = "La restauration ne se fait PAS depuis Windows : il faut redémarrer sur l'environnement de récupération (WinRE) ou une clé USB. Certaines installations (ISO modifiée/allégée) n'ont pas cette partition — vérifié ci-dessous avant de commencer."
+        en = "Restoring does NOT happen from within Windows: you must reboot into the recovery environment (WinRE) or a USB drive. Some installs (modified/lightweight ISO) lack that partition — checked below before starting." }
+    'img.cible' = @{ fr = "Disque cible"; en = "Target drive" }
+    'img.cible.aucune' = @{ fr = "Aucun disque externe ou secondaire détecté."; en = "No external or secondary drive detected." }
+    'img.cible.rafraichir' = @{ fr = "Rafraîchir"; en = "Refresh" }
+    'img.winre.titre' = @{ fr = "Environnement de récupération (WinRE)"; en = "Recovery environment (WinRE)" }
+    'img.winre.active' = @{ fr = "Présent et activé"; en = "Present and enabled" }
+    'img.winre.desactivee' = @{ fr = "Présent mais désactivé"; en = "Present but disabled" }
+    'img.winre.absente' = @{ fr = "ABSENT (ISO modifiée/allégée ?)"; en = "MISSING (modified/lightweight ISO?)" }
+    'img.winre.inconnu' = @{ fr = "Indéterminé"; en = "Undetermined" }
+    'img.cle.recuperation' = @{ fr = "Créer une clé de récupération"; en = "Create a recovery drive" }
+    'img.cle.recuperation.info' = @{ fr = "Lance l'outil Windows natif « Créer un lecteur de récupération » (recoverydrive.exe). MadTweak ne formate rien lui-même ici."
+        en = "Launches Windows' own 'Create a recovery drive' tool (recoverydrive.exe). MadTweak does not format anything itself here." }
+    'img.checklist.titre' = @{ fr = "Ce que fera la capture, dans l'ordre"; en = "What the capture will do, in order" }
+    'img.checklist.corps' = @{ fr = "Nettoyage (temporaires, cache Windows Update, rapports d'erreurs, cache de livraison, miniatures) → Réparation système (DISM + SFC) → Optimisation SSD/TRIM → Vérification de l'environnement de récupération → Capture de l'image (wbadmin) → Fiche de restauration."
+        en = "Cleanup (temp files, Windows Update cache, error reports, delivery cache, thumbnails) → System repair (DISM + SFC) → SSD/TRIM optimization → Recovery-environment check → Image capture (wbadmin) → Restore instructions sheet." }
+    'img.demarrer' = @{ fr = "Démarrer la capture"; en = "Start capture" }
+    'img.confirm.titre' = @{ fr = "Confirmer la capture"; en = "Confirm capture" }
+    'img.confirm' = @{ fr = "Capturer une image système vers {0}: ({1} Go libres, ~{2} Go estimés) ? Cela peut prendre 20 à 60 minutes ou plus, pendant lesquelles la machine restera utilisable mais ralentie."
+        en = "Capture a system image to {0}: ({1} GB free, ~{2} GB estimated)? This can take 20-60+ minutes, during which the machine stays usable but slower." }
+    'img.avert.batterie' = @{ fr = "Sur batterie : branche le chargeur avant de lancer une capture aussi longue."; en = "On battery: plug in before starting such a long capture." }
+    'img.erreur.cible.systeme' = @{ fr = "Le disque cible ne peut pas être le disque système."; en = "The target drive cannot be the system drive." }
+    'img.erreur.cible.introuvable' = @{ fr = "Disque {0}: introuvable."; en = "Drive {0}: not found." }
+    'img.erreur.cible.espace' = @{ fr = "Espace insuffisant : ~{0} Go estimés nécessaires, {1} Go libres."; en = "Not enough space: ~{0} GB estimated needed, {1} GB free." }
+    'img.erreur.wbadmin.absent' = @{ fr = "wbadmin est introuvable sur cette machine : capture d'image impossible."; en = "wbadmin was not found on this machine: image capture is impossible." }
+    'img.erreur.wbadmin.indisponible' = @{ fr = "wbadmin est indisponible sur cette édition/configuration de Windows : capture impossible."; en = "wbadmin is unavailable on this Windows edition/configuration: capture impossible." }
+    'img.rapport.ok' = @{ fr = "Instructions de restauration écrites dans {0}"; en = "Restore instructions written to {0}" }
 
     # --- Page « Clé d'installation » ---
     'inst.titre' = @{ fr = "Générer un fichier de réponses Windows"
