@@ -111,6 +111,9 @@ $script:TextesTweaks = @{
     'experiences-personnalisees.t' = "Disable 'tailored experiences' based on your diagnostic data?"
     'experiences-personnalisees.e' = "Stops Microsoft using your diagnostic data to suggest tips, ads and personalised apps inside Windows. This is the per-user setting, the only one genuinely honoured on every edition, Home included."
 
+    'gdid-cdp-telemetrie.t' = "Restrict unique device identifier (GDID) and CDP telemetry?"
+    'gdid-cdp-telemetrie.e' = "Disables Connected Devices Platform (CDP) telemetry and restricts sending unique device identifier (GDID) data to Microsoft targeted content and telemetry services. Protects privacy without breaking Microsoft account (MSA), Store or Xbox."
+
     'feedback.t' = "Never ask for feedback again (Windows Feedback)?"
     'feedback.e' = "Windows periodically asks for your opinion through pop-up windows. This setting tells it never to ask again. No downside: you can still give feedback yourself whenever you want."
 

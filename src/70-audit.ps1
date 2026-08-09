@@ -67,6 +67,8 @@ function Get-CatalogueAudit {
            Test = { Test-RegEgal "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "PublishUserActivities" 0 } }
         @{ Cat = "Vie privée"; Cle = "experiences-personnalisees"; Nom = "Expériences personnalisées désactivées"
            Test = { Test-RegEgal "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy" "TailoredExperiencesWithDiagnosticDataEnabled" 0 } }
+        @{ Cat = "Vie privée"; Cle = "gdid-cdp-telemetrie"; Nom = "Télémétrie GDID et graphe d'appareils (CDP) restreints"
+           Test = { Test-RegEgal "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" "EnableCdp" 0 } }
         @{ Cat = "Vie privée"; Cle = "feedback"; Nom = "Demandes d'avis (Feedback) coupées"
            Test = { Test-RegEgal "HKCU:\Software\Microsoft\Siuf\Rules" "NumberOfSIUFInPeriod" 0 } }
         @{ Cat = "Vie privée"; Cle = "saisie-personnalisation"; Nom = "Collecte de la frappe / écriture coupée"

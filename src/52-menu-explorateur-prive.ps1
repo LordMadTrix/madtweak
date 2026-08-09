@@ -88,6 +88,21 @@ function Menu-Explorateur-Prive {
         Set-RegValue -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Privacy" -Name "TailoredExperiencesWithDiagnosticDataEnabled" -Value 0
     }
 
+    Invoke-Tweak "Restreindre l'identifiant matériel unique (GDID) et la télémétrie CDP ?" -Cle "gdid-cdp-telemetrie" `
+        -Explication "Désactive la télémétrie du Connected Devices Platform (CDP) et restreint la transmission de l'identifiant matériel (GDID) aux services de collecte de données de ciblage Microsoft. Protège la vie privée sans bloquer le compte Microsoft (MSA), la boutique Store ou les jeux." {
+        # Stratégie Connected Devices Platform (CDP) / Graphe de périphériques
+        $cdpPol = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System"
+        Set-RegValue -Path $cdpPol -Name "EnableCdp" -Value 0
+        $cdpUser = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CDP"
+        Set-RegValue -Path $cdpUser -Name "RomeSdkChannelUserAuthzPolicy" -Value 0
+        Set-RegValue -Path $cdpUser -Name "CdpSessionUserAuthzPolicy" -Value 0
+        Set-RegValue -Path $cdpUser -Name "NearShareChannelUserAuthzPolicy" -Value 0
+
+        # Suivi ciblé de l'appareil et télémétrie d'usage
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\TargetedContent" -Name "DisableTargetedContent" -Value 1
+        Set-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows" -Name "CEIPEnable" -Value 0
+    }
+
     Invoke-Tweak "Ne plus jamais demander d'avis (Feedback Windows) ?" -Cle "feedback" `
         -Explication "Windows te demande périodiquement ton avis via des fenêtres surgissantes. Ce réglage lui dit de ne plus jamais demander. Aucun revers : tu peux toujours donner ton avis toi-même si tu le souhaites." {
         # 0 demande sur une période de 0 ns = Windows cesse de solliciter.

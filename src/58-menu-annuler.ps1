@@ -63,6 +63,15 @@ function Menu-Annuler {
         # Office Telemetry rollback
         Remove-RegValue -Path "HKCU:\Software\Policies\Microsoft\Office\Common\ClientTelemetry" -Name "DisableTelemetry"
         Remove-RegValue -Path "HKCU:\Software\Policies\Microsoft\office\16.0\common\feedback" -Name "Enabled"
+
+        # GDID / CDP Telemetry rollback
+        Remove-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\System" -Name "EnableCdp"
+        $cdpUser = "HKCU:\Software\Microsoft\Windows\CurrentVersion\CDP"
+        Remove-RegValue -Path $cdpUser -Name "RomeSdkChannelUserAuthzPolicy"
+        Remove-RegValue -Path $cdpUser -Name "CdpSessionUserAuthzPolicy"
+        Remove-RegValue -Path $cdpUser -Name "NearShareChannelUserAuthzPolicy"
+        Remove-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\TargetedContent" -Name "DisableTargetedContent"
+        Remove-RegValue -Path "HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows" -Name "CEIPEnable"
     }
 
     Invoke-Tweak "Réactiver les mises à jour de Windows Update, les pilotes, régler Defender, Edge et les outils de dév ?" {

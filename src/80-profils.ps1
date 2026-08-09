@@ -53,7 +53,7 @@ $script:Profils = [ordered]@{
             "apps-arriere-plan", "explorateur-accueil", "widgets-chat", "widgets-dsh",
             "pubs-demarrer", "pubs-scoobe", "pubs-explorateur", "pubs-verrouillage",
             "copilot", "recall", "paint-ia", "click-to-do",
-            "historique-activite", "experiences-personnalisees", "feedback",
+            "historique-activite", "experiences-personnalisees", "gdid-cdp-telemetrie", "feedback",
             "saisie-personnalisation", "defender-echantillons", "llmnr-netbios",
             "service-registre-distant", "service-retaildemo",
             "edge-telemetrie", "amd-telemetrie", "browsers-telemetrie",
