@@ -17,7 +17,7 @@
 
 <div align="center">
   <img src="assets/interface.png" alt="L'interface de MadTweak" width="100%" />
-  <p><sub><i>L'interface : profils, 155 tweaks par onglets avec leur explication, et le journal en direct.</i></sub></p>
+  <p><sub><i>L'interface : profils, 156 tweaks par onglets avec leur explication, et le journal en direct.</i></sub></p>
 </div>
 
 ---
@@ -25,7 +25,7 @@
 ## ⚡ Fonctionnalités principales
 
 ### 🛡️ **Confidentialité & nettoyage**
-- ✅ **155 tweaks** réversibles : télémétrie, pubs, Copilot, Recall, bloatwares
+- ✅ **156 tweaks** réversibles : télémétrie, identifiant unique d'appareil GDID & CDP, pubs, Copilot, Recall, bloatwares
 - ✅ **5 profils** prêts à l'emploi (Minimal, Interface épurée, Vie privée, Gamer, Portable)
 - ✅ **Nettoyage mesuré** : pesée des temporaires, caches d'applications (Discord, Spotify, Chrome/Edge), registre orphelin et Shader GPU (NVIDIA/AMD/DirectX)
 
@@ -98,7 +98,7 @@ MadTweak a un grand frère pour l'autre moitié du dual-boot : **[MadOS ROG Edit
 |---|---|
 | **Cible** | Windows 10 (22H2, build 19045) **et** Windows 11 (22H2 → 25H2, builds 22621 → 26200) — édition et build détectés à l'exécution. Les tweaks propres à Windows 11 (menu *Windows 11 24H2+*) se désactivent d'eux-mêmes sur Windows 10. |
 | **Requis** | Droits administrateur (auto-élévation UAC au lancement, pas besoin d'ouvrir un terminal admin) |
-| **Contenu** | Interface graphique thémable · 16 menus console · 155 tweaks · 5 profils · 104 tests d'audit |
+| **Contenu** | Interface graphique thémable · 16 menus console · 156 tweaks · 5 profils · 104 tests d'audit |
 | **Personnalisation** | 6 thèmes d'interface · 7 accents Windows ROG · fonds d'écran « MadTrix » générés à la couleur du thème · clavier RGB ASUS synchronisé sur l'accent |
 
 ## Utilisation depuis les sources
@@ -116,7 +116,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\dist\MadTweak.ps1 -Lan
 ```
 
 > **Bilingue.** L'outil suit la langue d'affichage de Windows — interface, menus, et les
-> 150 titres et explications de tweaks. `-Langue fr|en` force le choix, et un sélecteur
+> 156 titres et explications de tweaks. `-Langue fr|en` force le choix, et un sélecteur
 > dans l'en-tête de la fenêtre le change à la volée. Le projet est écrit en français
 > d'abord : c'est son identité. L'anglais s'ajoute pour être utilisable ailleurs.
 
@@ -127,7 +127,7 @@ est indisponible (Server Core, hôte non-STA) : mieux vaut un menu qu'un échec.
 
 | | Interface | Console (`-Console`) |
 |---|:---:|:---:|
-| Les 155 tweaks, case par case | ✅ | ✅ |
+| Les 156 tweaks, case par case | ✅ | ✅ |
 | Les 5 profils | ✅ | ✅ |
 | Simuler avant d'appliquer | ✅ | ✅ |
 | Edge, OneDrive, blocage Windows Update, VBS | ✅ | ✅ |
@@ -406,7 +406,7 @@ jetable — tu peux le supprimer, `.\build.ps1` le recrée à l'identique.
 |---|---|
 | `00-entete` | `param()`, auto-élévation UAC, en-tête, compteurs de session |
 | `05-langue` | Détection FR/EN, `T 'cle'`, expansion des marqueurs `{{cle}}` du XAML |
-| `06-textes-tweaks` | Traductions anglaises des 155 tweaks (le FR reste à l'appel) |
+| `06-textes-tweaks` | Traductions anglaises des 156 tweaks (le FR reste à l'appel) |
 | `07-textes-audit` | Traductions anglaises des 104 tests d'audit |
 | `10-socle` | Affichage, questions, détection OS/NPU/tâches |
 | `20-sauvegarde` | Sauvegarde et restauration de l'état d'origine |

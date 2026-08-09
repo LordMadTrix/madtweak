@@ -18,7 +18,7 @@
 
 <div align="center">
   <img src="assets/interface.png" alt="The MadTweak interface" width="100%" />
-  <p><sub><i>The interface: profiles, 155 tweaks in tabs with their explanations, and a live log.</i></sub></p>
+  <p><sub><i>The interface: profiles, 156 tweaks in tabs with their explanations, and a live log.</i></sub></p>
 </div>
 
 ---
@@ -26,7 +26,7 @@
 > ### 🌍 Fully bilingual
 >
 > MadTweak follows your Windows display language automatically — interface, menus, and
-> all 150 tweak titles and explanations. Force it with `-Langue en` or `-Langue fr`, or
+> all 156 tweak titles and explanations. Force it with `-Langue en` or `-Langue fr`, or
 > pick a language from the header of the window.
 >
 > The project is written in French first: French speakers are poorly served by this kind

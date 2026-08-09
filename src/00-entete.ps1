@@ -30,7 +30,7 @@ param(
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
     [switch]$Maintenance,
     # Force la langue. Sans ce paramètre, elle suit celle de Windows.
-    # Tout est traduit : interface, profils, onglets, les 155 tweaks et les 104
+    # Tout est traduit : interface, profils, onglets, les 156 tweaks et les 104
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
     [string]$Langue,

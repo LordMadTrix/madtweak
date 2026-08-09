@@ -44,7 +44,7 @@ param(
     # planifiée « MadTweak-Maintenance ». N'ouvre ni interface ni menu.
     [switch]$Maintenance,
     # Force la langue. Sans ce paramètre, elle suit celle de Windows.
-    # Tout est traduit : interface, profils, onglets, les 155 tweaks et les 104
+    # Tout est traduit : interface, profils, onglets, les 156 tweaks et les 104
     # tests d'audit. Le français reste la langue d'écriture du projet et le repli.
     [ValidateSet('fr', 'en')]
     [string]$Langue,
@@ -5658,7 +5658,7 @@ function Menu-Signature {
 # pas concernes.
 #
 # Le fichier n'installe pas les tweaks : au premier démarrage, il APPELLE MadTweak
-# avec un profil. Les 155 tweaks, la sauvegarde et l'annulation exacte continuent
+# avec un profil. Les 156 tweaks, la sauvegarde et l'annulation exacte continuent
 # donc de fonctionner à l'identique — rien n'est dupliqué.
 # ------------------------------------------------------------------------------
 
