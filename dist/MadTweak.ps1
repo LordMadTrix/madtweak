@@ -90,7 +90,7 @@ if (-not $estAdmin) {
 $ErrorActionPreference = 'Stop'
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
-$script:Version = "1.5.1"
+$script:Version = "1.5.2"
 
 
 # Compteurs de la session (remis à zéro à chaque entrée de menu)
@@ -1829,6 +1829,10 @@ function Invoke-Tweak {
                 Explication = $Explication
                 Redemarrage = [bool]$Redemarrage
                 Categorie   = $script:CategorieCourante
+                # Le CORPS du tweak, gardé tel quel. C'est lui qu'Export-ScriptAutonome
+                # recopie dans le script généré. Sans ce champ, l'export interrogeait un
+                # catalogue qui n'existait nulle part et rendait un fichier vide.
+                Action      = $Action
             }
         }
         return
@@ -1978,32 +1982,187 @@ function Invoke-RedemarrageFinal {
     }
 }
 
+# Fonctions que le script généré emporte avec lui. Un tweak qui n'appelle QUE
+# celles-là est exportable tel quel ; tout autre appel maison le rendrait
+# increportable, et on préfère le dire que livrer un script qui plantera.
+$script:FonctionsPortables = @(
+    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Set-RegValue',
+    'Remove-RegValue', 'Remove-RegKey', 'Set-ServiceEtat', 'Invoke-Externe',
+    'Get-ValeurActuelle', 'Get-ValeurLisible'
+)
+
+function Get-PreambuleAutonome {
+    # Versions minimales mais FIDÈLES des portes. Deux différences assumées, écrites
+    # noir sur blanc dans l'en-tête du script généré : pas de sauvegarde (donc pas
+    # d'annulation) et pas de simulation. Hors de MadTweak, ces deux filets n'existent
+    # pas -- prétendre le contraire serait pire que de ne rien générer.
+    return @'
+$ErrorActionPreference = 'Stop'
+
+function Write-Etat {
+    param([string]$Message, [string]$Niveau = 'Info')
+    $c = switch ($Niveau) { 'OK' { 'Green' } 'Echec' { 'Red' } 'Avert' { 'Yellow' } default { 'Gray' } }
+    Write-Host "  $Message" -ForegroundColor $c
+}
+function Write-Simu { param([string]$Message) Write-Host "  [SIMU]  $Message" -ForegroundColor Cyan }
+function T { param([string]$Cle) return $Cle }
+
+function Invoke-Action {
+    param([string]$Description, [scriptblock]$Action)
+    & $Action
+}
+
+function Get-ValeurActuelle {
+    param([string]$Path, [string]$Name)
+    if (-not (Test-Path $Path)) { return $null }
+    try {
+        $i = Get-Item -Path $Path
+        if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
+    } catch { }
+    return $null
+}
+function Get-ValeurLisible {
+    param($Valeur)
+    if ($null -eq $Valeur) { return '(absente)' }
+    if ($Valeur -is [byte[]]) { return "(binaire : $(($Valeur | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))" }
+    return "$Valeur"
+}
+
+function Set-RegValue {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
+    )
+    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -Path $Path -Value $Value -Force }
+    else { Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force }
+}
+function Remove-RegValue {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
+    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+}
+function Remove-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+}
+
+function Set-ServiceEtat {
+    param(
+        [Parameter(Mandatory)][string]$Nom,
+        [ValidateSet('Automatic', 'Manual', 'Disabled')][string]$Demarrage,
+        [switch]$Arreter, [switch]$Demarrer
+    )
+    $svc = Get-Service -Name $Nom -ErrorAction SilentlyContinue
+    if (-not $svc) { throw "Service '$Nom' introuvable sur cette machine." }
+    if ($Arreter) { Stop-Service -Name $Nom -Force -ErrorAction SilentlyContinue }
+    if ($Demarrage) { Set-Service -Name $Nom -StartupType $Demarrage }
+    if ($Demarrer) { Start-Service -Name $Nom -ErrorAction SilentlyContinue }
+}
+
+function Invoke-Externe {
+    param(
+        [Parameter(Mandatory)][string]$Fichier,
+        [string[]]$Arguments = @(),
+        [int[]]$CodesOK = @(0),
+        [switch]$CaptureSortie
+    )
+    if ($CaptureSortie) {
+        try { $sortie = & $Fichier @Arguments 2>&1 | Out-String }
+        catch { return [pscustomobject]@{ CodeSortie = -1; Sortie = ''; Erreur = $_.Exception.Message } }
+        return [pscustomobject]@{ CodeSortie = $LASTEXITCODE; Sortie = $sortie; Erreur = $null }
+    }
+    $p = Start-Process -FilePath $Fichier -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
+    if ($p.ExitCode -notin $CodesOK) {
+        throw "$([System.IO.Path]::GetFileName($Fichier)) a renvoyé le code d'erreur $($p.ExitCode)."
+    }
+}
+'@
+}
+
+function Test-TweakExportable {
+    # Un corps de tweak n'est exportable que s'il n'appelle aucune fonction MAISON
+    # absente du préambule. On le sait en lisant l'arbre syntaxique, pas en devinant :
+    # tout ce qui se résout en « Function » et n'est pas fourni manquerait à l'exécution.
+    # Les applets Windows (Set-ItemProperty, Get-Service...) sont des Cmdlet, donc OK.
+    param([Parameter(Mandatory)][scriptblock]$Action)
+    $noeuds = $Action.Ast.FindAll(
+        { param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)
+    $appels = @($noeuds | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ } | Sort-Object -Unique)
+    return @($appels | Where-Object {
+            $c = Get-Command $_ -ErrorAction SilentlyContinue
+            $c -and $c.CommandType -eq 'Function' -and $_ -notin $script:FonctionsPortables
+        })
+}
+
 function Export-ScriptAutonome {
-    # Génère un script PowerShell .ps1 léger et autonome contenant la sélection de tweaks spécifiée.
+    # Génère un .ps1 autonome contenant la sélection de tweaks demandée.
+    #
+    # L'ancienne version lisait $script:RegistreTweaks -- une variable qui n'a JAMAIS
+    # existé dans le projet. Résultat : une erreur « indexation impossible dans un
+    # tableau Null » par clé demandée, un fichier réduit à son en-tête, et malgré tout
+    # un message vert de réussite. Le catalogue vient maintenant de Get-Inventaire,
+    # c'est-à-dire du code lui-même, comme les cases de l'interface.
     param(
         [Parameter(Mandatory)][string]$CheminSortiePs1,
         [string[]]$ClesTweaks = @()
     )
 
-    $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine("# ==============================================================================")
-    [void]$sb.AppendLine("# SCRIPT D'OPTIMISATION AUTONOME — MADTWEAK GENERATED")
-    [void]$sb.AppendLine("# Exécuter avec les privilèges Administrateur")
-    [void]$sb.AppendLine("# ==============================================================================")
-    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
-    [void]$sb.AppendLine('')
+    $catalogue = @{}
+    foreach ($t in (Get-Inventaire)) { $catalogue[$t.Cle] = $t }
 
-    foreach ($cle in $ClesTweaks) {
-        $tw = $script:RegistreTweaks[$cle]
-        if ($tw -and $tw.BlocAction) {
-            [void]$sb.AppendLine("# --- Tweak : $cle ---")
-            [void]$sb.AppendLine($tw.BlocAction.ToString())
-            [void]$sb.AppendLine('')
-        }
+    $inconnues = @($ClesTweaks | Where-Object { -not $catalogue.ContainsKey($_) })
+    if ($inconnues.Count -gt 0) {
+        # On refuse plutôt que d'écrire un script amputé en silence : une clé fautive
+        # ne se remarquerait qu'au moment où le tweak manquerait à l'appel.
+        throw "Clé(s) de tweak inconnue(s) : $($inconnues -join ', '). Aucun script n'a été écrit."
     }
 
-    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), [System.Text.Encoding]::UTF8)
-    Write-Etat ((T 'script.standalone.export') -f $CheminSortiePs1) -Niveau OK
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('# ==============================================================================')
+    [void]$sb.AppendLine('# SCRIPT D''OPTIMISATION AUTONOME - GENERE PAR MADTWEAK')
+    [void]$sb.AppendLine("# $($ClesTweaks.Count) tweak(s), genere depuis MadTweak $($script:Version)")
+    [void]$sb.AppendLine('#')
+    [void]$sb.AppendLine('# CE QUE CE SCRIPT N''A PAS, contrairement a MadTweak :')
+    [void]$sb.AppendLine('#   - AUCUNE sauvegarde : les valeurs d''origine ne sont pas memorisees,')
+    [void]$sb.AppendLine('#     donc « Annuler » est impossible. Fais un point de restauration avant.')
+    [void]$sb.AppendLine('#   - AUCUN mode simulation : tout s''applique pour de vrai, immediatement.')
+    [void]$sb.AppendLine('# ==============================================================================')
+    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine((Get-PreambuleAutonome))
+    [void]$sb.AppendLine('')
+
+    $exportes = 0
+    $refuses = @()
+    foreach ($cle in $ClesTweaks) {
+        $tw = $catalogue[$cle]
+        if (-not $tw.Action) { $refuses += "$cle (corps absent)"; continue }
+        $manquantes = Test-TweakExportable -Action $tw.Action
+        if ($manquantes.Count -gt 0) {
+            $refuses += "$cle (utilise $($manquantes -join ', '))"
+            [void]$sb.AppendLine("# --- $cle : NON EXPORTE, depend de $($manquantes -join ', ') ---")
+            [void]$sb.AppendLine('')
+            continue
+        }
+        [void]$sb.AppendLine("# --- $cle : $($tw.Titre) ---")
+        [void]$sb.AppendLine('& {')
+        [void]$sb.AppendLine($tw.Action.ToString().Trim())
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('')
+        $exportes++
+    }
+
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine("Write-Host ""  $exportes tweak(s) applique(s)."" -ForegroundColor Green")
+
+    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), (New-Object System.Text.UTF8Encoding $true))
+
+    if ($refuses.Count -gt 0) {
+        Write-Etat "$($refuses.Count) tweak(s) non exportable(s) hors de MadTweak : $($refuses -join ' ; ')" -Niveau Avert
+    }
+    Write-Etat "Script autonome ecrit ($exportes tweak(s)) : $CheminSortiePs1" -Niveau OK
     return $CheminSortiePs1
 }
 
@@ -4246,13 +4405,27 @@ function Menu-Nettoyage {
             -Explication "Supprime les installeurs et fichiers temporaires des mises à jour Windows déjà appliquées." {
             $c = (Get-CiblesNettoyage)["Cache de Windows Update"]
             $svc = Get-Service -Name $c.Service -ErrorAction SilentlyContinue
-            if ($svc -and $svc.Status -eq 'Running') { Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue }
+            # Un BOOLÉEN figé avant l'arrêt, pas $svc.Status relu dans le finally :
+            # cette propriété est un instantané pris à la création de l'objet, et rien
+            # ne garantit qu'elle se rafraîchisse. S'y fier revenait à jouer le
+            # redémarrage de Windows Update à pile ou face.
+            $etaitDemarre = [bool]($svc -and $svc.Status -eq 'Running')
+            if ($etaitDemarre) {
+                # Passe par la porte : sans ça, une SIMULATION arrêtait vraiment le service.
+                Invoke-Action "arrêterait le service $($c.Service) le temps du nettoyage" {
+                    Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue
+                }
+            }
             try {
                 $r = Clear-Contenu -Chemin $c.Chemin
                 Write-Etat "Cache Windows Update nettoyé. $($r.Supprimes) supprimé(s), $($r.Resistants) verrouillé(s)." -Niveau Info
             }
             finally {
-                if ($svc -and $svc.Status -eq 'Running') { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
+                if ($etaitDemarre) {
+                    Invoke-Action "relancerait le service $($c.Service)" {
+                        Start-Service -Name $c.Service -ErrorAction SilentlyContinue
+                    }
+                }
             }
         }
         Invoke-Tweak "Vider les rapports d'erreurs Windows (WER)" -Cle "nettoyage-wer" `
@@ -4280,7 +4453,14 @@ function Menu-Nettoyage {
                 Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
                 Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
                 $r = Clear-Contenu -Chemin $wold
-                Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+                # Le dossier LUI-MÊME passe par la porte, comme son contenu.
+                # Sans ça, la SIMULATION supprimait Windows.old pour de bon : les trois
+                # lignes au-dessus s'annonçaient au conditionnel, et celle-ci détruisait
+                # l'ancienne installation -- documents et bureau de l'ancien profil compris.
+                # Mesuré : 7 fichiers sur 7 effacés pendant que le journal disait « viderait ».
+                Invoke-Action "supprimerait le dossier $wold lui-même" {
+                    Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+                }
                 Write-Etat "Dossier Windows.old supprimé. $($r.Supprimes) supprimé(s), $($r.Resistants) verrouillé(s)." -Niveau Info
             } else {
                 Write-Etat "Dossier Windows.old inexistant : rien à nettoyer." -Niveau Info
@@ -4331,10 +4511,21 @@ function Menu-Nettoyage {
             }
             # Le cache de Windows Update ne peut pas être vidé pendant que le service
             # le tient ouvert : on l'arrête, on nettoie, on le remet comme il était.
-            $svc = $null
+            # Booléen figé plutôt que $svc.Status relu plus bas : voir le commentaire
+            # du tweak nettoyage-update-cache, c'est exactement le même piège.
+            $etaitDemarre = $false
             if ($c.Service) {
                 $svc = Get-Service -Name $c.Service -ErrorAction SilentlyContinue
-                if ($svc -and $svc.Status -eq 'Running') { Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue }
+                $etaitDemarre = [bool]($svc -and $svc.Status -eq 'Running')
+                # La simulation est deja sortie plus haut, donc cette porte ne change
+                # rien ici. On la met quand meme : la regle « aucun arret de service
+                # hors d'une porte » devient ainsi verifiable d'un bloc a l'autre,
+                # et le test qui relit ce module n'a pas besoin de cas particulier.
+                if ($etaitDemarre) {
+                    Invoke-Action "arreterait le service $($c.Service)" {
+                        Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue
+                    }
+                }
             }
             try {
                 $r = Clear-Contenu -Chemin $c.Chemin
@@ -4343,7 +4534,7 @@ function Menu-Nettoyage {
                 Write-Etat "$(Format-Taille $gagne) récupéré(s). $($r.Supprimes) élément(s) supprimé(s), $($r.Resistants) en cours d'utilisation (normal)." -Niveau Info
             }
             finally {
-                if ($svc -and $svc.Status -eq 'Running') { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
+                if ($etaitDemarre) { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
             }
         }.GetNewClosure()
     }
@@ -4361,8 +4552,14 @@ function Menu-Nettoyage {
             Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
             Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
             $r = Clear-Contenu -Chemin $wold
-            Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
-            if (Test-Path $wold) {
+            # Même porte que la version pilotable du tweak (clé nettoyage-windows-old) :
+            # cette ligne-ci détruisait aussi Windows.old en pleine simulation.
+            Invoke-Action "supprimerait le dossier $wold lui-même" {
+                Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            # En simulation le dossier est TOUJOURS encore là, puisqu'on n'a rien supprimé :
+            # sans cette réserve, le contrôle ci-dessous crierait à l'échec à chaque essai.
+            if (-not $script:Simulation -and (Test-Path $wold)) {
                 throw "Windows.old résiste encore ($($r.Resistants) élément(s)). Utilise le Nettoyage de disque de Windows (cleanmgr) : lui seul sait le supprimer entièrement."
             }
             Write-Etat "Windows.old supprimé : $(Format-Taille $t) récupéré(s)." -Niveau Info
@@ -9486,55 +9683,6 @@ function Afficher-Menu-Principal {
 }
 
 # ------------------------------------------------------------------------------
-# INTERFACE GRAPHIQUE (WPF) — HELPER STYLES & TRADUCTIONS
-# ------------------------------------------------------------------------------
-
-function Update-InterfaceGui {
-    # L'équivalent WPF de DoEvents : on laisse le Dispatcher traiter ce qui est en
-    # attente (redessin, log) avant de reprendre.
-    $frame = New-Object System.Windows.Threading.DispatcherFrame
-    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
-        [System.Windows.Threading.DispatcherPriority]::Background,
-        [System.Windows.Threading.DispatcherOperationCallback] { param($f) $f.Continue = $false; return $null },
-        $frame) | Out-Null
-    [System.Windows.Threading.Dispatcher]::PushFrame($frame)
-}
-
-function Get-NomOnglet {
-    # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
-    # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
-    param([Parameter(Mandatory)][string]$Categorie)
-    $en = $script:LangueActive -eq 'en'
-    switch -Wildcard ($Categorie) {
-        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
-        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
-        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
-        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
-        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
-        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
-        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
-        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
-        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
-        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
-        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
-        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
-        default { $Categorie }
-    }
-}
-
-function Get-NomProfil {
-    param([Parameter(Mandatory)][string]$Nom)
-    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
-    return $Nom
-}
-
-function Get-DescriptionProfil {
-    param([Parameter(Mandatory)][string]$Nom)
-    $p = $script:Profils[$Nom]
-    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
-    return $p.Description
-}
-# ------------------------------------------------------------------------------
 # INTERFACE GRAPHIQUE (WPF)
 #
 # Ce module n'est qu'une FAÇADE : il ne contient aucun tweak, aucune connaissance
@@ -12487,6 +12635,55 @@ function Show-Gui {
 
     # La console reprend la main une fois la fenêtre fermée.
     $script:SortieGui = $null
+}
+# ------------------------------------------------------------------------------
+# INTERFACE GRAPHIQUE (WPF) — HELPER STYLES & TRADUCTIONS
+# ------------------------------------------------------------------------------
+
+function Update-InterfaceGui {
+    # L'équivalent WPF de DoEvents : on laisse le Dispatcher traiter ce qui est en
+    # attente (redessin, log) avant de reprendre.
+    $frame = New-Object System.Windows.Threading.DispatcherFrame
+    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.BeginInvoke(
+        [System.Windows.Threading.DispatcherPriority]::Background,
+        [System.Windows.Threading.DispatcherOperationCallback] { param($f) $f.Continue = $false; return $null },
+        $frame) | Out-Null
+    [System.Windows.Threading.Dispatcher]::PushFrame($frame)
+}
+
+function Get-NomOnglet {
+    # Les titres de menu sont écrits pour une console en majuscules : ils sont bien
+    # trop longs pour un onglet. On les raccourcit ici, et seulement pour l'affichage.
+    param([Parameter(Mandatory)][string]$Categorie)
+    $en = $script:LangueActive -eq 'en'
+    switch -Wildcard ($Categorie) {
+        "TWEAKS DE BASE*" { if ($en) { "Basics" } else { "Base" } }
+        "TWEAKS AVANCÉS*" { if ($en) { "Advanced" } else { "Avancés" } }
+        "EXPLORATEUR*" { if ($en) { "Privacy" } else { "Vie privée" } }
+        "OPTIMISATION DU MATÉRIEL*" { if ($en) { "Hardware & Network" } else { "Matériel & Réseau" } }
+        "SÉCURITÉ & IA*" { if ($en) { "Security & AI" } else { "Sécurité & IA" } }
+        "NOUVEAUTÉS WINDOWS 11*" { if ($en) { "Windows 11" } else { "Windows 11" } }
+        "APPARENCE*" { if ($en) { "Appearance" } else { "Apparence" } }
+        "DÉMARRAGE*" { if ($en) { "Startup & Services" } else { "Démarrage & Services" } }
+        "CONFIGURATION SÉCURITÉ*" { if ($en) { "Updates & Security" } else { "Mises à jour & Sécurité" } }
+        "LOGICIELS EXPRESS*" { if ($en) { "Software (winget)" } else { "Logiciels (winget)" } }
+        "OUTILS DE DIAGNOSTIC*" { if ($en) { "Maintenance" } else { "Maintenance" } }
+        "NETTOYAGE DU DISQUE*" { if ($en) { "Cleanup" } else { "Nettoyage" } }
+        default { $Categorie }
+    }
+}
+
+function Get-NomProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    if ($script:LangueActive -eq 'en' -and $script:Profils[$Nom].Nom_en) { return $script:Profils[$Nom].Nom_en }
+    return $Nom
+}
+
+function Get-DescriptionProfil {
+    param([Parameter(Mandatory)][string]$Nom)
+    $p = $script:Profils[$Nom]
+    if ($script:LangueActive -eq 'en' -and $p.Description_en) { return $p.Description_en }
+    return $p.Description
 }
 # ------------------------------------------------------------------------------
 # LANCEMENT
