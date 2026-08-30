@@ -178,6 +178,28 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         # Telechargements, DISM /resetbase irreversible, purge d'historiques.
         $script:Simulation = $true
         $script:SimuCompteur = 0
+
+        # INVENTAIRE REEL, pour que le test d'export porte sur de vrais tweaks.
+        # Il faut TOUS les menus : Invoke-TousLesMenus les parcourt un par un.
+        $script:SansQuestion = $true
+        foreach ($m in (Get-ChildItem (Join-Path $global:srcDir "*.ps1") | Sort-Object Name)) {
+            if ($m.Name -eq "99-lancement.ps1") { continue }
+            . $m.FullName
+        }
+
+        # APRES le chargement, jamais avant : 20-sauvegarde.ps1 pose
+        # « $script:DossierDonnees = $null » en s'initialisant, ce qui ecrasait la
+        # valeur si on la mettait en tete. 55-menu-logiciels echouait alors sur un
+        # Join-Path a valeur nulle des l'ouverture du menu.
+        # Le dossier pointe vers TEMP : la suite ne doit toucher ni aux vraies
+        # sauvegardes MadTweak, ni a la liste d'applications de qui la lance.
+        $script:DossierDonnees = Join-Path $env:TEMP "madtweak-tests"
+        if (-not (Test-Path $script:DossierDonnees)) {
+            New-Item -ItemType Directory -Path $script:DossierDonnees -Force | Out-Null
+        }
+        # Recharger 30-* remet la simulation a plat ; on la retablit avant tout appel.
+        $script:Simulation = $true
+        $global:inventaire = @(Get-Inventaire)
     }
 
     It "Get-AnalyseCachesApplications doit exécuter une pesée sans lever d'exception" {
@@ -207,11 +229,31 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
     }
 
     It "Export-ScriptAutonome doit générer un fichier script PS1 valide" {
+        # Ce test appelait la fonction avec -ClesTweaks @(), un tableau VIDE.
+        # La boucle d'export ne s'executait donc jamais, et le test passait au vert
+        # alors que la fonction lisait $script:RegistreTweaks -- une variable qui
+        # n'a jamais existe nulle part. Une erreur rouge par cle demandee, un fichier
+        # reduit a son en-tete, et un message de reussite par-dessus.
+        # On exporte desormais de VRAIS tweaks, et on verifie qu'ils y sont.
         . (Join-Path $global:srcDir "30-simulation-et-tweaks.ps1")
         $tmpPs1 = Join-Path $env:TEMP "test-standalone.ps1"
         if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
-        Export-ScriptAutonome -CheminSortiePs1 $tmpPs1 -ClesTweaks @() | Out-Null
+
+        $cles = @($global:inventaire | Where-Object { $_.Action } | Select-Object -First 3 -ExpandProperty Cle)
+        $cles.Count | Should -BeGreaterThan 0
+        Export-ScriptAutonome -CheminSortiePs1 $tmpPs1 -ClesTweaks $cles | Out-Null
         (Test-Path $tmpPs1) | Should -Be $true
+
+        # Un bloc par tweak demande, pas seulement l'en-tete.
+        $contenu = Get-Content $tmpPs1 -Raw
+        foreach ($c in $cles) { $contenu | Should -Match ([regex]::Escape("# --- $c")) }
+
+        # Et le fichier doit s'analyser : un script genere qui ne se parse pas ne sert a rien.
+        $err = $null; $tok = $null
+        [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path $tmpPs1), [ref]$tok, [ref]$err) | Out-Null
+        $err | Should -BeNullOrEmpty
+
         if (Test-Path $tmpPs1) { Remove-Item $tmpPs1 -Force }
     }
 
@@ -343,5 +385,100 @@ Describe "Image système de référence" {
         $res.Succes | Should -Be $false
         $res.Etapes.Count | Should -BeLessOrEqual 2
         ($res.Etapes | Where-Object { $_.Succes -eq $false }).Count | Should -BeGreaterThan 0
+    }
+}
+
+# ==============================================================================
+# LE FILET DE LA SIMULATION
+#
+# La promesse affichee en fin de menu est « Rien n'a ete ecrit ». Elle reposait
+# sur une regle de discipline -- toute modification passe par Set-RegValue,
+# Remove-RegValue, Remove-RegKey, Invoke-Externe ou Invoke-Action -- que RIEN
+# ne verifiait. Une seule ligne l'a enfreinte et la simulation a supprime
+# Windows.old pour de bon : mesure, 7 fichiers sur 7 detruits pendant que le
+# journal annoncait « viderait ». Windows.old, c'est l'ancienne installation,
+# avec les documents et le bureau de l'ancien profil.
+#
+# Ces tests transforment la discipline en contrainte verifiee.
+# ==============================================================================
+Describe "Simulation : rien ne doit etre ecrit" {
+    BeforeAll {
+        . (Join-Path $global:srcDir "30-simulation-et-tweaks.ps1")
+        . (Join-Path $global:srcDir "59-menu-nettoyage.ps1")
+        function Write-Etat { param($Message, $Niveau) }
+        $script:Simulation = $true
+    }
+
+    It "Clear-Contenu ne doit supprimer aucun fichier en simulation" {
+        $bac = Join-Path $env:TEMP "madtweak-test-simu-contenu"
+        if (Test-Path $bac) { Remove-Item $bac -Recurse -Force }
+        New-Item -ItemType Directory -Path $bac -Force | Out-Null
+        1..5 | ForEach-Object { Set-Content (Join-Path $bac "f$_.txt") "contenu" }
+
+        $script:Simulation = $true
+        Clear-Contenu -Chemin $bac | Out-Null
+
+        @(Get-ChildItem $bac -File).Count | Should -Be 5
+        Remove-Item $bac -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It "Le corps du tweak Windows.old ne doit rien detruire en simulation" {
+        # Reproduit la sequence exacte du tweak nettoyage-windows-old sur un faux
+        # dossier. C'est la derniere etape -- la suppression du dossier lui-meme --
+        # qui echappait a toute porte.
+        $bac = Join-Path $env:TEMP "madtweak-test-simu-wold"
+        if (Test-Path $bac) { Remove-Item $bac -Recurse -Force }
+        $wold = Join-Path $bac "Windows.old"
+        New-Item -ItemType Directory -Path (Join-Path $wold "Users\Documents") -Force | Out-Null
+        1..7 | ForEach-Object { Set-Content (Join-Path $wold "Users\Documents\doc$_.txt") "precieux" }
+
+        $script:Simulation = $true
+        Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
+        Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
+        Clear-Contenu -Chemin $wold | Out-Null
+        Invoke-Action "supprimerait le dossier $wold lui-meme" {
+            Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+        }
+
+        (Test-Path $wold) | Should -Be $true
+        @(Get-ChildItem $wold -Recurse -File).Count | Should -Be 7
+        Remove-Item $bac -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    It "Aucune suppression de dossier ne doit contourner les portes dans 59-menu-nettoyage" {
+        # Contrainte STRUCTURELLE, pas un cas particulier : on relit le module et on
+        # exige que chaque Remove-Item soit sous une porte. Un futur tweak qui
+        # supprimerait un dossier en direct fera echouer ce test, meme si personne
+        # ne pense a ecrire le cas de test correspondant.
+        $chemin = Join-Path $global:srcDir "59-menu-nettoyage.ps1"
+        $err = $null; $tok = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile($chemin, [ref]$tok, [ref]$err)
+        $err | Should -BeNullOrEmpty
+
+        $suppressions = $ast.FindAll({
+                param($n)
+                $n -is [System.Management.Automation.Language.CommandAst] -and
+                $n.GetCommandName() -in @('Remove-Item', 'Remove-ItemProperty', 'Stop-Service')
+            }, $true)
+        $suppressions.Count | Should -BeGreaterThan 0
+
+        $nonProtegees = @()
+        foreach ($s in $suppressions) {
+            # On remonte les parents : la commande doit se trouver soit dans un bloc
+            # passe a Invoke-Action, soit dans une fonction qui traite elle-meme la
+            # simulation (Clear-Contenu le fait, et c'est documente chez elle).
+            $p = $s.Parent; $protegee = $false
+            while ($p) {
+                if ($p -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+                    $p.Name -in @('Clear-Contenu')) { $protegee = $true; break }
+                if ($p -is [System.Management.Automation.Language.CommandAst] -and
+                    $p.GetCommandName() -eq 'Invoke-Action') { $protegee = $true; break }
+                $p = $p.Parent
+            }
+            if (-not $protegee) {
+                $nonProtegees += "ligne $($s.Extent.StartLineNumber) : $($s.GetCommandName())"
+            }
+        }
+        $nonProtegees -join ' | ' | Should -Be ''
     }
 }
