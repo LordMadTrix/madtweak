@@ -5,6 +5,9 @@
 # Le bouton n'apparaît qu'une fois GitHub Sponsors activé sur le compte :
 # https://github.com/sponsors  (vérification d'identité + coordonnées bancaires)
 github: [LordMadTrix]
+# Patreon passe par « custom » et non par la cle « patreon » : cette derniere
+# construit patreon.com/<nom> et perdrait le segment /cw/ de l'adresse reelle.
+custom: ["https://www.patreon.com/cw/LordMad"]
 
 # Décommente la ligne qui te concerne si tu ouvres un compte ailleurs :
 # ko_fi: lordmadtrix
