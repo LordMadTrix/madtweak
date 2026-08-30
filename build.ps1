@@ -37,7 +37,27 @@ if (-not (Test-Path $src)) { throw "Dossier src\ introuvable dans $racine." }
 # L'ordre vient du NOM des fichiers (00-, 10-, 20-...). C'est volontaire : le
 # socle doit être présent avant les menus qui s'en servent, et le lancement en
 # dernier. Renommer un module suffit donc à le déplacer dans le fichier final.
-$modules = @(Get-ChildItem -Path $src -Filter "*.ps1" | Sort-Object Name)
+#
+# Tri ORDINAL, et surtout PAS « Sort-Object Name » : cette applet compare selon
+# la CULTURE, et le résultat change d'un interpréteur à l'autre. Mesuré sur la
+# même machine, même dossier, même culture (fr-BE) :
+#
+#   Windows PowerShell 5.1 -> 95a-gui-styles.ps1 PUIS 95-gui.ps1   (tiret ignoré)
+#   PowerShell 7.6         -> 95-gui.ps1 PUIS 95a-gui-styles.ps1   (tiret = 0x2D)
+#
+# La construction n'était donc pas reproductible, et « -Verifier » rendait des
+# verdicts contradictoires : la CI (5.1) disait « à jour » pendant qu'un
+# contributeur en PowerShell 7 lisait « obsolète » ; il reconstruisait, et le
+# verdict s'inversait. Partie de ping-pong sans fin, sans qu'aucun des deux
+# n'ait tort. Ordinal compare octet par octet : même ordre partout, toujours.
+# Le cast [string[]] n'est PAS décoratif. Sur un System.Object[] -- ce que rend
+# un pipeline PowerShell, même quand chaque élément est bien un System.String --
+# Windows PowerShell 5.1 ignore le comparateur ordinal et retombe sur la
+# comparaison culturelle. Mesuré : sans le cast, 5.1 remettait 95a AVANT 95 et
+# la correction ne servait à rien. Avec un tableau réellement typé, il l'applique.
+$noms = [string[]]@(Get-ChildItem -Path $src -Filter "*.ps1" | Select-Object -ExpandProperty Name)
+[Array]::Sort($noms, [System.StringComparer]::Ordinal)
+$modules = @($noms | ForEach-Object { Get-Item -LiteralPath (Join-Path $src $_) })
 if ($modules.Count -eq 0) { throw "Aucun module .ps1 dans $src." }
 
 # Contrôle d'ordre : 00-entete doit être le premier (il porte param() et

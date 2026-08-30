@@ -120,13 +120,27 @@ function Menu-Nettoyage {
             -Explication "Supprime les installeurs et fichiers temporaires des mises à jour Windows déjà appliquées." {
             $c = (Get-CiblesNettoyage)["Cache de Windows Update"]
             $svc = Get-Service -Name $c.Service -ErrorAction SilentlyContinue
-            if ($svc -and $svc.Status -eq 'Running') { Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue }
+            # Un BOOLÉEN figé avant l'arrêt, pas $svc.Status relu dans le finally :
+            # cette propriété est un instantané pris à la création de l'objet, et rien
+            # ne garantit qu'elle se rafraîchisse. S'y fier revenait à jouer le
+            # redémarrage de Windows Update à pile ou face.
+            $etaitDemarre = [bool]($svc -and $svc.Status -eq 'Running')
+            if ($etaitDemarre) {
+                # Passe par la porte : sans ça, une SIMULATION arrêtait vraiment le service.
+                Invoke-Action "arrêterait le service $($c.Service) le temps du nettoyage" {
+                    Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue
+                }
+            }
             try {
                 $r = Clear-Contenu -Chemin $c.Chemin
                 Write-Etat "Cache Windows Update nettoyé. $($r.Supprimes) supprimé(s), $($r.Resistants) verrouillé(s)." -Niveau Info
             }
             finally {
-                if ($svc -and $svc.Status -eq 'Running') { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
+                if ($etaitDemarre) {
+                    Invoke-Action "relancerait le service $($c.Service)" {
+                        Start-Service -Name $c.Service -ErrorAction SilentlyContinue
+                    }
+                }
             }
         }
         Invoke-Tweak "Vider les rapports d'erreurs Windows (WER)" -Cle "nettoyage-wer" `
@@ -154,7 +168,14 @@ function Menu-Nettoyage {
                 Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
                 Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
                 $r = Clear-Contenu -Chemin $wold
-                Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+                # Le dossier LUI-MÊME passe par la porte, comme son contenu.
+                # Sans ça, la SIMULATION supprimait Windows.old pour de bon : les trois
+                # lignes au-dessus s'annonçaient au conditionnel, et celle-ci détruisait
+                # l'ancienne installation -- documents et bureau de l'ancien profil compris.
+                # Mesuré : 7 fichiers sur 7 effacés pendant que le journal disait « viderait ».
+                Invoke-Action "supprimerait le dossier $wold lui-même" {
+                    Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+                }
                 Write-Etat "Dossier Windows.old supprimé. $($r.Supprimes) supprimé(s), $($r.Resistants) verrouillé(s)." -Niveau Info
             } else {
                 Write-Etat "Dossier Windows.old inexistant : rien à nettoyer." -Niveau Info
@@ -205,10 +226,21 @@ function Menu-Nettoyage {
             }
             # Le cache de Windows Update ne peut pas être vidé pendant que le service
             # le tient ouvert : on l'arrête, on nettoie, on le remet comme il était.
-            $svc = $null
+            # Booléen figé plutôt que $svc.Status relu plus bas : voir le commentaire
+            # du tweak nettoyage-update-cache, c'est exactement le même piège.
+            $etaitDemarre = $false
             if ($c.Service) {
                 $svc = Get-Service -Name $c.Service -ErrorAction SilentlyContinue
-                if ($svc -and $svc.Status -eq 'Running') { Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue }
+                $etaitDemarre = [bool]($svc -and $svc.Status -eq 'Running')
+                # La simulation est deja sortie plus haut, donc cette porte ne change
+                # rien ici. On la met quand meme : la regle « aucun arret de service
+                # hors d'une porte » devient ainsi verifiable d'un bloc a l'autre,
+                # et le test qui relit ce module n'a pas besoin de cas particulier.
+                if ($etaitDemarre) {
+                    Invoke-Action "arreterait le service $($c.Service)" {
+                        Stop-Service -Name $c.Service -Force -ErrorAction SilentlyContinue
+                    }
+                }
             }
             try {
                 $r = Clear-Contenu -Chemin $c.Chemin
@@ -217,7 +249,7 @@ function Menu-Nettoyage {
                 Write-Etat "$(Format-Taille $gagne) récupéré(s). $($r.Supprimes) élément(s) supprimé(s), $($r.Resistants) en cours d'utilisation (normal)." -Niveau Info
             }
             finally {
-                if ($svc -and $svc.Status -eq 'Running') { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
+                if ($etaitDemarre) { Start-Service -Name $c.Service -ErrorAction SilentlyContinue }
             }
         }.GetNewClosure()
     }
@@ -235,8 +267,14 @@ function Menu-Nettoyage {
             Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
             Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
             $r = Clear-Contenu -Chemin $wold
-            Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
-            if (Test-Path $wold) {
+            # Même porte que la version pilotable du tweak (clé nettoyage-windows-old) :
+            # cette ligne-ci détruisait aussi Windows.old en pleine simulation.
+            Invoke-Action "supprimerait le dossier $wold lui-même" {
+                Remove-Item -Path $wold -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            # En simulation le dossier est TOUJOURS encore là, puisqu'on n'a rien supprimé :
+            # sans cette réserve, le contrôle ci-dessous crierait à l'échec à chaque essai.
+            if (-not $script:Simulation -and (Test-Path $wold)) {
                 throw "Windows.old résiste encore ($($r.Resistants) élément(s)). Utilise le Nettoyage de disque de Windows (cleanmgr) : lui seul sait le supprimer entièrement."
             }
             Write-Etat "Windows.old supprimé : $(Format-Taille $t) récupéré(s)." -Niveau Info

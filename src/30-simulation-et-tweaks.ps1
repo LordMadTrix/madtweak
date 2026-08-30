@@ -221,6 +221,10 @@ function Invoke-Tweak {
                 Explication = $Explication
                 Redemarrage = [bool]$Redemarrage
                 Categorie   = $script:CategorieCourante
+                # Le CORPS du tweak, gardé tel quel. C'est lui qu'Export-ScriptAutonome
+                # recopie dans le script généré. Sans ce champ, l'export interrogeait un
+                # catalogue qui n'existait nulle part et rendait un fichier vide.
+                Action      = $Action
             }
         }
         return
@@ -370,32 +374,187 @@ function Invoke-RedemarrageFinal {
     }
 }
 
+# Fonctions que le script généré emporte avec lui. Un tweak qui n'appelle QUE
+# celles-là est exportable tel quel ; tout autre appel maison le rendrait
+# increportable, et on préfère le dire que livrer un script qui plantera.
+$script:FonctionsPortables = @(
+    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Set-RegValue',
+    'Remove-RegValue', 'Remove-RegKey', 'Set-ServiceEtat', 'Invoke-Externe',
+    'Get-ValeurActuelle', 'Get-ValeurLisible'
+)
+
+function Get-PreambuleAutonome {
+    # Versions minimales mais FIDÈLES des portes. Deux différences assumées, écrites
+    # noir sur blanc dans l'en-tête du script généré : pas de sauvegarde (donc pas
+    # d'annulation) et pas de simulation. Hors de MadTweak, ces deux filets n'existent
+    # pas -- prétendre le contraire serait pire que de ne rien générer.
+    return @'
+$ErrorActionPreference = 'Stop'
+
+function Write-Etat {
+    param([string]$Message, [string]$Niveau = 'Info')
+    $c = switch ($Niveau) { 'OK' { 'Green' } 'Echec' { 'Red' } 'Avert' { 'Yellow' } default { 'Gray' } }
+    Write-Host "  $Message" -ForegroundColor $c
+}
+function Write-Simu { param([string]$Message) Write-Host "  [SIMU]  $Message" -ForegroundColor Cyan }
+function T { param([string]$Cle) return $Cle }
+
+function Invoke-Action {
+    param([string]$Description, [scriptblock]$Action)
+    & $Action
+}
+
+function Get-ValeurActuelle {
+    param([string]$Path, [string]$Name)
+    if (-not (Test-Path $Path)) { return $null }
+    try {
+        $i = Get-Item -Path $Path
+        if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
+    } catch { }
+    return $null
+}
+function Get-ValeurLisible {
+    param($Valeur)
+    if ($null -eq $Valeur) { return '(absente)' }
+    if ($Valeur -is [byte[]]) { return "(binaire : $(($Valeur | ForEach-Object { '{0:X2}' -f $_ }) -join ' '))" }
+    return "$Valeur"
+}
+
+function Set-RegValue {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)]$Value,
+        [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
+    )
+    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -Path $Path -Value $Value -Force }
+    else { Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force }
+}
+function Remove-RegValue {
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
+    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+}
+function Remove-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+}
+
+function Set-ServiceEtat {
+    param(
+        [Parameter(Mandatory)][string]$Nom,
+        [ValidateSet('Automatic', 'Manual', 'Disabled')][string]$Demarrage,
+        [switch]$Arreter, [switch]$Demarrer
+    )
+    $svc = Get-Service -Name $Nom -ErrorAction SilentlyContinue
+    if (-not $svc) { throw "Service '$Nom' introuvable sur cette machine." }
+    if ($Arreter) { Stop-Service -Name $Nom -Force -ErrorAction SilentlyContinue }
+    if ($Demarrage) { Set-Service -Name $Nom -StartupType $Demarrage }
+    if ($Demarrer) { Start-Service -Name $Nom -ErrorAction SilentlyContinue }
+}
+
+function Invoke-Externe {
+    param(
+        [Parameter(Mandatory)][string]$Fichier,
+        [string[]]$Arguments = @(),
+        [int[]]$CodesOK = @(0),
+        [switch]$CaptureSortie
+    )
+    if ($CaptureSortie) {
+        try { $sortie = & $Fichier @Arguments 2>&1 | Out-String }
+        catch { return [pscustomobject]@{ CodeSortie = -1; Sortie = ''; Erreur = $_.Exception.Message } }
+        return [pscustomobject]@{ CodeSortie = $LASTEXITCODE; Sortie = $sortie; Erreur = $null }
+    }
+    $p = Start-Process -FilePath $Fichier -ArgumentList $Arguments -Wait -NoNewWindow -PassThru
+    if ($p.ExitCode -notin $CodesOK) {
+        throw "$([System.IO.Path]::GetFileName($Fichier)) a renvoyé le code d'erreur $($p.ExitCode)."
+    }
+}
+'@
+}
+
+function Test-TweakExportable {
+    # Un corps de tweak n'est exportable que s'il n'appelle aucune fonction MAISON
+    # absente du préambule. On le sait en lisant l'arbre syntaxique, pas en devinant :
+    # tout ce qui se résout en « Function » et n'est pas fourni manquerait à l'exécution.
+    # Les applets Windows (Set-ItemProperty, Get-Service...) sont des Cmdlet, donc OK.
+    param([Parameter(Mandatory)][scriptblock]$Action)
+    $noeuds = $Action.Ast.FindAll(
+        { param($n) $n -is [System.Management.Automation.Language.CommandAst] }, $true)
+    $appels = @($noeuds | ForEach-Object { $_.GetCommandName() } | Where-Object { $_ } | Sort-Object -Unique)
+    return @($appels | Where-Object {
+            $c = Get-Command $_ -ErrorAction SilentlyContinue
+            $c -and $c.CommandType -eq 'Function' -and $_ -notin $script:FonctionsPortables
+        })
+}
+
 function Export-ScriptAutonome {
-    # Génère un script PowerShell .ps1 léger et autonome contenant la sélection de tweaks spécifiée.
+    # Génère un .ps1 autonome contenant la sélection de tweaks demandée.
+    #
+    # L'ancienne version lisait $script:RegistreTweaks -- une variable qui n'a JAMAIS
+    # existé dans le projet. Résultat : une erreur « indexation impossible dans un
+    # tableau Null » par clé demandée, un fichier réduit à son en-tête, et malgré tout
+    # un message vert de réussite. Le catalogue vient maintenant de Get-Inventaire,
+    # c'est-à-dire du code lui-même, comme les cases de l'interface.
     param(
         [Parameter(Mandatory)][string]$CheminSortiePs1,
         [string[]]$ClesTweaks = @()
     )
 
-    $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine("# ==============================================================================")
-    [void]$sb.AppendLine("# SCRIPT D'OPTIMISATION AUTONOME — MADTWEAK GENERATED")
-    [void]$sb.AppendLine("# Exécuter avec les privilèges Administrateur")
-    [void]$sb.AppendLine("# ==============================================================================")
-    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
-    [void]$sb.AppendLine('')
+    $catalogue = @{}
+    foreach ($t in (Get-Inventaire)) { $catalogue[$t.Cle] = $t }
 
-    foreach ($cle in $ClesTweaks) {
-        $tw = $script:RegistreTweaks[$cle]
-        if ($tw -and $tw.BlocAction) {
-            [void]$sb.AppendLine("# --- Tweak : $cle ---")
-            [void]$sb.AppendLine($tw.BlocAction.ToString())
-            [void]$sb.AppendLine('')
-        }
+    $inconnues = @($ClesTweaks | Where-Object { -not $catalogue.ContainsKey($_) })
+    if ($inconnues.Count -gt 0) {
+        # On refuse plutôt que d'écrire un script amputé en silence : une clé fautive
+        # ne se remarquerait qu'au moment où le tweak manquerait à l'appel.
+        throw "Clé(s) de tweak inconnue(s) : $($inconnues -join ', '). Aucun script n'a été écrit."
     }
 
-    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), [System.Text.Encoding]::UTF8)
-    Write-Etat ((T 'script.standalone.export') -f $CheminSortiePs1) -Niveau OK
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('# ==============================================================================')
+    [void]$sb.AppendLine('# SCRIPT D''OPTIMISATION AUTONOME - GENERE PAR MADTWEAK')
+    [void]$sb.AppendLine("# $($ClesTweaks.Count) tweak(s), genere depuis MadTweak $($script:Version)")
+    [void]$sb.AppendLine('#')
+    [void]$sb.AppendLine('# CE QUE CE SCRIPT N''A PAS, contrairement a MadTweak :')
+    [void]$sb.AppendLine('#   - AUCUNE sauvegarde : les valeurs d''origine ne sont pas memorisees,')
+    [void]$sb.AppendLine('#     donc « Annuler » est impossible. Fais un point de restauration avant.')
+    [void]$sb.AppendLine('#   - AUCUN mode simulation : tout s''applique pour de vrai, immediatement.')
+    [void]$sb.AppendLine('# ==============================================================================')
+    [void]$sb.AppendLine('#Requires -RunAsAdministrator')
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine((Get-PreambuleAutonome))
+    [void]$sb.AppendLine('')
+
+    $exportes = 0
+    $refuses = @()
+    foreach ($cle in $ClesTweaks) {
+        $tw = $catalogue[$cle]
+        if (-not $tw.Action) { $refuses += "$cle (corps absent)"; continue }
+        $manquantes = Test-TweakExportable -Action $tw.Action
+        if ($manquantes.Count -gt 0) {
+            $refuses += "$cle (utilise $($manquantes -join ', '))"
+            [void]$sb.AppendLine("# --- $cle : NON EXPORTE, depend de $($manquantes -join ', ') ---")
+            [void]$sb.AppendLine('')
+            continue
+        }
+        [void]$sb.AppendLine("# --- $cle : $($tw.Titre) ---")
+        [void]$sb.AppendLine('& {')
+        [void]$sb.AppendLine($tw.Action.ToString().Trim())
+        [void]$sb.AppendLine('}')
+        [void]$sb.AppendLine('')
+        $exportes++
+    }
+
+    [void]$sb.AppendLine('Write-Host ""')
+    [void]$sb.AppendLine("Write-Host ""  $exportes tweak(s) applique(s)."" -ForegroundColor Green")
+
+    [System.IO.File]::WriteAllText($CheminSortiePs1, $sb.ToString(), (New-Object System.Text.UTF8Encoding $true))
+
+    if ($refuses.Count -gt 0) {
+        Write-Etat "$($refuses.Count) tweak(s) non exportable(s) hors de MadTweak : $($refuses -join ' ; ')" -Niveau Avert
+    }
+    Write-Etat "Script autonome ecrit ($exportes tweak(s)) : $CheminSortiePs1" -Niveau OK
     return $CheminSortiePs1
 }
 

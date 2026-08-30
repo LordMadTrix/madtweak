@@ -100,9 +100,14 @@ jobs:
           if ($ecart -eq 0) {
             Write-Host "La release sert exactement le fichier construit."
           }
-          elseif ($pct -ge 2) {
-            Write-Host "::warning::La release $($r.tagName) est en retard de $ecart octets ($pct %) sur dist\MadTweak.ps1. Le bouton Telecharger des sites sert donc une version anterieure - publie une nouvelle release."
-          }
           else {
-            Write-Host "::notice::Ecart mineur de $ecart octets ($pct %) entre dist et la release $($r.tagName)."
+            # TOUT ecart compte, sans seuil. L'ancien plancher de 2 % partait de l'idee
+            # qu'un petit ecart etait anodin ; c'est faux, la taille ne mesure pas
+            # l'importance. Constate : la release v1.5.1 (2 aout) ne contenait pas le
+            # tweak de confidentialite GDID committe le 9 aout. Ecart : 2551 octets,
+            # soit 0,34 % -- sous le seuil, donc annonce comme « ecart mineur », pendant
+            # que le site annoncait 156 tweaks et que le telechargement en servait 155.
+            # dist ne bouge que quand le code bouge : un ecart non nul est toujours un
+            # retard de la release, jamais du bruit.
+            Write-Host "::warning::La release $($r.tagName) est en retard de $ecart octets ($pct %) sur dist\MadTweak.ps1. Le bouton Telecharger des sites sert donc une version anterieure - publie une nouvelle release."
           }
