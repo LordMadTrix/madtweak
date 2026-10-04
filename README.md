@@ -153,6 +153,18 @@ L'en-tête de l'interface expose trois sélecteurs, appliqués immédiatement :
 - **Onglet « Matériel »** — regroupe des **capteurs en direct** (température et charge du GPU via `nvidia-smi`, vitesse des ventilateurs CPU/GPU via l'ACPI ASUS, rafraîchis toutes les 2,5 s ; la température des cœurs CPU n'est pas affichée, Windows ne l'exposant pas sans pilote dédié), le **mode d'alimentation Windows** (Économie / Équilibré / Performances, via `PowerSetActiveOverlayScheme` — natif, agit sur le boost et l'EPP du CPU) et, **si un clavier ASUS ROG compatible répond** (`Test-ClavierAura`), les réglages du **clavier RGB** : effet (statique, respiration, stroboscope, arc-en-ciel), couleur, vitesse et **luminosité** (curseur 0-100 %). La luminosité clavier agit en **atténuant la couleur envoyée** (la commande de niveau du firmware étant ignorée sur ce matériel). La section clavier n'apparaît que si le matériel est présent — l'interface s'adapte, comme le sous-titre OS lu à chaud. Le **Turbo ASUS** (ventilateurs + TDP) reste hors de portée : voir *Limites connues*.
 - **Luminosité de l'écran** — un **curseur 0-100 %** dans l'en-tête règle la luminosité du panneau via `WmiMonitorBrightnessMethods` (natif Windows, fiable, sans pilote tiers). Masqué automatiquement si l'écran n'est pas pilotable (poste fixe).
 - **Fond d'écran & Texte personnalisé (bouton ✏️)** — génère un fond « MadTrix » vectoriel **à la couleur du thème choisi** et l'applique à ta résolution réelle. Le bouton **✏️** dans l'en-tête permet de **personnaliser le texte complet** affiché au centre (Titre principal, Sous-titre, Tagline/devise) avec redimensionnement automatique selon la longueur. Mémorisé d'une session à l'autre.
+  - **Effets et caractères** (même fenêtre ✏️, aussi dans le menu console `10` → `6`) :
+
+    | Réglage | Choix |
+    |---|---|
+    | Police du titre | Segoe UI Black, Impact, Arial Black, Bahnschrift, Consolas, Courier New, Georgia, Segoe Script — chaque police s'affiche dans sa propre police |
+    | Halo néon | Aucun, Doux, Normal, Intense |
+    | Couleur du titre | Blanc, Couleur du thème, Dégradé |
+    | Caractères de la pluie | Katakana (Matrix), Binaire 0/1, Hexadécimal, Lettres et chiffres, Blocs et symboles, **Perso** (tes propres caractères, émojis compris, 64 max) |
+    | Effet glitch | Décalage RVB cyan/magenta + tranches horizontales |
+    | Lignes de balayage | Trame façon écran CRT par-dessus tout le fond |
+
+    Seules des polices livrées avec Windows 10 **et** 11 sont proposées : une police absente serait remplacée en silence par WPF, et le rendu ne serait pas celui annoncé.
 - **Couleur des dossiers (Menu contextuel)** — dans l'onglet **Apparence** (ou menu console `9`), active un sous-menu « Couleur du dossier » sur les dossiers et « Couleur de ce dossier » dans l'espace vide d'un dossier ouvert. Permet d'attribuer instantanément une couleur distinctive (Rouge ROG, Bleu, Cyan Cyber, Vert Émeraude, Jaune Or, Orange, Violet Néon, Rose Néon, Gris Sombre) ou de restaurer l'icône par défaut, avec 10 icônes vectorielles multi-résolutions générées dynamiquement.
 
 ### Piloter et vérifier depuis l'interface

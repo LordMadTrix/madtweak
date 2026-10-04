@@ -2234,7 +2234,7 @@ function Show-Gui {
         if ($script:GuiOccupe) { return }
         $win = New-Object System.Windows.Window
         $win.Title = (T 'dlg.fond.texte.titre')
-        $win.Width = 490; $win.Height = 360
+        $win.Width = 520; $win.Height = 680
         $win.WindowStartupLocation = 'CenterOwner'
         $win.Owner = $script:GuiFenetre
         $win.Resources = $script:GuiFenetre.Resources
@@ -2243,7 +2243,7 @@ function Show-Gui {
 
         $grille = New-Object System.Windows.Controls.Grid
         $grille.Margin = "16"
-        foreach ($h in 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', '*', 'Auto') {
+        foreach ($h in 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', '*', 'Auto') {
             $rd = New-Object System.Windows.Controls.RowDefinition; $rd.Height = $h
             $grille.RowDefinitions.Add($rd)
         }
@@ -2311,6 +2311,89 @@ function Show-Gui {
         [System.Windows.Controls.Grid]::SetRow($txtTag, 6)
         $grille.Children.Add($txtTag) | Out-Null
 
+        # --- Section EFFETS ET CARACTÈRES ---------------------------------------
+        # Chaque liste porte la VALEUR interne dans Tag et le libellé traduit dans
+        # Content : la langue d'affichage ne fuit jamais dans fond-texte.json.
+        $effets = New-Object System.Windows.Controls.StackPanel
+        [System.Windows.Controls.Grid]::SetRow($effets, 7)
+        $titreEff = New-Object System.Windows.Controls.TextBlock
+        $titreEff.Text = (T 'dlg.fond.effets')
+        $titreEff.FontWeight = 'Bold'; $titreEff.FontSize = 11
+        $titreEff.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "AccentBrush")
+        $titreEff.Margin = "0,0,0,8"
+        $effets.Children.Add($titreEff) | Out-Null
+
+        $grilleEff = New-Object System.Windows.Controls.Grid
+        foreach ($lg in '*', '14', '*') {
+            $cd = New-Object System.Windows.Controls.ColumnDefinition; $cd.Width = $lg
+            $grilleEff.ColumnDefinitions.Add($cd)
+        }
+        foreach ($i in 1..2) {
+            $rd = New-Object System.Windows.Controls.RowDefinition; $rd.Height = 'Auto'
+            $grilleEff.RowDefinitions.Add($rd)
+        }
+        $effets.Children.Add($grilleEff) | Out-Null
+
+        $nouveauChoix = {
+            param([string]$Libelle, [object[]]$Paires, [string]$Actuel, [int]$Ligne, [int]$Col, [switch]$ApercuPolice)
+            $bloc = New-Object System.Windows.Controls.StackPanel
+            $bloc.Margin = "0,0,0,10"
+            $lb = New-Object System.Windows.Controls.TextBlock
+            $lb.Text = $Libelle; $lb.FontWeight = 'SemiBold'; $lb.Margin = "0,0,0,3"
+            $lb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+            $bloc.Children.Add($lb) | Out-Null
+            $cb = New-Object System.Windows.Controls.ComboBox
+            $cb.Height = 28
+            try { $cb.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.ComboBox]) } catch { }
+            foreach ($p in $Paires) {
+                $it = New-Object System.Windows.Controls.ComboBoxItem
+                $it.Content = $p[1]; $it.Tag = $p[0]
+                # Chaque police s'affiche DANS sa police : on choisit sur pièce.
+                if ($ApercuPolice) { $it.FontFamily = New-Object System.Windows.Media.FontFamily $p[0] }
+                $cb.Items.Add($it) | Out-Null
+                if ($p[0] -eq $Actuel) { $cb.SelectedItem = $it }
+            }
+            if ($cb.SelectedIndex -lt 0) { $cb.SelectedIndex = 0 }
+            $bloc.Children.Add($cb) | Out-Null
+            [System.Windows.Controls.Grid]::SetRow($bloc, $Ligne)
+            [System.Windows.Controls.Grid]::SetColumn($bloc, $Col)
+            $grilleEff.Children.Add($bloc) | Out-Null
+            return $cb
+        }
+
+        $cbPolice = & $nouveauChoix (T 'dlg.fond.label.police') @($script:FondPolices | ForEach-Object { ,@($_, $_) }) $script:FondPolice 0 0 -ApercuPolice
+        $cbGlow = & $nouveauChoix (T 'dlg.fond.label.glow') @($script:FondGlows.Keys | ForEach-Object { ,@($_, (T "fond.glow.$_")) }) $script:FondGlow 0 2
+        $cbRemp = & $nouveauChoix (T 'dlg.fond.label.remplissage') @($script:FondRemplissages | ForEach-Object { ,@($_, (T "fond.remp.$_")) }) $script:FondRemplissage 1 0
+        $cbGlyph = & $nouveauChoix (T 'dlg.fond.label.glyphes') @($script:FondJeuxGlyphes | ForEach-Object { ,@($_, (T "fond.glyph.$_")) }) $script:FondGlyphes 1 2
+
+        $lblPerso = New-Object System.Windows.Controls.TextBlock
+        $lblPerso.Text = (T 'dlg.fond.label.perso'); $lblPerso.Margin = "0,0,0,3"
+        $lblPerso.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        $effets.Children.Add($lblPerso) | Out-Null
+        $txtPerso = New-Object System.Windows.Controls.TextBox
+        $txtPerso.Text = $script:FondGlyphesPerso
+        $txtPerso.Height = 28; $txtPerso.MaxLength = 128
+        $txtPerso.VerticalContentAlignment = 'Center'
+        $txtPerso.Margin = "0,0,0,10"
+        try { $txtPerso.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        $txtPerso.IsEnabled = ($script:FondGlyphes -eq "perso")
+        $effets.Children.Add($txtPerso) | Out-Null
+        $cbGlyph.Add_SelectionChanged({ $txtPerso.IsEnabled = ($cbGlyph.SelectedItem.Tag -eq "perso") }) | Out-Null
+
+        $panelCases = New-Object System.Windows.Controls.StackPanel
+        $panelCases.Orientation = 'Horizontal'
+        $chkGlitch = New-Object System.Windows.Controls.CheckBox
+        $chkGlitch.Content = (T 'dlg.fond.glitch'); $chkGlitch.IsChecked = $script:FondGlitch
+        $chkGlitch.Margin = "0,0,18,0"
+        $chkGlitch.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "TextPrimaryBrush")
+        $chkScan = New-Object System.Windows.Controls.CheckBox
+        $chkScan.Content = (T 'dlg.fond.scanlines'); $chkScan.IsChecked = $script:FondScanlines
+        $chkScan.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "TextPrimaryBrush")
+        $panelCases.Children.Add($chkGlitch) | Out-Null
+        $panelCases.Children.Add($chkScan) | Out-Null
+        $effets.Children.Add($panelCases) | Out-Null
+        $grille.Children.Add($effets) | Out-Null
+
         # Barre de boutons
         $barre = New-Object System.Windows.Controls.Grid
         $colG = New-Object System.Windows.Controls.ColumnDefinition; $colG.Width = [System.Windows.GridLength]::Auto
@@ -2319,7 +2402,7 @@ function Show-Gui {
         $barre.ColumnDefinitions.Add($colG)
         $barre.ColumnDefinitions.Add($colM)
         $barre.ColumnDefinitions.Add($colD)
-        [System.Windows.Controls.Grid]::SetRow($barre, 8)
+        [System.Windows.Controls.Grid]::SetRow($barre, 9)
 
         $btnReset = New-Object System.Windows.Controls.Button
         $btnReset.Content = (T 'dlg.fond.texte.btn.reset')
@@ -2350,6 +2433,12 @@ function Show-Gui {
             $txtTitre.Text = "MadTrix"
             $txtSous.Text = "R  O  G"
             $txtTag.Text = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+            foreach ($paire in @(@($cbPolice, "Segoe UI Black"), @($cbGlow, "normal"), @($cbRemp, "blanc"), @($cbGlyph, "katakana"))) {
+                foreach ($it in $paire[0].Items) { if ($it.Tag -eq $paire[1]) { $paire[0].SelectedItem = $it } }
+            }
+            $txtPerso.Text = ""
+            $chkGlitch.IsChecked = $false
+            $chkScan.IsChecked = $false
         }) | Out-Null
 
         $btnAnnuler.Add_Click({ $win.Close() }) | Out-Null
@@ -2358,6 +2447,14 @@ function Show-Gui {
             $script:FondTitre = if ([string]::IsNullOrWhiteSpace($txtTitre.Text)) { "MadTrix" } else { $txtTitre.Text.Trim() }
             $script:FondSousTitre = $txtSous.Text.Trim()
             $script:FondTagline = $txtTag.Text.Trim()
+            $script:FondPolice = [string]$cbPolice.SelectedItem.Tag
+            $script:FondGlow = [string]$cbGlow.SelectedItem.Tag
+            $script:FondRemplissage = [string]$cbRemp.SelectedItem.Tag
+            $script:FondGlyphes = [string]$cbGlyph.SelectedItem.Tag
+            $script:FondGlyphesPerso = $txtPerso.Text.Trim()
+            $script:FondGlitch = [bool]$chkGlitch.IsChecked
+            $script:FondScanlines = [bool]$chkScan.IsChecked
+            Confirm-FondOptions
             Save-FondTextePerso
             $win.Close()
             try {

@@ -40,10 +40,61 @@ function Get-ResolutionPhysique {
     return @{ L = 1920; H = 1080 }
 }
 
-# --- État et persistance du texte des fonds d'écran dynamiques ---
-$script:FondTitre = "MadTrix"
-$script:FondSousTitre = "R  O  G"
-$script:FondTagline = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+# --- État et persistance du texte et des effets des fonds d'écran dynamiques ---
+$script:FondTitre        = "MadTrix"
+$script:FondSousTitre    = "R  O  G"
+$script:FondTagline      = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+$script:FondPolice       = "Segoe UI Black"
+$script:FondGlow         = "normal"
+$script:FondRemplissage  = "blanc"
+$script:FondGlyphes      = "katakana"
+$script:FondGlyphesPerso = ""
+$script:FondGlitch       = $false
+$script:FondScanlines    = $false
+
+# Listes FERMÉES. Le JSON est relu au démarrage et peut avoir été édité à la main.
+# Une police inconnue ne plante pas : WPF retombe EN SILENCE sur une police par
+# défaut -- on annoncerait alors un rendu qui n'est pas celui choisi. On ne garde
+# donc que des polices livrées avec Windows 10 ET 11.
+$script:FondPolices = @("Segoe UI Black", "Impact", "Arial Black", "Bahnschrift", "Consolas", "Courier New", "Georgia", "Segoe Script")
+# Multiplicateur du rayon de flou. 0 = aucun halo (titre net, lisible sur écran clair).
+$script:FondGlows = [ordered]@{ aucun = 0.0; doux = 0.5; normal = 1.0; intense = 1.8 }
+$script:FondRemplissages = @("blanc", "accent", "degrade")
+$script:FondJeuxGlyphes = @("katakana", "binaire", "hex", "latin", "symboles", "perso")
+
+function Confirm-FondOptions {
+    # Ramène toute valeur hors liste à son défaut. Appelée au chargement ET avant
+    # chaque génération : la GUI et la console écrivent ces variables directement.
+    if ($script:FondPolices -notcontains $script:FondPolice) { $script:FondPolice = "Segoe UI Black" }
+    if (-not $script:FondGlows.Contains([string]$script:FondGlow)) { $script:FondGlow = "normal" }
+    if ($script:FondRemplissages -notcontains $script:FondRemplissage) { $script:FondRemplissage = "blanc" }
+    if ($script:FondJeuxGlyphes -notcontains $script:FondGlyphes) { $script:FondGlyphes = "katakana" }
+    if ($null -eq $script:FondGlyphesPerso) { $script:FondGlyphesPerso = "" }
+    $script:FondGlitch = [bool]$script:FondGlitch
+    $script:FondScanlines = [bool]$script:FondScanlines
+}
+
+function Get-SigGlyphes {
+    # Renvoie le jeu de caractères de la pluie, en ÉLÉMENTS TEXTUELS et non en
+    # [char] : un émoji ou un idéogramme rare tient sur deux [char] (paire de
+    # substitution), et ToCharArray() les couperait en deux carrés vides.
+    param([string]$Jeu = $script:FondGlyphes, [string]$Perso = $script:FondGlyphesPerso)
+    $katakana = (-join (0x30A0..0x30FF | ForEach-Object { [char]$_ })) + "0123456789ABCDEF"
+    $txt = switch ($Jeu) {
+        "binaire"  { "01" }
+        "hex"      { "0123456789ABCDEF" }
+        "latin"    { "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" }
+        "symboles" { "░▒▓█▀▄■□◆◇●○▲△▼▽" }
+        "perso"    { ([string]$Perso) -replace '\s', '' }
+        default    { $katakana }
+    }
+    # Jeu perso vide = repli katakana, plutôt qu'une pluie invisible.
+    if ([string]::IsNullOrEmpty($txt)) { $txt = $katakana }
+    $elements = New-Object System.Collections.Generic.List[string]
+    $e = [System.Globalization.StringInfo]::GetTextElementEnumerator($txt)
+    while ($e.MoveNext() -and $elements.Count -lt 64) { $elements.Add([string]$e.Current) }
+    return ,$elements.ToArray()
+}
 
 function Load-FondTextePerso {
     if (-not $script:DossierDonnees) { return }
@@ -54,8 +105,16 @@ function Load-FondTextePerso {
             if ($data.Titre) { $script:FondTitre = [string]$data.Titre }
             if ($null -ne $data.SousTitre) { $script:FondSousTitre = [string]$data.SousTitre }
             if ($null -ne $data.Tagline) { $script:FondTagline = [string]$data.Tagline }
+            if ($data.Police) { $script:FondPolice = [string]$data.Police }
+            if ($data.Glow) { $script:FondGlow = [string]$data.Glow }
+            if ($data.Glyphes) { $script:FondGlyphes = [string]$data.Glyphes }
+            if ($null -ne $data.GlyphesPerso) { $script:FondGlyphesPerso = [string]$data.GlyphesPerso }
+            if ($null -ne $data.Glitch) { $script:FondGlitch = [bool]$data.Glitch }
+            if ($null -ne $data.Scanlines) { $script:FondScanlines = [bool]$data.Scanlines }
+            if ($data.Remplissage) { $script:FondRemplissage = [string]$data.Remplissage }
         } catch { }
     }
+    Confirm-FondOptions
 }
 
 function Save-FondTextePerso {
@@ -63,9 +122,16 @@ function Save-FondTextePerso {
     $f = Join-Path $script:DossierDonnees "fond-texte.json"
     try {
         @{
-            Titre     = $script:FondTitre
-            SousTitre = $script:FondSousTitre
-            Tagline   = $script:FondTagline
+            Titre        = $script:FondTitre
+            SousTitre    = $script:FondSousTitre
+            Tagline      = $script:FondTagline
+            Police       = $script:FondPolice
+            Glow         = $script:FondGlow
+            Glyphes      = $script:FondGlyphes
+            GlyphesPerso = $script:FondGlyphesPerso
+            Glitch       = $script:FondGlitch
+            Scanlines    = $script:FondScanlines
+            Remplissage  = $script:FondRemplissage
         } | ConvertTo-Json | Set-Content -Path $f -Encoding UTF8
     } catch { }
 }
@@ -128,11 +194,10 @@ function Add-SigGrille {
 function Add-SigPluie {
     # Pluie de code façon Matrix. Graine fixe = signature reproductible. Les couleurs
     # viennent de la palette (dérivée d'une couleur de base), pour un fond assorti au thème.
-    param($Canvas, [int]$L, [int]$H, [int]$Graine, [hashtable]$Palette)
+    param($Canvas, [int]$L, [int]$H, [int]$Graine, [hashtable]$Palette, [string[]]$Glyphes = (Get-SigGlyphes))
     $rand = New-Object System.Random $Graine
-    $glyphes = @()
-    0x30A0..0x30FF | ForEach-Object { $glyphes += [char]$_ }   # katakana
-    "0123456789ABCDEF".ToCharArray() | ForEach-Object { $glyphes += $_ }
+    $glyphes = $Glyphes
+    if (-not $glyphes -or $glyphes.Count -eq 0) { $glyphes = Get-SigGlyphes -Jeu "katakana" }
     $taille = 22; $pas = 26
     for ($x = 10; $x -lt $L; $x += $pas) {
         $depart = $rand.Next(-40, $H); $long = $rand.Next(8, 34)
@@ -167,9 +232,15 @@ function Add-SigNom {
         [hashtable]$Palette,
         [string]$Titre = $script:FondTitre,
         [string]$SousTitre = $script:FondSousTitre,
-        [string]$Tagline = $script:FondTagline
+        [string]$Tagline = $script:FondTagline,
+        [string]$Police = $script:FondPolice,
+        [string]$Glow = $script:FondGlow,
+        [string]$Remplissage = $script:FondRemplissage,
+        [bool]$Glitch = $script:FondGlitch
     )
     if ([string]::IsNullOrWhiteSpace($Titre)) { $Titre = "MadTrix" }
+    if ($script:FondPolices -notcontains $Police) { $Police = "Segoe UI Black" }
+    $fg = if ($script:FondGlows.Contains([string]$Glow)) { [double]$script:FondGlows[$Glow] } else { 1.0 }
     $cx = $L / 2; $cy = $H / 2
     $tailleNom = [Math]::Round($L * 0.094)   # ~240 px sur 2560
 
@@ -178,7 +249,13 @@ function Add-SigNom {
     }
     $tailleNom = [Math]::Max(28, $tailleNom)
 
-    $halo = Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.Glow 0 0 (New-SigGlow $Palette.Halo ($tailleNom*0.38) 0.9) 0.9 "Black"
+    # Le halo sert AUSSI de gabarit de mesure : on le garde même sans glow, mais
+    # invisible, pour que le centrage reste identique quel que soit le réglage.
+    # BlurRadius plafonné : au-delà de ~250 px, DropShadowEffect devient très lent
+    # à rendre en 4K pour un gain visuel nul.
+    $effHalo = if ($fg -gt 0) { New-SigGlow $Palette.Halo ([Math]::Min(250, $tailleNom * 0.38 * $fg)) 0.9 } else { $null }
+    $opHalo = if ($fg -gt 0) { 0.9 } else { 0 }
+    $halo = Add-SigTexte $Canvas $Titre $tailleNom $Police $Palette.Glow 0 0 $effHalo $opHalo "Black"
     $halo.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
 
     # Sécurité anti-débordement horizontal
@@ -190,14 +267,50 @@ function Add-SigNom {
     }
 
     $w = $halo.DesiredSize.Width; $h = $halo.DesiredSize.Height
-    [System.Windows.Controls.Canvas]::SetLeft($halo, $cx - $w/2); [System.Windows.Controls.Canvas]::SetTop($halo, $cy - $h/2)
-    Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.NomNet ($cx - $w/2) ($cy - $h/2) (New-SigGlow $Palette.Glow ($tailleNom*0.1) 1) 1 "Black" | Out-Null
+    $x0 = $cx - $w/2; $y0 = $cy - $h/2
+    [System.Windows.Controls.Canvas]::SetLeft($halo, $x0); [System.Windows.Controls.Canvas]::SetTop($halo, $y0)
+
+    # Glitch, couche 1 : aberration chromatique (copies cyan / magenta décalées)
+    # posée SOUS le titre net, pour que le texte reste lisible.
+    if ($Glitch) {
+        $dec = [Math]::Max(3, $tailleNom * 0.025)
+        Add-SigTexte $Canvas $Titre $tailleNom $Police "#FF00E5FF" ($x0 - $dec) ($y0 - $dec * 0.3) $null 0.75 "Black" | Out-Null
+        Add-SigTexte $Canvas $Titre $tailleNom $Police "#FFFF0A54" ($x0 + $dec) ($y0 + $dec * 0.3) $null 0.75 "Black" | Out-Null
+    }
+
+    $effNet = if ($fg -gt 0) { New-SigGlow $Palette.Glow ($tailleNom * 0.1 * $fg) 1 } else { $null }
+    $couleurNet = if ($Remplissage -eq "accent") { $Palette.RainMid } else { $Palette.NomNet }
+    $net = Add-SigTexte $Canvas $Titre $tailleNom $Police $couleurNet $x0 $y0 $effNet 1 "Black"
+    if ($Remplissage -eq "degrade") {
+        $dg = New-Object System.Windows.Media.LinearGradientBrush
+        $dg.StartPoint = [System.Windows.Point]::new(0, 0); $dg.EndPoint = [System.Windows.Point]::new(0, 1)
+        $dg.GradientStops.Add((New-Object System.Windows.Media.GradientStop ([System.Windows.Media.ColorConverter]::ConvertFromString($Palette.RainHead), 0.15)))
+        $dg.GradientStops.Add((New-Object System.Windows.Media.GradientStop ([System.Windows.Media.ColorConverter]::ConvertFromString($Palette.Glow), 0.9)))
+        $net.Foreground = $dg
+    }
+
+    # Glitch, couche 2 : tranches horizontales décalées PAR-DESSUS le titre.
+    # Graine fixe : deux générations du même texte donnent la même image.
+    if ($Glitch) {
+        $rg = New-Object System.Random 13
+        for ($i = 0; $i -lt 5; $i++) {
+            $tr = New-Object System.Windows.Shapes.Rectangle
+            $tr.Width = $w * (0.25 + $rg.NextDouble() * 0.7)
+            $tr.Height = [Math]::Max(2, $tailleNom * (0.012 + $rg.NextDouble() * 0.035))
+            $tr.Fill = New-SigPinceau $(if ($i % 2) { $Palette.Glow } else { "#CCF6F2F2" })
+            $tr.Opacity = 0.55 + $rg.NextDouble() * 0.4
+            [System.Windows.Controls.Canvas]::SetLeft($tr, $x0 + ($rg.NextDouble() - 0.3) * $w * 0.5)
+            [System.Windows.Controls.Canvas]::SetTop($tr, $y0 + $h * (0.2 + $rg.NextDouble() * 0.6))
+            $Canvas.Children.Add($tr) | Out-Null
+        }
+    }
 
     $posBas = $cy + $h/2 - 10
     if ($SousTitre -or $Tagline) {
         $filet = New-Object System.Windows.Shapes.Rectangle
         $filet.Width = [Math]::Min($w * 0.9, $L * 0.8); $filet.Height = [Math]::Max(3, $L*0.0016)
-        $filet.Fill = New-SigPinceau $Palette.Filet; $filet.Effect = New-SigGlow $Palette.Glow 16 1
+        $filet.Fill = New-SigPinceau $Palette.Filet
+        if ($fg -gt 0) { $filet.Effect = New-SigGlow $Palette.Glow (16 * $fg) 1 }
         [System.Windows.Controls.Canvas]::SetLeft($filet, $cx - ($filet.Width)/2)
         [System.Windows.Controls.Canvas]::SetTop($filet, $posBas)
         $Canvas.Children.Add($filet) | Out-Null
@@ -205,7 +318,8 @@ function Add-SigNom {
     }
 
     if (-not [string]::IsNullOrWhiteSpace($SousTitre)) {
-        $rog = Add-SigTexte $Canvas $SousTitre ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 (New-SigGlow $Palette.Glow 18 0.9) 1 "SemiBold"
+        $effRog = if ($fg -gt 0) { New-SigGlow $Palette.Glow (18 * $fg) 0.9 } else { $null }
+        $rog = Add-SigTexte $Canvas $SousTitre ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 $effRog 1 "SemiBold"
         $rog.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
         [System.Windows.Controls.Canvas]::SetLeft($rog, $cx - $rog.DesiredSize.Width/2)
         [System.Windows.Controls.Canvas]::SetTop($rog, $posBas)
@@ -257,6 +371,25 @@ function Get-PaletteSignature {
 
 $script:StylesSignature = @("matrix", "hud", "neon")
 
+function Add-SigScanlines {
+    # Lignes de balayage façon écran CRT, posées par-dessus TOUT le reste.
+    # Un seul rectangle à pinceau répété plutôt qu'une Line par rangée : en 4K, ce
+    # serait plus de 500 objets WPF à mesurer et rendre pour un simple motif.
+    param($Canvas, [int]$L, [int]$H)
+    $pas = [Math]::Max(3, [Math]::Round($H / 360))
+    $g = New-Object System.Windows.Media.LinearGradientBrush
+    $g.MappingMode = [System.Windows.Media.BrushMappingMode]::Absolute
+    $g.SpreadMethod = [System.Windows.Media.GradientSpreadMethod]::Repeat
+    $g.StartPoint = [System.Windows.Point]::new(0, 0)
+    $g.EndPoint = [System.Windows.Point]::new(0, $pas)
+    foreach ($s in @(@("#00000000", 0), @("#00000000", 0.5), @("#66000000", 0.5), @("#66000000", 1))) {
+        $g.GradientStops.Add((New-Object System.Windows.Media.GradientStop ([System.Windows.Media.ColorConverter]::ConvertFromString($s[0]), $s[1])))
+    }
+    $r = New-Object System.Windows.Shapes.Rectangle; $r.Width = $L; $r.Height = $H; $r.Fill = $g
+    $r.IsHitTestVisible = $false
+    $Canvas.Children.Add($r) | Out-Null
+}
+
 function New-FondSignature {
     # Dessine un fond et l'enregistre en PNG. Retourne le chemin.
     param(
@@ -268,21 +401,30 @@ function New-FondSignature {
         [string]$Couleur = "#E01008",
         [string]$Titre = $script:FondTitre,
         [string]$SousTitre = $script:FondSousTitre,
-        [string]$Tagline = $script:FondTagline
+        [string]$Tagline = $script:FondTagline,
+        # Effets : par défaut, les réglages mémorisés (fond-texte.json).
+        [string]$Police = $script:FondPolice,
+        [string]$Glow = $script:FondGlow,
+        [string]$Remplissage = $script:FondRemplissage,
+        [string]$Glyphes = $script:FondGlyphes,
+        [string]$GlyphesPerso = $script:FondGlyphesPerso,
+        [bool]$Glitch = $script:FondGlitch,
+        [bool]$Scanlines = $script:FondScanlines
     )
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction Stop
     $pal = Get-PaletteSignature -Base $Couleur
+    $jeu = Get-SigGlyphes -Jeu $Glyphes -Perso $GlyphesPerso
 
     $c = New-SigCanvas $Largeur $Hauteur
     switch ($Style) {
         "matrix" {
             Add-SigFond $c $Largeur $Hauteur $pal.FondCentre $pal.FondBord
-            Add-SigPluie $c $Largeur $Hauteur 7 $pal
+            Add-SigPluie $c $Largeur $Hauteur 7 $pal $jeu
         }
         "hud" {
             Add-SigFond $c $Largeur $Hauteur $pal.FondCentre $pal.FondBord
             Add-SigGrille $c $Largeur $Hauteur 64 $pal.GrilleArgb
-            Add-SigPluie $c $Largeur $Hauteur 21 $pal
+            Add-SigPluie $c $Largeur $Hauteur 21 $pal $jeu
             Add-SigCrochets $c $Largeur $Hauteur 70 90 $pal.Crochets
         }
         "neon" {
@@ -290,7 +432,9 @@ function New-FondSignature {
             Add-SigGrille $c $Largeur $Hauteur 90 $pal.GrilleArgb
         }
     }
-    Add-SigNom $c $Largeur $Hauteur $pal -Titre $Titre -SousTitre $SousTitre -Tagline $Tagline
+    Add-SigNom $c $Largeur $Hauteur $pal -Titre $Titre -SousTitre $SousTitre -Tagline $Tagline `
+        -Police $Police -Glow $Glow -Remplissage $Remplissage -Glitch $Glitch
+    if ($Scanlines) { Add-SigScanlines $c $Largeur $Hauteur }
 
     $c.Measure([System.Windows.Size]::new($Largeur, $Hauteur))
     $c.Arrange([System.Windows.Rect]::new(0, 0, $Largeur, $Hauteur))
@@ -819,6 +963,20 @@ function Menu-AccentWindows {
     }
 }
 
+function Read-ChoixFond {
+    # Liste numérotée ; Entrée (ou saisie invalide) garde la valeur actuelle.
+    param([string]$Libelle, [string[]]$Valeurs, [string]$Actuel)
+    Write-Host "  $Libelle :" -ForegroundColor Gray
+    for ($i = 0; $i -lt $Valeurs.Count; $i++) {
+        $m = if ($Valeurs[$i] -eq $Actuel) { " *" } else { "" }
+        Write-Host ("    {0} - {1}{2}" -f ($i + 1), $Valeurs[$i], $m)
+    }
+    $r = Read-Host "  Numéro [$Actuel]"
+    $n = 0
+    if ([int]::TryParse($r, [ref]$n) -and $n -ge 1 -and $n -le $Valeurs.Count) { return $Valeurs[$n - 1] }
+    return $Actuel
+}
+
 function Menu-Signature {
     Clear-Host
     Write-Host "=== SIGNATURE : FOND D'ÉCRAN MADTRIX ===" -ForegroundColor Red
@@ -831,13 +989,14 @@ function Menu-Signature {
     Write-Host "  Résolution détectée : $($res.L) x $($res.H)" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Texte actuel : « $script:FondTitre » (Sous-titre : « $script:FondSousTitre »)" -ForegroundColor DarkCyan
+    Write-Host "  Effets : police $script:FondPolice, halo $script:FondGlow, titre $script:FondRemplissage, pluie $script:FondGlyphes, glitch $(if ($script:FondGlitch) {'oui'} else {'non'}), scanlines $(if ($script:FondScanlines) {'oui'} else {'non'})" -ForegroundColor DarkCyan
     Write-Host ""
     Write-Host "  1 - Style MATRIX  (pluie de code katakana rouge)" -ForegroundColor Red
     Write-Host "  2 - Style HUD     (pluie + grille + crochets gaming)" -ForegroundColor Red
     Write-Host "  3 - Style NEON    (sobre, gros nom néon)" -ForegroundColor Red
     Write-Host "  4 - Générer les TROIS dans un dossier, sans les appliquer" -ForegroundColor Yellow
     Write-Host "  5 - Remettre mon fond d'écran d'avant" -ForegroundColor Cyan
-    Write-Host "  6 - Personnaliser le texte (Titre, Sous-titre, Tagline)" -ForegroundColor Yellow
+    Write-Host "  6 - Personnaliser le texte et les effets (police, halo, glitch, caractères...)" -ForegroundColor Yellow
     Write-Host ""
     Write-Host "  7 - ACCENT WINDOWS : couleur des barres (ROG rouge, bleu, cyan...)" -ForegroundColor Cyan
     Write-Host ""
@@ -881,6 +1040,19 @@ function Menu-Signature {
                 if (-not [string]::IsNullOrWhiteSpace($nouveauSous)) { $script:FondSousTitre = $nouveauSous.Trim() }
                 $nouvelleTag = Read-Host "Tagline [$script:FondTagline]"
                 if (-not [string]::IsNullOrWhiteSpace($nouvelleTag)) { $script:FondTagline = $nouvelleTag.Trim() }
+                $script:FondPolice = Read-ChoixFond "Police du titre" $script:FondPolices $script:FondPolice
+                $script:FondGlow = Read-ChoixFond "Halo néon" @($script:FondGlows.Keys) $script:FondGlow
+                $script:FondRemplissage = Read-ChoixFond "Couleur du titre" $script:FondRemplissages $script:FondRemplissage
+                $script:FondGlyphes = Read-ChoixFond "Caractères de la pluie" $script:FondJeuxGlyphes $script:FondGlyphes
+                if ($script:FondGlyphes -eq "perso") {
+                    $p = Read-Host "Tes caractères, collés (ex. 01♥★) [$script:FondGlyphesPerso]"
+                    if (-not [string]::IsNullOrWhiteSpace($p)) { $script:FondGlyphesPerso = $p.Trim() }
+                }
+                $gl = Read-Host "Effet glitch ? (o/n) [$(if ($script:FondGlitch) {'o'} else {'n'})]"
+                if ($gl -match '^[oOyY]') { $script:FondGlitch = $true } elseif ($gl -match '^[nN]') { $script:FondGlitch = $false }
+                $sc = Read-Host "Lignes de balayage CRT ? (o/n) [$(if ($script:FondScanlines) {'o'} else {'n'})]"
+                if ($sc -match '^[oOyY]') { $script:FondScanlines = $true } elseif ($sc -match '^[nN]') { $script:FondScanlines = $false }
+                Confirm-FondOptions
                 Save-FondTextePerso
                 Write-Etat "Texte mis à jour : « $script:FondTitre » / « $script:FondSousTitre »." -Niveau OK
             }

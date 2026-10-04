@@ -124,6 +124,27 @@ $script:Textes = @{
     'dlg.fond.texte.btn.reset'   = @{ fr = "Défaut"; en = "Reset" }
     'dlg.fond.texte.btn.annuler' = @{ fr = "Annuler"; en = "Cancel" }
     'dlg.fond.texte.btn.appliquer' = @{ fr = "Appliquer & Générer"; en = "Apply & Generate" }
+    'dlg.fond.effets'            = @{ fr = "EFFETS ET CARACTÈRES"; en = "EFFECTS & CHARACTERS" }
+    'dlg.fond.label.police'      = @{ fr = "Police du titre :"; en = "Title font:" }
+    'dlg.fond.label.glow'        = @{ fr = "Halo néon :"; en = "Neon glow:" }
+    'dlg.fond.label.remplissage' = @{ fr = "Couleur du titre :"; en = "Title colour:" }
+    'dlg.fond.label.glyphes'     = @{ fr = "Caractères de la pluie :"; en = "Rain characters:" }
+    'dlg.fond.label.perso'       = @{ fr = "Tes caractères (jeu « Perso », 64 max) :"; en = "Your characters (« Custom » set, 64 max):" }
+    'dlg.fond.glitch'            = @{ fr = "Effet glitch (décalage RVB + tranches)"; en = "Glitch effect (RGB split + slices)" }
+    'dlg.fond.scanlines'         = @{ fr = "Lignes de balayage CRT"; en = "CRT scanlines" }
+    'fond.glow.aucun'            = @{ fr = "Aucun"; en = "None" }
+    'fond.glow.doux'             = @{ fr = "Doux"; en = "Soft" }
+    'fond.glow.normal'           = @{ fr = "Normal"; en = "Normal" }
+    'fond.glow.intense'          = @{ fr = "Intense"; en = "Intense" }
+    'fond.remp.blanc'            = @{ fr = "Blanc"; en = "White" }
+    'fond.remp.accent'           = @{ fr = "Couleur du thème"; en = "Theme colour" }
+    'fond.remp.degrade'          = @{ fr = "Dégradé"; en = "Gradient" }
+    'fond.glyph.katakana'        = @{ fr = "Katakana (Matrix)"; en = "Katakana (Matrix)" }
+    'fond.glyph.binaire'         = @{ fr = "Binaire 0 / 1"; en = "Binary 0 / 1" }
+    'fond.glyph.hex'             = @{ fr = "Hexadécimal"; en = "Hexadecimal" }
+    'fond.glyph.latin'           = @{ fr = "Lettres et chiffres"; en = "Letters & digits" }
+    'fond.glyph.symboles'        = @{ fr = "Blocs et symboles"; en = "Blocks & symbols" }
+    'fond.glyph.perso'           = @{ fr = "Perso"; en = "Custom" }
     'entete.accent.info'   = @{ fr = "Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible."
         en = "Colours the title bars, taskbar and Start menu, and syncs the ASUS RGB keyboard to the same colour. Reversible." }
     'entete.theme.info'    = @{ fr = "Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."

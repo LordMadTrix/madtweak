@@ -66,7 +66,7 @@
 ### 🎨 **Interface & CI/CD**
 - ✅ **Themable GUI** (6 themes) or 16 console menus
 - ✅ **Automated Pester unit tests** & GitHub Actions CI/CD integration
-- ✅ **Windows accent**, procedurally generated "MadTrix" wallpapers with customizable text (✏️ button)
+- ✅ **Windows accent**, procedurally generated "MadTrix" wallpapers with customizable text (✏️ button) and effects: title font, neon glow strength, title fill (white / theme colour / gradient), rain character set (Katakana, binary, hex, letters, blocks, or your own characters), glitch (RGB split) and CRT scanlines
 - ✅ **Folder color context menu**: cascading right-click menu (on folders and inside open folder backgrounds) with 9 ROG/vibrant colors and quick reset
 - ✅ **ASUS ROG extra**: direct HID RGB keyboard lighting, GPU sensors and fans
 
