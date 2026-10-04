@@ -165,7 +165,8 @@ function Menu-Nettoyage {
             -Explication "Supprime définitivement le dossier Windows.old contenant l'ancienne installation système (renonce au retour en arrière)." {
             $wold = "$env:SystemDrive\Windows.old"
             if (Test-Path $wold) {
-                Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
+                $repTakeown = if ((Get-Culture).TwoLetterISOLanguageName -eq 'fr') { "O" } else { "Y" }
+                Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", $repTakeown) -CodesOK @(0, 1)
                 Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
                 $r = Clear-Contenu -Chemin $wold
                 # Le dossier LUI-MÊME passe par la porte, comme son contenu.
@@ -264,7 +265,8 @@ function Menu-Nettoyage {
         Invoke-Tweak "Supprimer Windows.old maintenant et renoncer au retour arrière ?" {
             # Ce dossier appartient à TrustedInstaller : sans reprise de possession,
             # Remove-Item échoue sur la quasi-totalité de son contenu.
-            Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
+            $repTakeown = if ((Get-Culture).TwoLetterISOLanguageName -eq 'fr') { "O" } else { "Y" }
+            Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", $repTakeown) -CodesOK @(0, 1)
             Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
             $r = Clear-Contenu -Chemin $wold
             # Même porte que la version pilotable du tweak (clé nettoyage-windows-old) :

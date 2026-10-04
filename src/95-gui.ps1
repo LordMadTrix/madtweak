@@ -38,8 +38,12 @@ function Start-ApplyArrierePlan {
         [Parameter(Mandatory)][scriptblock]$OnFini
     )
     $src = $null
-    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
-        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if ($chemin) {
+        try { $src = [System.IO.File]::ReadAllText($chemin) } catch { }
     }
     if (-not $src) { throw "source-indisponible" }
     # On coupe AVANT la section LANCEMENT (l'appel « Initialize-Sauvegarde » en
@@ -56,6 +60,9 @@ function Start-ApplyArrierePlan {
     # Le pilote tourne DANS le fil, après les définitions. Guillemets simples :
     # rien ne s'expanse ici, ces $variables sont résolues côté runspace.
     $pilote = @'
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 $script:DossierDonnees   = $SeedDossier
 $script:DossierCles      = $SeedDossierCles
 $script:FichierSauvegarde = $SeedFichierSauvegarde
@@ -140,8 +147,17 @@ finally {
             $val = [math]::Round(($sync.Progress / $Cles.Count) * 100)
             $script:GuiProgress.Value = [math]::Min(100, [math]::Max(0, $val))
         }
-        if ($sync.Fini) {
+        if ($sync.Fini -or ($handle -and $handle.IsCompleted)) {
             $timer.Stop()
+            if (-not $sync.Fini) {
+                $sync.Fini = $true
+                if ($ps.Streams.Error.Count -gt 0) {
+                    foreach ($err in $ps.Streams.Error) {
+                        $Journal.AppendText("  [ÉCHEC] ERREUR RUNSPACE : $($err.Exception.Message)`r`n")
+                    }
+                    $Journal.ScrollToEnd()
+                }
+            }
             try { $ps.EndInvoke($handle) } catch { }
             $ps.Dispose(); $rs.Dispose()
             & $OnFini $sync
@@ -163,8 +179,12 @@ function Start-ImageArrierePlan {
         [Parameter(Mandatory)][scriptblock]$OnFini
     )
     $src = $null
-    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
-        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if ($chemin) {
+        try { $src = [System.IO.File]::ReadAllText($chemin) } catch { }
     }
     if (-not $src) { throw "source-indisponible" }
     $m = [regex]::Match($src, '(?m)^Initialize-Sauvegarde\b')
@@ -234,8 +254,17 @@ finally {
             $Journal.AppendText("$prefixe$($item[1])`r`n")
         }
         $Journal.ScrollToEnd()
-        if ($sync.Fini) {
+        if ($sync.Fini -or ($handle -and $handle.IsCompleted)) {
             $timer.Stop()
+            if (-not $sync.Fini) {
+                $sync.Fini = $true
+                if ($ps.Streams.Error.Count -gt 0) {
+                    foreach ($err in $ps.Streams.Error) {
+                        $Journal.AppendText("  [ÉCHEC] ERREUR RUNSPACE : $($err.Exception.Message)`r`n")
+                    }
+                    $Journal.ScrollToEnd()
+                }
+            }
             try { $ps.EndInvoke($handle) } catch { }
             $ps.Dispose(); $rs.Dispose()
             & $OnFini $sync

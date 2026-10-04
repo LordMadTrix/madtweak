@@ -70,24 +70,31 @@ param(
 # Doit rester ici, juste après param() et avant tout le reste -- $PSCommandPath
 # n'est fiable qu'une fois le param() passé, et rien avant ce point ne doit
 # supposer des droits admin.
-$estAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $estAdmin) {
-    $argumentsElevation = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
-    if ($Console) { $argumentsElevation += '-Console' }
-    if ($Maintenance) { $argumentsElevation += '-Maintenance' }
-    if ($Langue) { $argumentsElevation += @('-Langue', $Langue) }
-    if ($Profil) { $argumentsElevation += @('-Profil', "`"$Profil`"") }
-    if ($Simulation) { $argumentsElevation += '-Simulation' }
-    try {
-        Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentsElevation -Verb RunAs | Out-Null
-    } catch {
-        Write-Host "Élévation refusée ou impossible : $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host 'Relance manuellement depuis un PowerShell ouvert « en tant qu''administrateur ».' -ForegroundColor Yellow
+if (-not $script:BypassLancement) {
+    $estAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $estAdmin) {
+        $argumentsElevation = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+        if ($Console) { $argumentsElevation += '-Console' }
+        if ($Maintenance) { $argumentsElevation += '-Maintenance' }
+        if ($Langue) { $argumentsElevation += @('-Langue', $Langue) }
+        if ($Profil) { $argumentsElevation += @('-Profil', "`"$Profil`"") }
+        if ($Simulation) { $argumentsElevation += '-Simulation' }
+        try {
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentsElevation -Verb RunAs | Out-Null
+        } catch {
+            Write-Host "Élévation refusée ou impossible : $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host 'Relance manuellement depuis un PowerShell ouvert « en tant qu''administrateur ».' -ForegroundColor Yellow
+        }
+        exit
     }
-    exit
 }
 
 $ErrorActionPreference = 'Stop'
+
+# Lecteur HKCR : PowerShell ne le monte pas par défaut, or des tweaks contextuels y écrivent.
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
 $script:Version = "1.5.2"
@@ -1304,17 +1311,17 @@ function Get-DossierDonnees {
 }
 
 $script:Machine = Get-IdentiteMachine
-$script:DossierDonnees = $null
+$script:DossierDonnees = Get-DossierDonnees
 $script:DossierCles = $null
 $script:FichierSauvegarde = $null
 $script:Sauvegarde = @{}
 $script:SauvegardeActive = $true
 
 function Initialize-Sauvegarde {
-    $script:DossierDonnees = Get-DossierDonnees
+    if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
     # Les clés entières ne tiennent pas dans le JSON : elles sont exportées ici en .reg.
     $script:DossierCles = Join-Path $script:DossierDonnees "cles-sauvegardees"
-    if (-not (Test-Path $script:DossierCles)) { New-Item -ItemType Directory -Path $script:DossierCles -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $script:DossierCles)) { New-Item -ItemType Directory -Path $script:DossierCles -Force | Out-Null }
     # Le nom du fichier porte la machine : emporter le script sur une clé USB ne
     # peut donc pas mélanger les sauvegardes de deux PC différents.
     $court = if ($script:Machine.Guid.Length -ge 8) { $script:Machine.Guid.Substring(0, 8) } else { $script:Machine.Guid }
@@ -1353,17 +1360,46 @@ function Write-Sauvegarde {
     catch { Write-Etat "Impossible d'écrire la sauvegarde : $($_.Exception.Message)" -Niveau Avert }
 }
 
+function Ensure-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path -LiteralPath $Path) { return }
+    $clean = $Path -replace '^Microsoft\.PowerShell\.Core\\Registry::', ''
+    $hive = $null
+    $subPath = $null
+    if ($clean -match '^(HKLM:|HKEY_LOCAL_MACHINE)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::LocalMachine
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKCU:|HKEY_CURRENT_USER)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::CurrentUser
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKCR:|HKEY_CLASSES_ROOT)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::ClassesRoot
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKU:|HKEY_USERS)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::Users
+        $subPath = $matches[2]
+    }
+    if ($hive -and $subPath) {
+        $k = $hive.CreateSubKey($subPath)
+        if ($k) { $k.Close() }
+    } else {
+        if (-not (Test-Path -LiteralPath $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+    }
+}
+
 function Save-EtatAvant {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name)
     if (-not $script:SauvegardeActive) { return }
     $cle = "$Path|$Name"
     # On ne réécrit JAMAIS une entrée : le premier état vu est le vrai état d'origine.
     if ($script:Sauvegarde.ContainsKey($cle)) { return }
 
     $entree = [ordered]@{ Path = $Path; Name = $Name; Existait = $false; Valeur = $null; Type = $null }
-    if (Test-Path $Path) {
+    if (Test-Path -LiteralPath $Path) {
         try {
-            $item = Get-Item -Path $Path
+            $item = Get-Item -LiteralPath $Path
             if ($Name -eq "(default)" -or $Name -eq "") {
                 $val = $item.GetValue("")
                 if ($null -ne $val) {
@@ -1416,7 +1452,7 @@ function Save-EtatCle {
     if ($script:Sauvegarde.ContainsKey($cle)) { return }
 
     $entree = [ordered]@{ Type = "CleRegistre"; Path = $Path; Existait = $false; Fichier = $null }
-    if (Test-Path $Path) {
+    if (Test-Path -LiteralPath $Path) {
         $nom = "cle-" + ($Path -replace '[^A-Za-z0-9]', '_') + ".reg"
         # Un chemin de registre profond dépasse vite la limite de nom de fichier.
         if ($nom.Length -gt 150) { $nom = "cle-" + [System.IO.Path]::GetRandomFileName() + ".reg" }
@@ -1450,13 +1486,13 @@ function Restore-UneEntree {
     if ($e.Type -eq "CleRegistre") {
         if (-not $e.Existait) {
             # La clé n'existait pas avant nous (cas du clic droit classique) : on la retire.
-            if (Test-Path $e.Path) { Remove-Item -Path $e.Path -Recurse -Force }
+            if (Test-Path -LiteralPath $e.Path) { Remove-Item -LiteralPath $e.Path -Recurse -Force }
             return 'S'
         }
         if (-not (Test-Path $e.Fichier)) { throw "Export introuvable : $($e.Fichier). La clé ne peut pas être restaurée." }
         # reg import FUSIONNE au lieu de remplacer : sans cette suppression préalable,
         # les valeurs ajoutées depuis l'export survivraient.
-        if (Test-Path $e.Path) { Remove-Item -Path $e.Path -Recurse -Force }
+        if (Test-Path -LiteralPath $e.Path) { Remove-Item -LiteralPath $e.Path -Recurse -Force }
         reg.exe import "$($e.Fichier)" 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "reg import a renvoyé le code $LASTEXITCODE." }
         return 'R'
@@ -1465,15 +1501,15 @@ function Restore-UneEntree {
         $valeur = $e.Valeur
         # Le JSON transforme un byte[] en tableau d'entiers : il faut le recaster.
         if ($e.Type -eq "Binary") { $valeur = [byte[]]@($valeur) }
-        if (-not (Test-Path $e.Path)) { New-Item -Path $e.Path -Force | Out-Null }
-        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -Path $e.Path -Value $valeur -Force }
-        else { Set-ItemProperty -Path $e.Path -Name $e.Name -Value $valeur -Type $e.Type -Force }
+        Ensure-RegKey -Path $e.Path
+        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -LiteralPath $e.Path -Value $valeur -Force }
+        else { Set-ItemProperty -LiteralPath $e.Path -Name $e.Name -Value $valeur -Type $e.Type -Force }
         return 'R'
     }
     # La valeur n'existait pas avant nous : on la retire.
-    if (Test-Path $e.Path) {
-        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -Path $e.Path -Value "" -Force }
-        else { Remove-ItemProperty -Path $e.Path -Name $e.Name -Force -ErrorAction SilentlyContinue | Out-Null }
+    if (Test-Path -LiteralPath $e.Path) {
+        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -LiteralPath $e.Path -Value "" -Force }
+        else { Remove-ItemProperty -LiteralPath $e.Path -Name $e.Name -Force -ErrorAction SilentlyContinue | Out-Null }
     }
     return 'S'
 }
@@ -1642,9 +1678,10 @@ function Get-ValeurLisible {
 
 function Get-ValeurActuelle {
     param([string]$Path, [string]$Name)
-    if (-not (Test-Path $Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
     try {
-        $i = Get-Item -Path $Path
+        $i = Get-Item -LiteralPath $Path
+        if ($Name -eq "(default)" -or $Name -eq "") { return $i.GetValue("") }
         if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
     }
     catch { }
@@ -1685,7 +1722,7 @@ function Set-RegValue {
     # faisait échouer silencieusement les tweaks VBS, Windows Update et USB.
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name,
         [Parameter(Mandatory)]$Value,
         [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
     )
@@ -1697,11 +1734,11 @@ function Set-RegValue {
         return
     }
     Save-EtatAvant -Path $Path -Name $Name
-    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    Ensure-RegKey -Path $Path
     if ($Name -eq "(default)" -or $Name -eq "") {
-        Set-Item -Path $Path -Value $Value -Force
+        Set-Item -LiteralPath $Path -Value $Value -Force
     } else {
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        Set-ItemProperty -LiteralPath $Path -Name $Name -Value $Value -Type $Type -Force
     }
 }
 
@@ -1710,7 +1747,7 @@ function Remove-RegValue {
     # Une valeur absente n'est PAS une erreur : c'est déjà l'état voulu.
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name
     )
     if ($script:Simulation) {
         $avant = Get-ValeurActuelle -Path $Path -Name $Name
@@ -1719,19 +1756,19 @@ function Remove-RegValue {
         return
     }
     Save-EtatAvant -Path $Path -Name $Name
-    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $Path) { Remove-ItemProperty -LiteralPath $Path -Name $Name -Force -ErrorAction SilentlyContinue }
 }
 
 function Remove-RegKey {
     param([Parameter(Mandatory)][string]$Path)
     if ($script:Simulation) {
-        Write-Simu "clé $Path : $(if (Test-Path $Path) { 'serait SUPPRIMÉE avec son contenu' } else { 'déjà absente' })"
+        Write-Simu "clé $Path : $(if (Test-Path -LiteralPath $Path) { 'serait SUPPRIMÉE avec son contenu' } else { 'déjà absente' })"
         return
     }
     # L'export vient AVANT la suppression, et lève si elle échoue : on ne détruit
     # jamais une arborescence qu'on serait incapable de reconstruire.
     Save-EtatCle -Path $Path
-    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
 }
 
 function Save-EtatService {
@@ -1986,7 +2023,7 @@ function Invoke-RedemarrageFinal {
 # celles-là est exportable tel quel ; tout autre appel maison le rendrait
 # increportable, et on préfère le dire que livrer un script qui plantera.
 $script:FonctionsPortables = @(
-    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Set-RegValue',
+    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Ensure-RegKey', 'Set-RegValue',
     'Remove-RegValue', 'Remove-RegKey', 'Set-ServiceEtat', 'Invoke-Externe',
     'Get-ValeurActuelle', 'Get-ValeurLisible'
 )
@@ -1998,6 +2035,10 @@ function Get-PreambuleAutonome {
     # pas -- prétendre le contraire serait pire que de ne rien générer.
     return @'
 $ErrorActionPreference = 'Stop'
+
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 
 function Write-Etat {
     param([string]$Message, [string]$Niveau = 'Info')
@@ -2012,11 +2053,29 @@ function Invoke-Action {
     & $Action
 }
 
+function Ensure-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path -LiteralPath $Path) { return }
+    $clean = $Path -replace '^Microsoft\.PowerShell\.Core\\Registry::', ''
+    $hive = $null; $subPath = $null
+    if ($clean -match '^(HKLM:|HKEY_LOCAL_MACHINE)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::LocalMachine; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKCU:|HKEY_CURRENT_USER)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::CurrentUser; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKCR:|HKEY_CLASSES_ROOT)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::ClassesRoot; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKU:|HKEY_USERS)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::Users; $subPath = $matches[2] }
+    if ($hive -and $subPath) {
+        $k = $hive.CreateSubKey($subPath)
+        if ($k) { $k.Close() }
+    } else {
+        if (-not (Test-Path -LiteralPath $Path)) { New-Item -Path $Path -Force | Out-Null }
+    }
+}
+
 function Get-ValeurActuelle {
     param([string]$Path, [string]$Name)
-    if (-not (Test-Path $Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
     try {
-        $i = Get-Item -Path $Path
+        $i = Get-Item -LiteralPath $Path
+        if ($Name -eq '(default)' -or $Name -eq '') { return $i.GetValue('') }
         if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
     } catch { }
     return $null
@@ -2031,21 +2090,21 @@ function Get-ValeurLisible {
 function Set-RegValue {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name,
         [Parameter(Mandatory)]$Value,
         [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
     )
-    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -Path $Path -Value $Value -Force }
-    else { Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force }
+    Ensure-RegKey -Path $Path
+    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -LiteralPath $Path -Value $Value -Force }
+    else { Set-ItemProperty -LiteralPath $Path -Name $Name -Value $Value -Type $Type -Force }
 }
 function Remove-RegValue {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
-    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name)
+    if (Test-Path -LiteralPath $Path) { Remove-ItemProperty -LiteralPath $Path -Name $Name -Force -ErrorAction SilentlyContinue }
 }
 function Remove-RegKey {
     param([Parameter(Mandatory)][string]$Path)
-    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
 }
 
 function Set-ServiceEtat {
@@ -2382,6 +2441,7 @@ function Menu-Tweaks-Base {
         Write-Etat "$($catalogue.Count) paquets installés lus. Recherche des $($BloatList.Count) bloatwares ciblés..." -Niveau Info
 
         $supprimes = 0
+        $provList = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
         foreach ($App in $BloatList) {
             $paquets = @($catalogue | Where-Object { $_.Name -like $App })
             foreach ($p in $paquets) {
@@ -2392,14 +2452,14 @@ function Menu-Tweaks-Base {
                 }
                 catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
             }
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } |
-                ForEach-Object {
-                    try {
-                        Invoke-Action "retirerait $($_.DisplayName) des futurs comptes (paquet provisionné)" { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null }
-                        if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($_.DisplayName)" -Niveau OK }
-                    }
-                    catch { }
+            $provCibles = @($provList | Where-Object { $_.DisplayName -like $App })
+            foreach ($pr in $provCibles) {
+                try {
+                    Invoke-Action "retirerait $($pr.DisplayName) des futurs comptes (paquet provisionné)" { Remove-AppxProvisionedPackage -Online -PackageName $pr.PackageName -ErrorAction Stop | Out-Null }
+                    if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($pr.DisplayName)" -Niveau OK }
                 }
+                catch { }
+            }
         }
         # On peut maintenant affirmer ceci, puisqu'on a VRAIMENT lu le catalogue.
         if ($supprimes -eq 0) { Write-Etat "Vérifié : aucun de ces bloatwares n'était installé. Rien à faire." -Niveau Info }
@@ -2416,6 +2476,7 @@ function Menu-Tweaks-Base {
         catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
 
         $n = 0
+        $provList = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
         foreach ($App in $Accessoires) {
             foreach ($p in @($catalogue | Where-Object { $_.Name -like $App })) {
                 try {
@@ -2425,10 +2486,11 @@ function Menu-Tweaks-Base {
                 }
                 catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
             }
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } | ForEach-Object {
+            $provCibles = @($provList | Where-Object { $_.DisplayName -like $App })
+            foreach ($pr in $provCibles) {
                 try {
-                    Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
-                        Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                    Invoke-Action "retirerait $($pr.DisplayName) des futurs comptes" {
+                        Remove-AppxProvisionedPackage -Online -PackageName $pr.PackageName -ErrorAction Stop | Out-Null
                     }
                 }
                 catch { }
@@ -3539,12 +3601,13 @@ function Menu-Logiciels-Extra {
 
     # --- Cas "nouveau PC" : transporter sa liste d'apps d'une machine à l'autre ---
 
+    if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
     $fichierApps = Join-Path $script:DossierDonnees "mes-apps.json"
 
     Invoke-Tweak "EXPORTER la liste des apps installées sur ce PC (pour la réinstaller ailleurs) ?" -Cle "winget-export" `
         -Explication "Exporte la liste de toutes vos applications actuellement installées au format JSON dans le dossier de données." {
         Invoke-Action "exporterait la liste des apps vers $fichierApps" {
-            winget export -o $fichierApps --accept-source-agreements 2>&1 | Out-Null
+            winget export -o $fichierApps --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
             if (-not (Test-Path $fichierApps)) { throw "winget n'a produit aucun fichier." }
             $n = (Get-Content $fichierApps -Raw | ConvertFrom-Json).Sources.Packages.Count
             Write-Etat "$n app(s) exportée(s) vers $fichierApps" -Niveau OK
@@ -3560,7 +3623,7 @@ function Menu-Logiciels-Extra {
         $n = (Get-Content $fichierApps -Raw | ConvertFrom-Json).Sources.Packages.Count
         Invoke-Action "réinstallerait les $n app(s) listées dans $fichierApps" {
             # --ignore-unavailable : une app absente du dépôt ne doit pas tout arrêter.
-            winget import -i $fichierApps --accept-source-agreements --accept-package-agreements --ignore-unavailable
+            winget import -i $fichierApps --accept-source-agreements --accept-package-agreements --ignore-unavailable --disable-interactivity
             Write-Etat "Import terminé (code winget : $LASTEXITCODE)." -Niveau Info
         }
     }
@@ -3568,7 +3631,7 @@ function Menu-Logiciels-Extra {
     Invoke-Tweak "Mettre à jour TOUTES les apps installées (winget upgrade --all) ?" -Cle "winget-upgrade-all" `
         -Explication "Met à jour automatiquement toutes les applications installées sur la machine à l'aide de winget." {
         Invoke-Action "mettrait à jour toutes les apps via winget" {
-            winget upgrade --all --silent --accept-source-agreements --accept-package-agreements
+            winget upgrade --all --silent --accept-source-agreements --accept-package-agreements --disable-interactivity
             Write-Etat "Mise à jour terminée (code winget : $LASTEXITCODE)." -Niveau Info
         }
     }
@@ -3591,7 +3654,7 @@ function Menu-Logiciels-Extra {
             # V3 : sans --accept-*-agreements, winget pouvait rester bloqué sur un prompt,
             # et sans "-e --id" il pouvait installer un paquet homonyme.
             Invoke-Action "installerait $nom via winget (id : $id)" {
-                winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements | Out-Null
+                winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements --disable-interactivity | Out-Null
                 # 0 = ok, -1978335189 = déjà installé / rien à faire
                 if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
                     throw "winget a renvoyé le code $LASTEXITCODE."
@@ -3606,7 +3669,10 @@ function Menu-Logiciels-Extra {
 function Export-ListeApplicationsWinget {
     # Exporte la liste des applications actuellement installées via winget au format JSON.
     param([string]$CheminSortieJson)
-    if (-not $CheminSortieJson) { $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json" }
+    if (-not $CheminSortieJson) {
+        if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
+        $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json"
+    }
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         throw "winget est introuvable."
@@ -3615,7 +3681,7 @@ function Export-ListeApplicationsWinget {
     $dir = Split-Path $CheminSortieJson -Parent
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
-    winget export -o $CheminSortieJson --accept-source-agreements 2>&1 | Out-Null
+    winget export -o $CheminSortieJson --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
     if (-not (Test-Path $CheminSortieJson)) { throw "winget n'a produit aucun fichier." }
 
     $count = 0
@@ -4450,7 +4516,8 @@ function Menu-Nettoyage {
             -Explication "Supprime définitivement le dossier Windows.old contenant l'ancienne installation système (renonce au retour en arrière)." {
             $wold = "$env:SystemDrive\Windows.old"
             if (Test-Path $wold) {
-                Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
+                $repTakeown = if ((Get-Culture).TwoLetterISOLanguageName -eq 'fr') { "O" } else { "Y" }
+                Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", $repTakeown) -CodesOK @(0, 1)
                 Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
                 $r = Clear-Contenu -Chemin $wold
                 # Le dossier LUI-MÊME passe par la porte, comme son contenu.
@@ -4549,7 +4616,8 @@ function Menu-Nettoyage {
         Invoke-Tweak "Supprimer Windows.old maintenant et renoncer au retour arrière ?" {
             # Ce dossier appartient à TrustedInstaller : sans reprise de possession,
             # Remove-Item échoue sur la quasi-totalité de son contenu.
-            Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", "O") -CodesOK @(0, 1)
+            $repTakeown = if ((Get-Culture).TwoLetterISOLanguageName -eq 'fr') { "O" } else { "Y" }
+            Invoke-Externe -Fichier "takeown.exe" -Arguments @("/F", $wold, "/R", "/D", $repTakeown) -CodesOK @(0, 1)
             Invoke-Externe -Fichier "icacls.exe" -Arguments @($wold, "/grant", "*S-1-5-32-544:F", "/T", "/C") -CodesOK @(0, 1332)
             $r = Clear-Contenu -Chemin $wold
             # Même porte que la version pilotable du tweak (clé nettoyage-windows-old) :
@@ -8132,7 +8200,7 @@ function New-ImageSystemeReference {
 # Il ne modifie STRICTEMENT rien : aucun appel à Set-RegValue ici.
 # ------------------------------------------------------------------------------
 function Test-RegEgal {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)]$Attendu)
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name, [Parameter(Mandatory)]$Attendu)
     $v = Get-ValeurActuelle -Path $Path -Name $Name
     if ($null -eq $v) { return $false }
     return "$v" -eq "$Attendu"
@@ -8886,7 +8954,12 @@ function Test-CoherenceAudit {
     # Même logique que Test-ClesProfils : l'audit et les tweaks doivent parler des
     # mêmes clés. Un audit qui teste une clé qu'aucun tweak ne pose signalerait un
     # réglage impossible à appliquer depuis ce script.
-    $source = Get-Content -Path $PSCommandPath -Raw -ErrorAction SilentlyContinue
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if (-not $chemin) { return }
+    $source = Get-Content -LiteralPath $chemin -Raw -ErrorAction SilentlyContinue
     if (-not $source) { return }
     $reelles = [regex]::Matches($source, '-Cle\s+"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
     $orphelines = @(Get-CatalogueAudit | Where-Object { $_.Cle -notin $reelles } | ForEach-Object { $_.Cle } | Select-Object -Unique)
@@ -9324,7 +9397,12 @@ function Test-ClesProfils {
     # dans les profils à celles réellement portées par un Invoke-Tweak du fichier.
     # Il tourne au démarrage : une faute de frappe se voit tout de suite, pas six
     # mois plus tard en se demandant pourquoi un profil « ne fait pas tout ».
-    $source = Get-Content -Path $PSCommandPath -Raw -ErrorAction SilentlyContinue
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if (-not $chemin) { return }
+    $source = Get-Content -LiteralPath $chemin -Raw -ErrorAction SilentlyContinue
     if (-not $source) { return }   # script collé dans une console : rien à vérifier
     $reelles = [regex]::Matches($source, '-Cle\s+"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
     $orphelines = @()
@@ -9430,10 +9508,17 @@ function Resolve-NomProfil {
 
 function Invoke-Profil {
     param([Parameter(Mandatory)][string]$Nom)
+    $nomResolu = Resolve-NomProfil $Nom
+    if ($nomResolu) { $Nom = $nomResolu }
     $profil = $script:Profils[$Nom]
+    if (-not $profil) {
+        Write-Etat "Profil '$Nom' introuvable." -Niveau Echec
+        return
+    }
 
     Clear-Host
-    Write-Host "=== PROFIL : $Nom ===" -ForegroundColor $profil.Couleur
+    $couleurProfil = if ($profil.Couleur) { $profil.Couleur } else { "Cyan" }
+    Write-Host "=== PROFIL : $Nom ===" -ForegroundColor $couleurProfil
     Write-Host ""
     Write-Host "  $($profil.Description)" -ForegroundColor Gray
     Write-Host ""
@@ -9722,8 +9807,12 @@ function Start-ApplyArrierePlan {
         [Parameter(Mandatory)][scriptblock]$OnFini
     )
     $src = $null
-    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
-        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if ($chemin) {
+        try { $src = [System.IO.File]::ReadAllText($chemin) } catch { }
     }
     if (-not $src) { throw "source-indisponible" }
     # On coupe AVANT la section LANCEMENT (l'appel « Initialize-Sauvegarde » en
@@ -9740,6 +9829,9 @@ function Start-ApplyArrierePlan {
     # Le pilote tourne DANS le fil, après les définitions. Guillemets simples :
     # rien ne s'expanse ici, ces $variables sont résolues côté runspace.
     $pilote = @'
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 $script:DossierDonnees   = $SeedDossier
 $script:DossierCles      = $SeedDossierCles
 $script:FichierSauvegarde = $SeedFichierSauvegarde
@@ -9824,8 +9916,17 @@ finally {
             $val = [math]::Round(($sync.Progress / $Cles.Count) * 100)
             $script:GuiProgress.Value = [math]::Min(100, [math]::Max(0, $val))
         }
-        if ($sync.Fini) {
+        if ($sync.Fini -or ($handle -and $handle.IsCompleted)) {
             $timer.Stop()
+            if (-not $sync.Fini) {
+                $sync.Fini = $true
+                if ($ps.Streams.Error.Count -gt 0) {
+                    foreach ($err in $ps.Streams.Error) {
+                        $Journal.AppendText("  [ÉCHEC] ERREUR RUNSPACE : $($err.Exception.Message)`r`n")
+                    }
+                    $Journal.ScrollToEnd()
+                }
+            }
             try { $ps.EndInvoke($handle) } catch { }
             $ps.Dispose(); $rs.Dispose()
             & $OnFini $sync
@@ -9847,8 +9948,12 @@ function Start-ImageArrierePlan {
         [Parameter(Mandatory)][scriptblock]$OnFini
     )
     $src = $null
-    if ($PSCommandPath -and (Test-Path $PSCommandPath)) {
-        try { $src = [System.IO.File]::ReadAllText($PSCommandPath) } catch { }
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if ($chemin) {
+        try { $src = [System.IO.File]::ReadAllText($chemin) } catch { }
     }
     if (-not $src) { throw "source-indisponible" }
     $m = [regex]::Match($src, '(?m)^Initialize-Sauvegarde\b')
@@ -9918,8 +10023,17 @@ finally {
             $Journal.AppendText("$prefixe$($item[1])`r`n")
         }
         $Journal.ScrollToEnd()
-        if ($sync.Fini) {
+        if ($sync.Fini -or ($handle -and $handle.IsCompleted)) {
             $timer.Stop()
+            if (-not $sync.Fini) {
+                $sync.Fini = $true
+                if ($ps.Streams.Error.Count -gt 0) {
+                    foreach ($err in $ps.Streams.Error) {
+                        $Journal.AppendText("  [ÉCHEC] ERREUR RUNSPACE : $($err.Exception.Message)`r`n")
+                    }
+                    $Journal.ScrollToEnd()
+                }
+            }
             try { $ps.EndInvoke($handle) } catch { }
             $ps.Dispose(); $rs.Dispose()
             & $OnFini $sync

@@ -52,12 +52,13 @@ function Menu-Logiciels-Extra {
 
     # --- Cas "nouveau PC" : transporter sa liste d'apps d'une machine à l'autre ---
 
+    if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
     $fichierApps = Join-Path $script:DossierDonnees "mes-apps.json"
 
     Invoke-Tweak "EXPORTER la liste des apps installées sur ce PC (pour la réinstaller ailleurs) ?" -Cle "winget-export" `
         -Explication "Exporte la liste de toutes vos applications actuellement installées au format JSON dans le dossier de données." {
         Invoke-Action "exporterait la liste des apps vers $fichierApps" {
-            winget export -o $fichierApps --accept-source-agreements 2>&1 | Out-Null
+            winget export -o $fichierApps --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
             if (-not (Test-Path $fichierApps)) { throw "winget n'a produit aucun fichier." }
             $n = (Get-Content $fichierApps -Raw | ConvertFrom-Json).Sources.Packages.Count
             Write-Etat "$n app(s) exportée(s) vers $fichierApps" -Niveau OK
@@ -73,7 +74,7 @@ function Menu-Logiciels-Extra {
         $n = (Get-Content $fichierApps -Raw | ConvertFrom-Json).Sources.Packages.Count
         Invoke-Action "réinstallerait les $n app(s) listées dans $fichierApps" {
             # --ignore-unavailable : une app absente du dépôt ne doit pas tout arrêter.
-            winget import -i $fichierApps --accept-source-agreements --accept-package-agreements --ignore-unavailable
+            winget import -i $fichierApps --accept-source-agreements --accept-package-agreements --ignore-unavailable --disable-interactivity
             Write-Etat "Import terminé (code winget : $LASTEXITCODE)." -Niveau Info
         }
     }
@@ -81,7 +82,7 @@ function Menu-Logiciels-Extra {
     Invoke-Tweak "Mettre à jour TOUTES les apps installées (winget upgrade --all) ?" -Cle "winget-upgrade-all" `
         -Explication "Met à jour automatiquement toutes les applications installées sur la machine à l'aide de winget." {
         Invoke-Action "mettrait à jour toutes les apps via winget" {
-            winget upgrade --all --silent --accept-source-agreements --accept-package-agreements
+            winget upgrade --all --silent --accept-source-agreements --accept-package-agreements --disable-interactivity
             Write-Etat "Mise à jour terminée (code winget : $LASTEXITCODE)." -Niveau Info
         }
     }
@@ -104,7 +105,7 @@ function Menu-Logiciels-Extra {
             # V3 : sans --accept-*-agreements, winget pouvait rester bloqué sur un prompt,
             # et sans "-e --id" il pouvait installer un paquet homonyme.
             Invoke-Action "installerait $nom via winget (id : $id)" {
-                winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements | Out-Null
+                winget install -e --id $id --silent --accept-source-agreements --accept-package-agreements --disable-interactivity | Out-Null
                 # 0 = ok, -1978335189 = déjà installé / rien à faire
                 if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne -1978335189) {
                     throw "winget a renvoyé le code $LASTEXITCODE."
@@ -119,7 +120,10 @@ function Menu-Logiciels-Extra {
 function Export-ListeApplicationsWinget {
     # Exporte la liste des applications actuellement installées via winget au format JSON.
     param([string]$CheminSortieJson)
-    if (-not $CheminSortieJson) { $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json" }
+    if (-not $CheminSortieJson) {
+        if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
+        $CheminSortieJson = Join-Path $script:DossierDonnees "mes-apps.json"
+    }
 
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
         throw "winget est introuvable."
@@ -128,7 +132,7 @@ function Export-ListeApplicationsWinget {
     $dir = Split-Path $CheminSortieJson -Parent
     if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
-    winget export -o $CheminSortieJson --accept-source-agreements 2>&1 | Out-Null
+    winget export -o $CheminSortieJson --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
     if (-not (Test-Path $CheminSortieJson)) { throw "winget n'a produit aucun fichier." }
 
     $count = 0

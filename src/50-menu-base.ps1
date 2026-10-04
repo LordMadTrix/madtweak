@@ -97,6 +97,7 @@ function Menu-Tweaks-Base {
         Write-Etat "$($catalogue.Count) paquets installés lus. Recherche des $($BloatList.Count) bloatwares ciblés..." -Niveau Info
 
         $supprimes = 0
+        $provList = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
         foreach ($App in $BloatList) {
             $paquets = @($catalogue | Where-Object { $_.Name -like $App })
             foreach ($p in $paquets) {
@@ -107,14 +108,14 @@ function Menu-Tweaks-Base {
                 }
                 catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
             }
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } |
-                ForEach-Object {
-                    try {
-                        Invoke-Action "retirerait $($_.DisplayName) des futurs comptes (paquet provisionné)" { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null }
-                        if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($_.DisplayName)" -Niveau OK }
-                    }
-                    catch { }
+            $provCibles = @($provList | Where-Object { $_.DisplayName -like $App })
+            foreach ($pr in $provCibles) {
+                try {
+                    Invoke-Action "retirerait $($pr.DisplayName) des futurs comptes (paquet provisionné)" { Remove-AppxProvisionedPackage -Online -PackageName $pr.PackageName -ErrorAction Stop | Out-Null }
+                    if (-not $script:Simulation) { Write-Etat "Retiré des futurs comptes : $($pr.DisplayName)" -Niveau OK }
                 }
+                catch { }
+            }
         }
         # On peut maintenant affirmer ceci, puisqu'on a VRAIMENT lu le catalogue.
         if ($supprimes -eq 0) { Write-Etat "Vérifié : aucun de ces bloatwares n'était installé. Rien à faire." -Niveau Info }
@@ -131,6 +132,7 @@ function Menu-Tweaks-Base {
         catch { throw "Impossible de lire la liste des paquets : $($_.Exception.Message). Rien n'a été tenté." }
 
         $n = 0
+        $provList = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
         foreach ($App in $Accessoires) {
             foreach ($p in @($catalogue | Where-Object { $_.Name -like $App })) {
                 try {
@@ -140,10 +142,11 @@ function Menu-Tweaks-Base {
                 }
                 catch { Write-Etat "Non supprimé : $($p.Name) ($($_.Exception.Message))" -Niveau Avert }
             }
-            Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $App } | ForEach-Object {
+            $provCibles = @($provList | Where-Object { $_.DisplayName -like $App })
+            foreach ($pr in $provCibles) {
                 try {
-                    Invoke-Action "retirerait $($_.DisplayName) des futurs comptes" {
-                        Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null
+                    Invoke-Action "retirerait $($pr.DisplayName) des futurs comptes" {
+                        Remove-AppxProvisionedPackage -Online -PackageName $pr.PackageName -ErrorAction Stop | Out-Null
                     }
                 }
                 catch { }

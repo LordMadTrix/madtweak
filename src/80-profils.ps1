@@ -233,7 +233,12 @@ function Test-ClesProfils {
     # dans les profils à celles réellement portées par un Invoke-Tweak du fichier.
     # Il tourne au démarrage : une faute de frappe se voit tout de suite, pas six
     # mois plus tard en se demandant pourquoi un profil « ne fait pas tout ».
-    $source = Get-Content -Path $PSCommandPath -Raw -ErrorAction SilentlyContinue
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if (-not $chemin) { return }
+    $source = Get-Content -LiteralPath $chemin -Raw -ErrorAction SilentlyContinue
     if (-not $source) { return }   # script collé dans une console : rien à vérifier
     $reelles = [regex]::Matches($source, '-Cle\s+"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
     $orphelines = @()
@@ -339,10 +344,17 @@ function Resolve-NomProfil {
 
 function Invoke-Profil {
     param([Parameter(Mandatory)][string]$Nom)
+    $nomResolu = Resolve-NomProfil $Nom
+    if ($nomResolu) { $Nom = $nomResolu }
     $profil = $script:Profils[$Nom]
+    if (-not $profil) {
+        Write-Etat "Profil '$Nom' introuvable." -Niveau Echec
+        return
+    }
 
     Clear-Host
-    Write-Host "=== PROFIL : $Nom ===" -ForegroundColor $profil.Couleur
+    $couleurProfil = if ($profil.Couleur) { $profil.Couleur } else { "Cyan" }
+    Write-Host "=== PROFIL : $Nom ===" -ForegroundColor $couleurProfil
     Write-Host ""
     Write-Host "  $($profil.Description)" -ForegroundColor Gray
     Write-Host ""

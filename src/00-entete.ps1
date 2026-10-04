@@ -56,24 +56,31 @@ param(
 # Doit rester ici, juste après param() et avant tout le reste -- $PSCommandPath
 # n'est fiable qu'une fois le param() passé, et rien avant ce point ne doit
 # supposer des droits admin.
-$estAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $estAdmin) {
-    $argumentsElevation = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
-    if ($Console) { $argumentsElevation += '-Console' }
-    if ($Maintenance) { $argumentsElevation += '-Maintenance' }
-    if ($Langue) { $argumentsElevation += @('-Langue', $Langue) }
-    if ($Profil) { $argumentsElevation += @('-Profil', "`"$Profil`"") }
-    if ($Simulation) { $argumentsElevation += '-Simulation' }
-    try {
-        Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentsElevation -Verb RunAs | Out-Null
-    } catch {
-        Write-Host "Élévation refusée ou impossible : $($_.Exception.Message)" -ForegroundColor Red
-        Write-Host 'Relance manuellement depuis un PowerShell ouvert « en tant qu''administrateur ».' -ForegroundColor Yellow
+if (-not $script:BypassLancement) {
+    $estAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $estAdmin) {
+        $argumentsElevation = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
+        if ($Console) { $argumentsElevation += '-Console' }
+        if ($Maintenance) { $argumentsElevation += '-Maintenance' }
+        if ($Langue) { $argumentsElevation += @('-Langue', $Langue) }
+        if ($Profil) { $argumentsElevation += @('-Profil', "`"$Profil`"") }
+        if ($Simulation) { $argumentsElevation += '-Simulation' }
+        try {
+            Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentsElevation -Verb RunAs | Out-Null
+        } catch {
+            Write-Host "Élévation refusée ou impossible : $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host 'Relance manuellement depuis un PowerShell ouvert « en tant qu''administrateur ».' -ForegroundColor Yellow
+        }
+        exit
     }
-    exit
 }
 
 $ErrorActionPreference = 'Stop'
+
+# Lecteur HKCR : PowerShell ne le monte pas par défaut, or des tweaks contextuels y écrivent.
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 
 # Version de l'outil, affichée dans le titre de la fenêtre, l'en-tête et les rapports.
 $script:Version = "1.5.2"

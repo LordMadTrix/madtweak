@@ -47,17 +47,17 @@ function Get-DossierDonnees {
 }
 
 $script:Machine = Get-IdentiteMachine
-$script:DossierDonnees = $null
+$script:DossierDonnees = Get-DossierDonnees
 $script:DossierCles = $null
 $script:FichierSauvegarde = $null
 $script:Sauvegarde = @{}
 $script:SauvegardeActive = $true
 
 function Initialize-Sauvegarde {
-    $script:DossierDonnees = Get-DossierDonnees
+    if (-not $script:DossierDonnees) { $script:DossierDonnees = Get-DossierDonnees }
     # Les clés entières ne tiennent pas dans le JSON : elles sont exportées ici en .reg.
     $script:DossierCles = Join-Path $script:DossierDonnees "cles-sauvegardees"
-    if (-not (Test-Path $script:DossierCles)) { New-Item -ItemType Directory -Path $script:DossierCles -Force | Out-Null }
+    if (-not (Test-Path -LiteralPath $script:DossierCles)) { New-Item -ItemType Directory -Path $script:DossierCles -Force | Out-Null }
     # Le nom du fichier porte la machine : emporter le script sur une clé USB ne
     # peut donc pas mélanger les sauvegardes de deux PC différents.
     $court = if ($script:Machine.Guid.Length -ge 8) { $script:Machine.Guid.Substring(0, 8) } else { $script:Machine.Guid }
@@ -96,17 +96,46 @@ function Write-Sauvegarde {
     catch { Write-Etat "Impossible d'écrire la sauvegarde : $($_.Exception.Message)" -Niveau Avert }
 }
 
+function Ensure-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path -LiteralPath $Path) { return }
+    $clean = $Path -replace '^Microsoft\.PowerShell\.Core\\Registry::', ''
+    $hive = $null
+    $subPath = $null
+    if ($clean -match '^(HKLM:|HKEY_LOCAL_MACHINE)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::LocalMachine
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKCU:|HKEY_CURRENT_USER)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::CurrentUser
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKCR:|HKEY_CLASSES_ROOT)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::ClassesRoot
+        $subPath = $matches[2]
+    } elseif ($clean -match '^(HKU:|HKEY_USERS)\\?(.*)$') {
+        $hive = [Microsoft.Win32.Registry]::Users
+        $subPath = $matches[2]
+    }
+    if ($hive -and $subPath) {
+        $k = $hive.CreateSubKey($subPath)
+        if ($k) { $k.Close() }
+    } else {
+        if (-not (Test-Path -LiteralPath $Path)) {
+            New-Item -Path $Path -Force | Out-Null
+        }
+    }
+}
+
 function Save-EtatAvant {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name)
     if (-not $script:SauvegardeActive) { return }
     $cle = "$Path|$Name"
     # On ne réécrit JAMAIS une entrée : le premier état vu est le vrai état d'origine.
     if ($script:Sauvegarde.ContainsKey($cle)) { return }
 
     $entree = [ordered]@{ Path = $Path; Name = $Name; Existait = $false; Valeur = $null; Type = $null }
-    if (Test-Path $Path) {
+    if (Test-Path -LiteralPath $Path) {
         try {
-            $item = Get-Item -Path $Path
+            $item = Get-Item -LiteralPath $Path
             if ($Name -eq "(default)" -or $Name -eq "") {
                 $val = $item.GetValue("")
                 if ($null -ne $val) {
@@ -159,7 +188,7 @@ function Save-EtatCle {
     if ($script:Sauvegarde.ContainsKey($cle)) { return }
 
     $entree = [ordered]@{ Type = "CleRegistre"; Path = $Path; Existait = $false; Fichier = $null }
-    if (Test-Path $Path) {
+    if (Test-Path -LiteralPath $Path) {
         $nom = "cle-" + ($Path -replace '[^A-Za-z0-9]', '_') + ".reg"
         # Un chemin de registre profond dépasse vite la limite de nom de fichier.
         if ($nom.Length -gt 150) { $nom = "cle-" + [System.IO.Path]::GetRandomFileName() + ".reg" }
@@ -193,13 +222,13 @@ function Restore-UneEntree {
     if ($e.Type -eq "CleRegistre") {
         if (-not $e.Existait) {
             # La clé n'existait pas avant nous (cas du clic droit classique) : on la retire.
-            if (Test-Path $e.Path) { Remove-Item -Path $e.Path -Recurse -Force }
+            if (Test-Path -LiteralPath $e.Path) { Remove-Item -LiteralPath $e.Path -Recurse -Force }
             return 'S'
         }
         if (-not (Test-Path $e.Fichier)) { throw "Export introuvable : $($e.Fichier). La clé ne peut pas être restaurée." }
         # reg import FUSIONNE au lieu de remplacer : sans cette suppression préalable,
         # les valeurs ajoutées depuis l'export survivraient.
-        if (Test-Path $e.Path) { Remove-Item -Path $e.Path -Recurse -Force }
+        if (Test-Path -LiteralPath $e.Path) { Remove-Item -LiteralPath $e.Path -Recurse -Force }
         reg.exe import "$($e.Fichier)" 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "reg import a renvoyé le code $LASTEXITCODE." }
         return 'R'
@@ -208,15 +237,15 @@ function Restore-UneEntree {
         $valeur = $e.Valeur
         # Le JSON transforme un byte[] en tableau d'entiers : il faut le recaster.
         if ($e.Type -eq "Binary") { $valeur = [byte[]]@($valeur) }
-        if (-not (Test-Path $e.Path)) { New-Item -Path $e.Path -Force | Out-Null }
-        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -Path $e.Path -Value $valeur -Force }
-        else { Set-ItemProperty -Path $e.Path -Name $e.Name -Value $valeur -Type $e.Type -Force }
+        Ensure-RegKey -Path $e.Path
+        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -LiteralPath $e.Path -Value $valeur -Force }
+        else { Set-ItemProperty -LiteralPath $e.Path -Name $e.Name -Value $valeur -Type $e.Type -Force }
         return 'R'
     }
     # La valeur n'existait pas avant nous : on la retire.
-    if (Test-Path $e.Path) {
-        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -Path $e.Path -Value "" -Force }
-        else { Remove-ItemProperty -Path $e.Path -Name $e.Name -Force -ErrorAction SilentlyContinue | Out-Null }
+    if (Test-Path -LiteralPath $e.Path) {
+        if ($e.Name -eq "(default)" -or $e.Name -eq "") { Set-Item -LiteralPath $e.Path -Value "" -Force }
+        else { Remove-ItemProperty -LiteralPath $e.Path -Name $e.Name -Force -ErrorAction SilentlyContinue | Out-Null }
     }
     return 'S'
 }

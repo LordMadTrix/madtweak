@@ -34,9 +34,10 @@ function Get-ValeurLisible {
 
 function Get-ValeurActuelle {
     param([string]$Path, [string]$Name)
-    if (-not (Test-Path $Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
     try {
-        $i = Get-Item -Path $Path
+        $i = Get-Item -LiteralPath $Path
+        if ($Name -eq "(default)" -or $Name -eq "") { return $i.GetValue("") }
         if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
     }
     catch { }
@@ -77,7 +78,7 @@ function Set-RegValue {
     # faisait échouer silencieusement les tweaks VBS, Windows Update et USB.
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name,
         [Parameter(Mandatory)]$Value,
         [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
     )
@@ -89,11 +90,11 @@ function Set-RegValue {
         return
     }
     Save-EtatAvant -Path $Path -Name $Name
-    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
+    Ensure-RegKey -Path $Path
     if ($Name -eq "(default)" -or $Name -eq "") {
-        Set-Item -Path $Path -Value $Value -Force
+        Set-Item -LiteralPath $Path -Value $Value -Force
     } else {
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
+        Set-ItemProperty -LiteralPath $Path -Name $Name -Value $Value -Type $Type -Force
     }
 }
 
@@ -102,7 +103,7 @@ function Remove-RegValue {
     # Une valeur absente n'est PAS une erreur : c'est déjà l'état voulu.
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name
     )
     if ($script:Simulation) {
         $avant = Get-ValeurActuelle -Path $Path -Name $Name
@@ -111,19 +112,19 @@ function Remove-RegValue {
         return
     }
     Save-EtatAvant -Path $Path -Name $Name
-    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $Path) { Remove-ItemProperty -LiteralPath $Path -Name $Name -Force -ErrorAction SilentlyContinue }
 }
 
 function Remove-RegKey {
     param([Parameter(Mandatory)][string]$Path)
     if ($script:Simulation) {
-        Write-Simu "clé $Path : $(if (Test-Path $Path) { 'serait SUPPRIMÉE avec son contenu' } else { 'déjà absente' })"
+        Write-Simu "clé $Path : $(if (Test-Path -LiteralPath $Path) { 'serait SUPPRIMÉE avec son contenu' } else { 'déjà absente' })"
         return
     }
     # L'export vient AVANT la suppression, et lève si elle échoue : on ne détruit
     # jamais une arborescence qu'on serait incapable de reconstruire.
     Save-EtatCle -Path $Path
-    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
 }
 
 function Save-EtatService {
@@ -378,7 +379,7 @@ function Invoke-RedemarrageFinal {
 # celles-là est exportable tel quel ; tout autre appel maison le rendrait
 # increportable, et on préfère le dire que livrer un script qui plantera.
 $script:FonctionsPortables = @(
-    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Set-RegValue',
+    'Write-Etat', 'Write-Simu', 'T', 'Invoke-Action', 'Ensure-RegKey', 'Set-RegValue',
     'Remove-RegValue', 'Remove-RegKey', 'Set-ServiceEtat', 'Invoke-Externe',
     'Get-ValeurActuelle', 'Get-ValeurLisible'
 )
@@ -390,6 +391,10 @@ function Get-PreambuleAutonome {
     # pas -- prétendre le contraire serait pire que de ne rien générer.
     return @'
 $ErrorActionPreference = 'Stop'
+
+if (-not (Get-PSDrive -Name HKCR -ErrorAction SilentlyContinue)) {
+    New-PSDrive -Name HKCR -PSProvider Registry -Root HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue | Out-Null
+}
 
 function Write-Etat {
     param([string]$Message, [string]$Niveau = 'Info')
@@ -404,11 +409,29 @@ function Invoke-Action {
     & $Action
 }
 
+function Ensure-RegKey {
+    param([Parameter(Mandatory)][string]$Path)
+    if (Test-Path -LiteralPath $Path) { return }
+    $clean = $Path -replace '^Microsoft\.PowerShell\.Core\\Registry::', ''
+    $hive = $null; $subPath = $null
+    if ($clean -match '^(HKLM:|HKEY_LOCAL_MACHINE)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::LocalMachine; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKCU:|HKEY_CURRENT_USER)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::CurrentUser; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKCR:|HKEY_CLASSES_ROOT)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::ClassesRoot; $subPath = $matches[2] }
+    elseif ($clean -match '^(HKU:|HKEY_USERS)\\?(.*)$') { $hive = [Microsoft.Win32.Registry]::Users; $subPath = $matches[2] }
+    if ($hive -and $subPath) {
+        $k = $hive.CreateSubKey($subPath)
+        if ($k) { $k.Close() }
+    } else {
+        if (-not (Test-Path -LiteralPath $Path)) { New-Item -Path $Path -Force | Out-Null }
+    }
+}
+
 function Get-ValeurActuelle {
     param([string]$Path, [string]$Name)
-    if (-not (Test-Path $Path)) { return $null }
+    if (-not (Test-Path -LiteralPath $Path)) { return $null }
     try {
-        $i = Get-Item -Path $Path
+        $i = Get-Item -LiteralPath $Path
+        if ($Name -eq '(default)' -or $Name -eq '') { return $i.GetValue('') }
         if ($Name -in $i.GetValueNames()) { return $i.GetValue($Name) }
     } catch { }
     return $null
@@ -423,21 +446,21 @@ function Get-ValeurLisible {
 function Set-RegValue {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Name,
         [Parameter(Mandatory)]$Value,
         [Microsoft.Win32.RegistryValueKind]$Type = 'DWord'
     )
-    if (-not (Test-Path $Path)) { New-Item -Path $Path -Force | Out-Null }
-    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -Path $Path -Value $Value -Force }
-    else { Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force }
+    Ensure-RegKey -Path $Path
+    if ($Name -eq '(default)' -or $Name -eq '') { Set-Item -LiteralPath $Path -Value $Value -Force }
+    else { Set-ItemProperty -LiteralPath $Path -Name $Name -Value $Value -Type $Type -Force }
 }
 function Remove-RegValue {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name)
-    if (Test-Path $Path) { Remove-ItemProperty -Path $Path -Name $Name -Force -ErrorAction SilentlyContinue }
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name)
+    if (Test-Path -LiteralPath $Path) { Remove-ItemProperty -LiteralPath $Path -Name $Name -Force -ErrorAction SilentlyContinue }
 }
 function Remove-RegKey {
     param([Parameter(Mandatory)][string]$Path)
-    if (Test-Path $Path) { Remove-Item -Path $Path -Recurse -Force }
+    if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
 }
 
 function Set-ServiceEtat {

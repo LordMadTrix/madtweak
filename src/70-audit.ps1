@@ -8,7 +8,7 @@
 # Il ne modifie STRICTEMENT rien : aucun appel à Set-RegValue ici.
 # ------------------------------------------------------------------------------
 function Test-RegEgal {
-    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)]$Attendu)
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][AllowEmptyString()][string]$Name, [Parameter(Mandatory)]$Attendu)
     $v = Get-ValeurActuelle -Path $Path -Name $Name
     if ($null -eq $v) { return $false }
     return "$v" -eq "$Attendu"
@@ -762,7 +762,12 @@ function Test-CoherenceAudit {
     # Même logique que Test-ClesProfils : l'audit et les tweaks doivent parler des
     # mêmes clés. Un audit qui teste une clé qu'aucun tweak ne pose signalerait un
     # réglage impossible à appliquer depuis ce script.
-    $source = Get-Content -Path $PSCommandPath -Raw -ErrorAction SilentlyContinue
+    $chemin = if ($PSCommandPath -and (Test-Path -LiteralPath $PSCommandPath)) { $PSCommandPath }
+              elseif ($MyInvocation.MyCommand.Path -and (Test-Path -LiteralPath $MyInvocation.MyCommand.Path)) { $MyInvocation.MyCommand.Path }
+              elseif (Test-Path -LiteralPath '.\MadTweak.ps1') { (Resolve-Path '.\MadTweak.ps1').Path }
+              else { $null }
+    if (-not $chemin) { return }
+    $source = Get-Content -LiteralPath $chemin -Raw -ErrorAction SilentlyContinue
     if (-not $source) { return }
     $reelles = [regex]::Matches($source, '-Cle\s+"([^"]+)"') | ForEach-Object { $_.Groups[1].Value }
     $orphelines = @(Get-CatalogueAudit | Where-Object { $_.Cle -notin $reelles } | ForEach-Object { $_.Cle } | Select-Object -Unique)
