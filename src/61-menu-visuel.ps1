@@ -7,6 +7,227 @@
 # Ici, tout est affaire de préférence : aucun de ces réglages n'est « meilleur »
 # qu'un autre, et aucun ne casse quoi que ce soit.
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# COULEUR DES DOSSIERS — Génération d'icônes et script d'application
+# ------------------------------------------------------------------------------
+function New-FolderIcoBytes {
+    param(
+        [Parameter(Mandatory)][System.Drawing.Color]$BaseColor,
+        [Parameter(Mandatory)][System.Drawing.Color]$FrontColor,
+        [switch]$IsPalette
+    )
+
+    $Size = 64
+    $bmp = New-Object System.Drawing.Bitmap $Size, $Size
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+    $s = $Size / 64.0
+
+    $backBrush = New-Object System.Drawing.SolidBrush $BaseColor
+    $frontBrush = New-Object System.Drawing.SolidBrush $FrontColor
+    $paperBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(242, 245, 250))
+    $shadowBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(35, 0, 0, 0))
+
+    # Ombre sous le dossier
+    $g.FillEllipse($shadowBrush, [float](6 * $s), [float](54 * $s), [float](52 * $s), [float](6 * $s))
+
+    # Dos du dossier avec onglet
+    $backPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $backPath.AddArc([float](6 * $s), [float](10 * $s), [float](6 * $s), [float](6 * $s), 180, 90)
+    $backPath.AddLine([float](9 * $s), [float](10 * $s), [float](24 * $s), [float](10 * $s))
+    $backPath.AddArc([float](24 * $s), [float](10 * $s), [float](6 * $s), [float](6 * $s), 270, 45)
+    $backPath.AddLine([float](30 * $s), [float](16 * $s), [float](54 * $s), [float](16 * $s))
+    $backPath.AddArc([float](52 * $s), [float](16 * $s), [float](6 * $s), [float](6 * $s), 270, 90)
+    $backPath.AddLine([float](58 * $s), [float](22 * $s), [float](58 * $s), [float](50 * $s))
+    $backPath.AddArc([float](52 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 0, 90)
+    $backPath.AddLine([float](52 * $s), [float](52 * $s), [float](12 * $s), [float](52 * $s))
+    $backPath.AddArc([float](6 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 90, 90)
+    $backPath.CloseFigure()
+    $g.FillPath($backBrush, $backPath)
+    $backPath.Dispose()
+
+    # Feuille de document à l'intérieur
+    $paperRect = New-Object System.Drawing.RectangleF ([float](14 * $s)), ([float](14 * $s)), ([float](36 * $s)), ([float](18 * $s))
+    $g.FillRectangle($paperBrush, $paperRect)
+
+    # Rabat avant
+    $frontPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $frontPath.AddArc([float](6 * $s), [float](22 * $s), [float](6 * $s), [float](6 * $s), 180, 90)
+    $frontPath.AddLine([float](9 * $s), [float](22 * $s), [float](55 * $s), [float](22 * $s))
+    $frontPath.AddArc([float](52 * $s), [float](22 * $s), [float](6 * $s), [float](6 * $s), 270, 90)
+    $frontPath.AddLine([float](58 * $s), [float](25 * $s), [float](58 * $s), [float](48 * $s))
+    $frontPath.AddArc([float](52 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 0, 90)
+    $frontPath.AddLine([float](52 * $s), [float](52 * $s), [float](12 * $s), [float](52 * $s))
+    $frontPath.AddArc([float](6 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 90, 90)
+    $frontPath.CloseFigure()
+    $g.FillPath($frontBrush, $frontPath)
+
+    if ($IsPalette) {
+        $paletteDots = @(
+            [System.Drawing.Color]::FromArgb(235, 30, 50),
+            [System.Drawing.Color]::FromArgb(0, 140, 240),
+            [System.Drawing.Color]::FromArgb(16, 185, 129),
+            [System.Drawing.Color]::FromArgb(255, 185, 0)
+        )
+        for ($i = 0; $i -lt 4; $i++) {
+            $dotBrush = New-Object System.Drawing.SolidBrush $paletteDots[$i]
+            $g.FillEllipse($dotBrush, [float]((16 + ($i * 9)) * $s), [float](34 * $s), [float](6 * $s), [float](6 * $s))
+            $dotBrush.Dispose()
+        }
+    }
+
+    $penColor = [System.Drawing.Color]::FromArgb(70, 255, 255, 255)
+    $pen = New-Object System.Drawing.Pen ($penColor, [float]([Math]::Max(1.0, 1.2 * $s)))
+    $g.DrawLine($pen, [float](9 * $s), [float](23 * $s), [float](55 * $s), [float](23 * $s))
+    $pen.Dispose()
+    $frontPath.Dispose()
+
+    $backBrush.Dispose()
+    $frontBrush.Dispose()
+    $paperBrush.Dispose()
+    $shadowBrush.Dispose()
+    $g.Dispose()
+
+    $ms = New-Object System.IO.MemoryStream
+    $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+    $pngBytes = $ms.ToArray()
+    $bmp.Dispose()
+    $ms.Dispose()
+
+    $icoMs = New-Object System.IO.MemoryStream
+    $w = New-Object System.IO.BinaryWriter $icoMs
+    $w.Write([uint16]0)
+    $w.Write([uint16]1)
+    $w.Write([uint16]1)
+    $w.Write([byte]64)
+    $w.Write([byte]64)
+    $w.Write([byte]0)
+    $w.Write([byte]0)
+    $w.Write([uint16]1)
+    $w.Write([uint16]32)
+    $w.Write([uint32]$pngBytes.Length)
+    $w.Write([uint32]22)
+    $w.Write($pngBytes)
+
+    $icoBytes = $icoMs.ToArray()
+    $w.Dispose()
+    $icoMs.Dispose()
+
+    return , [byte[]]$icoBytes
+}
+
+function Install-FolderColorResources {
+    param([Parameter(Mandatory)][string]$Destination)
+
+    $iconsDir = Join-Path $Destination "icons"
+    if (-not (Test-Path -LiteralPath $iconsDir)) {
+        New-Item -ItemType Directory -Path $iconsDir -Force | Out-Null
+    }
+
+    Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
+
+    $couleurs = @(
+        @{ Nom = "rouge";   Base = [System.Drawing.Color]::FromArgb(200, 0, 20);   Front = [System.Drawing.Color]::FromArgb(235, 30, 50) }
+        @{ Nom = "bleu";    Base = [System.Drawing.Color]::FromArgb(0, 100, 200);  Front = [System.Drawing.Color]::FromArgb(0, 140, 240) }
+        @{ Nom = "cyan";    Base = [System.Drawing.Color]::FromArgb(0, 160, 190);  Front = [System.Drawing.Color]::FromArgb(0, 200, 235) }
+        @{ Nom = "vert";    Base = [System.Drawing.Color]::FromArgb(10, 150, 100); Front = [System.Drawing.Color]::FromArgb(16, 185, 129) }
+        @{ Nom = "jaune";   Base = [System.Drawing.Color]::FromArgb(210, 150, 0);  Front = [System.Drawing.Color]::FromArgb(255, 185, 0) }
+        @{ Nom = "orange";  Base = [System.Drawing.Color]::FromArgb(210, 90, 0);   Front = [System.Drawing.Color]::FromArgb(255, 130, 0) }
+        @{ Nom = "violet";  Base = [System.Drawing.Color]::FromArgb(130, 60, 180); Front = [System.Drawing.Color]::FromArgb(160, 90, 220) }
+        @{ Nom = "rose";    Base = [System.Drawing.Color]::FromArgb(210, 0, 90);   Front = [System.Drawing.Color]::FromArgb(255, 0, 120) }
+        @{ Nom = "gris";    Base = [System.Drawing.Color]::FromArgb(60, 60, 60);   Front = [System.Drawing.Color]::FromArgb(90, 90, 90) }
+    )
+
+    foreach ($c in $couleurs) {
+        $fichier = Join-Path $iconsDir "folder_$($c.Nom).ico"
+        $raw = New-FolderIcoBytes -BaseColor $c.Base -FrontColor $c.Front
+        [System.IO.File]::WriteAllBytes($fichier, [byte[]]$raw)
+    }
+
+    $fichierPal = Join-Path $iconsDir "folder_palette.ico"
+    $rawPal = New-FolderIcoBytes -BaseColor ([System.Drawing.Color]::FromArgb(40, 45, 60)) `
+                                -FrontColor ([System.Drawing.Color]::FromArgb(65, 75, 95)) `
+                                -IsPalette
+    [System.IO.File]::WriteAllBytes($fichierPal, [byte[]]$rawPal)
+
+    $scriptContent = @'
+# ==============================================================================
+# MADTWEAK - Application de la couleur de dossier (desktop.ini)
+# ==============================================================================
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$Dossier,
+
+    [string]$Couleur,
+
+    [switch]$Reset
+)
+
+$ErrorActionPreference = 'SilentlyContinue'
+
+if (-not (Test-Path -LiteralPath $Dossier)) { return }
+
+$item = Get-Item -LiteralPath $Dossier -Force
+if (-not $item.PSIsContainer) { return }
+
+$desktopIni = Join-Path $Dossier "desktop.ini"
+
+if ($Reset) {
+    if (Test-Path -LiteralPath $desktopIni) {
+        cmd.exe /c "attrib -h -s -r `"$desktopIni`"" 2>$null
+        try {
+            $txt = [System.IO.File]::ReadAllText($desktopIni)
+            if ($txt -match '^\[\.ShellClassInfo\][\r\n\s]*IconResource=.*[\r\n\s]*(\[ViewState\][\r\n\s]*FolderType=Generic[\r\n\s]*)?$') {
+                [System.IO.File]::Delete($desktopIni)
+            } else {
+                $restant = [System.IO.File]::ReadAllLines($desktopIni) | Where-Object {
+                    $_ -notmatch '^\s*IconResource\s*=' -and
+                    $_ -notmatch '^\s*IconFile\s*=' -and
+                    $_ -notmatch '^\s*IconIndex\s*='
+                }
+                [System.IO.File]::WriteAllLines($desktopIni, $restant, [System.Text.Encoding]::Default)
+                cmd.exe /c "attrib +h +s `"$desktopIni`"" 2>$null
+            }
+        } catch {
+            [System.IO.File]::Delete($desktopIni)
+        }
+    }
+    cmd.exe /c "attrib -r `"$Dossier`"" 2>$null
+}
+else {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $icoPath = Join-Path $scriptDir "icons\folder_$Couleur.ico"
+    if (-not (Test-Path -LiteralPath $icoPath)) { return }
+
+    if (Test-Path -LiteralPath $desktopIni) {
+        cmd.exe /c "attrib -h -s -r `"$desktopIni`"" 2>$null
+    }
+
+    $iniContent = "[.ShellClassInfo]`r`nIconResource=$icoPath,0`r`n[ViewState]`r`nFolderType=Generic`r`n"
+    [System.IO.File]::WriteAllText($desktopIni, $iniContent, [System.Text.Encoding]::Default)
+
+    cmd.exe /c "attrib +h +s `"$desktopIni`"" 2>$null
+    cmd.exe /c "attrib +r `"$Dossier`"" 2>$null
+}
+
+try {
+    $sig = '[DllImport("shell32.dll")] public static extern void SHChangeNotify(int wEventId, int uFlags, IntPtr dwItem1, IntPtr dwItem2);'
+    Add-Type -MemberDefinition $sig -Name MadTweakShellNotify -Namespace Win32 -ErrorAction SilentlyContinue | Out-Null
+    [Win32.MadTweakShellNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+} catch { }
+
+try {
+    Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
+} catch { }
+'@
+
+    $scriptFichier = Join-Path $Destination "Set-FolderColor.ps1"
+    [System.IO.File]::WriteAllText($scriptFichier, $scriptContent, [System.Text.Encoding]::UTF8)
+}
+
 function Menu-Visuel {
     Start-Menu -Titre "APPARENCE & VISUEL" -Couleur Cyan -SousTitre @(
         "Affaire de goût : rien ici n'améliore les performances, rien ne casse rien.",
@@ -109,6 +330,60 @@ function Menu-Visuel {
         Set-RegValue -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "link" `
             -Value ([byte[]](0x00, 0x00, 0x00, 0x00)) -Type Binary
         Write-Etat "Ne concerne que les raccourcis créés APRÈS ce réglage : les anciens gardent leur nom." -Niveau Info
+    }
+
+    Invoke-Tweak "Ajouter l'option « Couleur du dossier » au menu contextuel (dossier et fond de page) ?" -Cle "contextual-folder-color" `
+        -Explication "Ajoute un sous-menu « Couleur du dossier » au clic droit sur un dossier et dans le fond de page d'un dossier ouvert. Permet de colorer instantanément un dossier (Rouge ROG, Bleu, Cyan, Vert, Jaune, Orange, Violet, Rose, Gris sombre) ou de le réinitialiser. Sous Windows 11, ce menu apparaît directement avec le tweak « Menu contextuel classique », ou sous « Afficher plus d'options » (Maj + F10)." {
+        $dossierOutil = Join-Path $env:ProgramData "MadTweak\FolderColor"
+
+        Invoke-Action "installerait les 10 icônes de dossiers et le script Set-FolderColor.ps1 dans $dossierOutil" {
+            Install-FolderColorResources -Destination $dossierOutil
+        }
+
+        $couleursMenu = @(
+            @{ Id = "01_rouge";   Titre = "Rouge ROG";      Ico = "folder_rouge.ico";   Cle = "rouge" }
+            @{ Id = "02_bleu";    Titre = "Bleu";           Ico = "folder_bleu.ico";    Cle = "bleu" }
+            @{ Id = "03_cyan";    Titre = "Cyan Cyber";     Ico = "folder_cyan.ico";    Cle = "cyan" }
+            @{ Id = "04_vert";    Titre = "Vert Émeraude";  Ico = "folder_vert.ico";    Cle = "vert" }
+            @{ Id = "05_jaune";   Titre = "Jaune Or";       Ico = "folder_jaune.ico";   Cle = "jaune" }
+            @{ Id = "06_orange";  Titre = "Orange";         Ico = "folder_orange.ico";  Cle = "orange" }
+            @{ Id = "07_violet";  Titre = "Violet Néon";    Ico = "folder_violet.ico";  Cle = "violet" }
+            @{ Id = "08_rose";    Titre = "Rose Néon";      Ico = "folder_rose.ico";    Cle = "rose" }
+            @{ Id = "09_gris";    Titre = "Gris Sombre";    Ico = "folder_gris.ico";    Cle = "gris" }
+        )
+
+        $scriptPath = Join-Path $dossierOutil "Set-FolderColor.ps1"
+        $icoPalette = Join-Path $dossierOutil "icons\folder_palette.ico"
+
+        # Deux cibles : sur un dossier (Directory) ET dans le fond de page d'un dossier ouvert (Directory\Background)
+        $cibles = @(
+            @{ Racine = "HKCR:\Directory\shell\MadTweakFolderColor";            Titre = "Couleur du dossier" }
+            @{ Racine = "HKCR:\Directory\Background\shell\MadTweakFolderColor"; Titre = "Couleur de ce dossier" }
+        )
+
+        foreach ($cible in $cibles) {
+            $rac = $cible.Racine
+            Set-RegValue -Path $rac -Name "MUIVerb" -Value $cible.Titre -Type String
+            Set-RegValue -Path $rac -Name "Icon" -Value $icoPalette -Type String
+            Set-RegValue -Path $rac -Name "SubCommands" -Value "" -Type String
+
+            foreach ($c in $couleursMenu) {
+                $subKey = "$rac\shell\$($c.Id)"
+                $icoFichier = Join-Path $dossierOutil "icons\$($c.Ico)"
+                $cmd = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Dossier `"%V`" -Couleur `"$($c.Cle)`""
+
+                Set-RegValue -Path $subKey -Name "MUIVerb" -Value $c.Titre -Type String
+                Set-RegValue -Path $subKey -Name "Icon" -Value $icoFichier -Type String
+                Set-RegValue -Path "$subKey\command" -Name "" -Value $cmd -Type String
+            }
+
+            # Option de réinitialisation
+            $subReset = "$rac\shell\99_reset"
+            $cmdReset = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Dossier `"%V`" -Reset"
+            Set-RegValue -Path $subReset -Name "MUIVerb" -Value "Réinitialiser par défaut" -Type String
+            Set-RegValue -Path $subReset -Name "Icon" -Value "shell32.dll,3" -Type String
+            Set-RegValue -Path "$subReset\command" -Name "" -Value $cmdReset -Type String
+        }
     }
 
     # --- Barre des tâches & menu Démarrer ---

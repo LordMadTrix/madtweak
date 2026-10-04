@@ -775,8 +775,11 @@ $script:XamlInterface = @'
               BorderThickness="1" CornerRadius="6" Padding="12,8" VerticalAlignment="Center" MaxWidth="900">
         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
+          <ComboBox x:Name="ComboFond" Width="140" Height="26" VerticalContentAlignment="Center" Margin="0,0,4,4"
                     ToolTip="{{entete.fond.info}}"/>
+          <Button x:Name="BtnTexteFond" Content="✏️" Width="26" Height="26" Padding="0" Margin="0,0,12,4"
+                  ToolTip="{{entete.fond.texte.info}}"
+                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
           <!-- Séparateurs entre réglages : 5 champs indépendants à la suite dans un
                WrapPanel se lisaient comme une liste continue plutôt que 5 réglages
                distincts, surtout une fois repliés sur 2 lignes. -->
@@ -2169,6 +2172,8 @@ function Show-Gui {
     # --- Fond d'écran « MadTrix » : mêmes styles que le menu Signature (Matrix, HUD,
     # Neon). Régénéré à la résolution réelle et appliqué directement. Réversible :
     # Set-FondEcran mémorise le fond précédent (Save-EtatAvant + fichier).
+    Load-FondTextePerso
+
     $script:GuiComboFond = $fenetre.FindName("ComboFond")
     $script:FondPlaceholder = T 'sel.choisir'
     $script:FondPrecedent = T 'sel.fond.precedent'
@@ -2178,6 +2183,35 @@ function Show-Gui {
     $script:GuiComboFond.Items.Add("MadTrix — Neon") | Out-Null
     $script:GuiComboFond.Items.Add($script:FondPrecedent) | Out-Null
     $script:GuiComboFond.SelectedIndex = 0
+
+    $script:AppliquerFondGui = {
+        param([string]$StyleForcer = $null)
+        $sel = if ($StyleForcer) { $StyleForcer } else { $script:GuiComboFond.SelectedItem }
+        if (-not $sel -or $sel -eq $script:FondPlaceholder) {
+            $sel = "MadTrix — HUD"
+            $script:GuiComboFond.SelectedItem = "MadTrix — HUD"
+        }
+        if ($sel -eq $script:FondPrecedent) {
+            Restore-FondPrecedent
+            return
+        }
+        $style = ($sel -split '—')[-1].Trim().ToLower()
+        $themeActuel = $script:GuiFenetre.FindName("ComboTheme").SelectedItem
+        $couleurFond = "#E01008"
+        if ($themeActuel -and $script:Themes.Contains($themeActuel)) {
+            $couleurFond = $script:Themes[$themeActuel].Accent
+        }
+        $res = Get-ResolutionPhysique
+        $script:JournalGui.AppendText("`r`nGénération du fond « $style » (texte : « $script:FondTitre ») assorti au thème « $themeActuel » en $($res.L)x$($res.H) (quelques secondes)...`r`n")
+        $script:JournalGui.ScrollToEnd()
+        Update-InterfaceGui
+        $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
+        New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin -Couleur $couleurFond -Titre $script:FondTitre -SousTitre $script:FondSousTitre -Tagline $script:FondTagline | Out-Null
+        Set-FondEcran -Chemin $chemin
+        $script:JournalGui.AppendText("Fond « $style » ($couleurFond) appliqué avec succès.`r`n")
+        $script:JournalGui.ScrollToEnd()
+    }
+
     $script:GuiComboFond.Add_SelectionChanged({
         $sel = $script:GuiComboFond.SelectedItem
         if (-not $sel -or $sel -eq $script:FondPlaceholder) { return }
@@ -2187,34 +2221,156 @@ function Show-Gui {
             return
         }
         try {
-            if ($sel -eq $script:FondPrecedent) {
-                Restore-FondPrecedent
-            }
-            else {
-                # "MadTrix — Matrix" -> "matrix"
-                $style = ($sel -split '—')[-1].Trim().ToLower()
-                # Le fond prend la COULEUR DU THÈME sélectionné : chaque thème a donc
-                # sa propre image assortie. On lit l'accent du thème courant.
-                $themeActuel = $script:GuiFenetre.FindName("ComboTheme").SelectedItem
-                $couleurFond = "#E01008"
-                if ($themeActuel -and $script:Themes.Contains($themeActuel)) {
-                    $couleurFond = $script:Themes[$themeActuel].Accent
-                }
-                $res = Get-ResolutionPhysique
-                $script:JournalGui.AppendText("`r`nGénération du fond « $style » assorti au thème « $themeActuel » en $($res.L)x$($res.H) (quelques secondes)...`r`n")
-                $script:JournalGui.ScrollToEnd()
-                Update-InterfaceGui
-                $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
-                New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin -Couleur $couleurFond | Out-Null
-                Set-FondEcran -Chemin $chemin
-                $script:JournalGui.AppendText("Fond « $style » ($couleurFond) appliqué.`r`n")
-                $script:JournalGui.ScrollToEnd()
-            }
+            & $script:AppliquerFondGui
         }
         catch {
             $script:JournalGui.AppendText("Échec du fond d'écran : $($_.Exception.Message)`r`n")
             $script:JournalGui.ScrollToEnd()
         }
+    }) | Out-Null
+
+    # Bouton ✏️ pour personnaliser le texte du fond d'écran (Titre, Sous-titre, Tagline)
+    $fenetre.FindName("BtnTexteFond").Add_Click({
+        if ($script:GuiOccupe) { return }
+        $win = New-Object System.Windows.Window
+        $win.Title = (T 'dlg.fond.texte.titre')
+        $win.Width = 490; $win.Height = 360
+        $win.WindowStartupLocation = 'CenterOwner'
+        $win.Owner = $script:GuiFenetre
+        $win.Resources = $script:GuiFenetre.Resources
+        $win.Background = $script:GuiFenetre.Background
+        $win.ResizeMode = 'NoResize'
+
+        $grille = New-Object System.Windows.Controls.Grid
+        $grille.Margin = "16"
+        foreach ($h in 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', '*', 'Auto') {
+            $rd = New-Object System.Windows.Controls.RowDefinition; $rd.Height = $h
+            $grille.RowDefinitions.Add($rd)
+        }
+
+        # Description
+        $desc = New-Object System.Windows.Controls.TextBlock
+        $desc.Text = (T 'dlg.fond.texte.desc')
+        $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        $desc.TextWrapping = 'Wrap'
+        $desc.Margin = "0,0,0,12"
+        [System.Windows.Controls.Grid]::SetRow($desc, 0)
+        $grille.Children.Add($desc) | Out-Null
+
+        # Label 1 : Titre principal
+        $lbl1 = New-Object System.Windows.Controls.TextBlock
+        $lbl1.Text = (T 'dlg.fond.texte.label.titre')
+        $lbl1.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl1.FontWeight = 'SemiBold'
+        $lbl1.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl1, 1)
+        $grille.Children.Add($lbl1) | Out-Null
+
+        $txtTitre = New-Object System.Windows.Controls.TextBox
+        $txtTitre.Text = $script:FondTitre
+        $txtTitre.Height = 28
+        $txtTitre.VerticalContentAlignment = 'Center'
+        $txtTitre.Margin = "0,0,0,10"
+        try { $txtTitre.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtTitre, 2)
+        $grille.Children.Add($txtTitre) | Out-Null
+
+        # Label 2 : Sous-titre
+        $lbl2 = New-Object System.Windows.Controls.TextBlock
+        $lbl2.Text = (T 'dlg.fond.texte.label.sous')
+        $lbl2.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl2.FontWeight = 'SemiBold'
+        $lbl2.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl2, 3)
+        $grille.Children.Add($lbl2) | Out-Null
+
+        $txtSous = New-Object System.Windows.Controls.TextBox
+        $txtSous.Text = $script:FondSousTitre
+        $txtSous.Height = 28
+        $txtSous.VerticalContentAlignment = 'Center'
+        $txtSous.Margin = "0,0,0,10"
+        try { $txtSous.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtSous, 4)
+        $grille.Children.Add($txtSous) | Out-Null
+
+        # Label 3 : Tagline
+        $lbl3 = New-Object System.Windows.Controls.TextBlock
+        $lbl3.Text = (T 'dlg.fond.texte.label.tag')
+        $lbl3.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl3.FontWeight = 'SemiBold'
+        $lbl3.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl3, 5)
+        $grille.Children.Add($lbl3) | Out-Null
+
+        $txtTag = New-Object System.Windows.Controls.TextBox
+        $txtTag.Text = $script:FondTagline
+        $txtTag.Height = 28
+        $txtTag.VerticalContentAlignment = 'Center'
+        $txtTag.Margin = "0,0,0,14"
+        try { $txtTag.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtTag, 6)
+        $grille.Children.Add($txtTag) | Out-Null
+
+        # Barre de boutons
+        $barre = New-Object System.Windows.Controls.Grid
+        $colG = New-Object System.Windows.Controls.ColumnDefinition; $colG.Width = [System.Windows.GridLength]::Auto
+        $colM = New-Object System.Windows.Controls.ColumnDefinition; $colM.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+        $colD = New-Object System.Windows.Controls.ColumnDefinition; $colD.Width = [System.Windows.GridLength]::Auto
+        $barre.ColumnDefinitions.Add($colG)
+        $barre.ColumnDefinitions.Add($colM)
+        $barre.ColumnDefinitions.Add($colD)
+        [System.Windows.Controls.Grid]::SetRow($barre, 8)
+
+        $btnReset = New-Object System.Windows.Controls.Button
+        $btnReset.Content = (T 'dlg.fond.texte.btn.reset')
+        $btnReset.Padding = "12,5"
+        [System.Windows.Controls.Grid]::SetColumn($btnReset, 0)
+        $barre.Children.Add($btnReset) | Out-Null
+
+        $panelDroite = New-Object System.Windows.Controls.StackPanel
+        $panelDroite.Orientation = 'Horizontal'
+        [System.Windows.Controls.Grid]::SetColumn($panelDroite, 2)
+
+        $btnAnnuler = New-Object System.Windows.Controls.Button
+        $btnAnnuler.Content = (T 'dlg.fond.texte.btn.annuler')
+        $btnAnnuler.Margin = "0,0,8,0"
+        $btnAnnuler.Padding = "14,5"
+        $panelDroite.Children.Add($btnAnnuler) | Out-Null
+
+        $btnAppliquer = New-Object System.Windows.Controls.Button
+        $btnAppliquer.Content = (T 'dlg.fond.texte.btn.appliquer')
+        $btnAppliquer.Padding = "14,5"
+        try { $btnAppliquer.SetResourceReference([System.Windows.Controls.Button]::BackgroundProperty, "AccentBrush") } catch { }
+        $panelDroite.Children.Add($btnAppliquer) | Out-Null
+
+        $barre.Children.Add($panelDroite) | Out-Null
+        $grille.Children.Add($barre) | Out-Null
+
+        $btnReset.Add_Click({
+            $txtTitre.Text = "MadTrix"
+            $txtSous.Text = "R  O  G"
+            $txtTag.Text = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+        }) | Out-Null
+
+        $btnAnnuler.Add_Click({ $win.Close() }) | Out-Null
+
+        $btnAppliquer.Add_Click({
+            $script:FondTitre = if ([string]::IsNullOrWhiteSpace($txtTitre.Text)) { "MadTrix" } else { $txtTitre.Text.Trim() }
+            $script:FondSousTitre = $txtSous.Text.Trim()
+            $script:FondTagline = $txtTag.Text.Trim()
+            Save-FondTextePerso
+            $win.Close()
+            try {
+                & $script:AppliquerFondGui
+            }
+            catch {
+                $script:JournalGui.AppendText("Échec du fond d'écran : $($_.Exception.Message)`r`n")
+                $script:JournalGui.ScrollToEnd()
+            }
+        }) | Out-Null
+
+        $win.Content = $grille
+        $win.ShowDialog() | Out-Null
     }) | Out-Null
 
     # TOUT ce que touchent les gestionnaires d'événements vit en $script:. C'est

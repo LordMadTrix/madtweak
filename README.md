@@ -60,7 +60,8 @@
 ### 🎨 **Interface & CI/CD**
 - ✅ **Interface graphique** thémable (6 thèmes) ou 16 menus console
 - ✅ **Suite de tests automatisés Pester** et intégration CI/CD GitHub Actions
-- ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code
+- ✅ **Accent Windows**, fonds d'écran « MadTrix » générés par code avec texte personnalisable (bouton ✏️)
+- ✅ **Couleur des dossiers au clic droit** : menu contextuel en cascade (sur dossier et en fond de page d'un dossier ouvert) avec 9 teintes ROG / modernes et réinitialisation rapide
 - ✅ **Bonus ASUS ROG** : clavier RGB en HID direct, capteurs GPU et ventilateurs
 
 
@@ -151,7 +152,8 @@ L'en-tête de l'interface expose trois sélecteurs, appliqués immédiatement :
 - **Clavier RGB ASUS synchronisé** — poser un accent colore aussi le clavier Aura des portables ROG **sur la même couleur**, sans aucun logiciel tiers : l'outil écrit directement dans l'interface HID vendeur du clavier (contrôleur ITE, page d'usage `0xFF31`, le canal qu'utilisent G-Helper et asusctl). C'est nécessaire parce que ces claviers n'exposent **pas** d'interface LampArray — l'Éclairage dynamique natif de Windows ne les voit pas — et qu'OpenRGB ne les reconnaît pas. Best-effort : ignoré sans erreur sur une machine sans clavier ROG compatible.
 - **Onglet « Matériel »** — regroupe des **capteurs en direct** (température et charge du GPU via `nvidia-smi`, vitesse des ventilateurs CPU/GPU via l'ACPI ASUS, rafraîchis toutes les 2,5 s ; la température des cœurs CPU n'est pas affichée, Windows ne l'exposant pas sans pilote dédié), le **mode d'alimentation Windows** (Économie / Équilibré / Performances, via `PowerSetActiveOverlayScheme` — natif, agit sur le boost et l'EPP du CPU) et, **si un clavier ASUS ROG compatible répond** (`Test-ClavierAura`), les réglages du **clavier RGB** : effet (statique, respiration, stroboscope, arc-en-ciel), couleur, vitesse et **luminosité** (curseur 0-100 %). La luminosité clavier agit en **atténuant la couleur envoyée** (la commande de niveau du firmware étant ignorée sur ce matériel). La section clavier n'apparaît que si le matériel est présent — l'interface s'adapte, comme le sous-titre OS lu à chaud. Le **Turbo ASUS** (ventilateurs + TDP) reste hors de portée : voir *Limites connues*.
 - **Luminosité de l'écran** — un **curseur 0-100 %** dans l'en-tête règle la luminosité du panneau via `WmiMonitorBrightnessMethods` (natif Windows, fiable, sans pilote tiers). Masqué automatiquement si l'écran n'est pas pilotable (poste fixe).
-- **Fond d'écran** — génère un fond « MadTrix » **à la couleur du thème choisi** et l'applique. Choisir un accent régénère aussi le fond assorti.
+- **Fond d'écran & Texte personnalisé (bouton ✏️)** — génère un fond « MadTrix » vectoriel **à la couleur du thème choisi** et l'applique à ta résolution réelle. Le bouton **✏️** dans l'en-tête permet de **personnaliser le texte complet** affiché au centre (Titre principal, Sous-titre, Tagline/devise) avec redimensionnement automatique selon la longueur. Mémorisé d'une session à l'autre.
+- **Couleur des dossiers (Menu contextuel)** — dans l'onglet **Apparence** (ou menu console `9`), active un sous-menu « Couleur du dossier » sur les dossiers et « Couleur de ce dossier » dans l'espace vide d'un dossier ouvert. Permet d'attribuer instantanément une couleur distinctive (Rouge ROG, Bleu, Cyan Cyber, Vert Émeraude, Jaune Or, Orange, Violet Néon, Rose Néon, Gris Sombre) ou de restaurer l'icône par défaut, avec 10 icônes vectorielles multi-résolutions générées dynamiquement.
 
 ### Piloter et vérifier depuis l'interface
 
@@ -238,7 +240,9 @@ en 7 le **dégraderait**. Le script le détecte et te prévient ; `Lancer.bat` �
 | `16` | **ANNULER** | Restauration exacte, ou retour aux défauts Windows |
 
 **`9` — APPARENCE** est à part : il ne cherche aucun gain de performance, il change ce
-que tu vois, et rien n'y casse quoi que ce soit. Les réglages visuels qui se paient en
+que tu vois, et rien n'y casse quoi que ce soit. On y retrouve le mode sombre complet,
+les réglages visuels de l'Explorateur (fichiers cachés, affichage compact, couleur des
+dossiers au clic droit) et de la barre des tâches. Les réglages visuels qui se paient en
 fluidité (animations, Aero Peek) restent dans *TWEAKS AVANCÉS* : ils ne relèvent pas du
 goût. Seule exception assumée dans ce menu, la transparence, qui coûte réellement du GPU.
 

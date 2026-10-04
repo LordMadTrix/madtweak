@@ -402,6 +402,19 @@ function Menu-Annuler {
         # Take Ownership
         Remove-RegKey -Path "HKLM:\SOFTWARE\Classes\*\shell\TakeOwnership"
         Remove-RegKey -Path "HKLM:\SOFTWARE\Classes\Directory\shell\TakeOwnership"
+        Remove-RegKey -Path "HKCR:\*\shell\runas"
+        Remove-RegKey -Path "HKCR:\Directory\shell\runas"
+        Remove-RegKey -Path "HKCR:\Directory\shell\OpenPowerShellAdmin"
+
+        # Couleur de dossier (Folder Color)
+        Remove-RegKey -Path "HKCR:\Directory\shell\MadTweakFolderColor"
+        Remove-RegKey -Path "HKCR:\Directory\Background\shell\MadTweakFolderColor"
+        $dirCouleur = Join-Path $env:ProgramData "MadTweak\FolderColor"
+        if (Test-Path -LiteralPath $dirCouleur) {
+            Invoke-Action "supprimerait les icônes et scripts de couleur de dossier" {
+                Remove-Item -LiteralPath $dirCouleur -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     # Le fond d'écran signature se remet à son état d'avant, avec effet immédiat.

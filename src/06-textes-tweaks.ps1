@@ -153,6 +153,19 @@ $script:TextesTweaks = @{
     'thirdparty-telemetrie.t' = "Disable auto-start and telemetry of third-party services (Google Update, Adobe)?"
     'thirdparty-telemetrie.e' = "Configures Adobe (Adobe Update, Genuine Integrity) and Google Update's update and telemetry services so they do not start automatically in the background when the PC boots."
 
+    'contextual-take-ownership.t' = "Add 'Take Ownership' to the context menu?"
+    'contextual-take-ownership.e' = "Adds a 'Take Ownership' option to the right-click menu on files and folders to easily grant yourself full control permissions."
+
+    'contextual-powershell-admin.t' = "Add 'Open PowerShell (Admin)' to the folder context menu?"
+    'contextual-powershell-admin.e' = "Adds a shortcut to open an elevated PowerShell prompt in the selected folder directly from the right-click context menu."
+
+    'classic-context-menu-win11.t' = "Restore the full classic context menu on Windows 11?"
+    'classic-context-menu-win11.e' = "Restores the classic Windows 10 right-click context menu without having to click 'Show more options' under Windows 11."
+
+    'contextual-folder-color.t' = "Add 'Folder Color' option to the context menu (folders and background)?"
+    'contextual-folder-color.e' = "Adds a 'Folder Color' cascading submenu to the right-click menu on folders and open folder backgrounds. Allows instantly changing the folder color (ROG Red, Blue, Cyan, Green, Yellow, Orange, Purple, Pink, Dark Gray) or resetting to default."
+
+
     # --- 53 : Matériel & réseau ---
     'nvidia-telemetrie.t' = "Disable the hidden NVIDIA graphics telemetry?"
     'nvidia-telemetrie.e' = "The NVIDIA driver installs a service and scheduled tasks that report usage data back to NVIDIA. Neither the driver nor your games need them. No effect if you have no NVIDIA card."

@@ -219,6 +219,17 @@ $script:Textes = @{
         en = "Machine health score, computed from the audit: the share of applicable settings already in place." }
     'entete.fond.info'     = @{ fr = "Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé."
         en = "Generates a « MadTrix » wallpaper at your real resolution and applies it. Your previous wallpaper is remembered." }
+    'entete.fond.texte.info' = @{ fr = "Personnaliser le texte affiché sur le fond d'écran (Titre, Sous-titre, Tagline)."
+        en = "Customise the text displayed on the wallpaper (Title, Subtitle, Tagline)." }
+    'dlg.fond.texte.titre'       = @{ fr = "Personnaliser le texte du fond d'écran"; en = "Customise wallpaper text" }
+    'dlg.fond.texte.desc'        = @{ fr = "Saisis le texte qui sera dessiné au centre des fonds d'écran dynamiques :"
+        en = "Enter the text to be rendered at the center of dynamic wallpapers:" }
+    'dlg.fond.texte.label.titre' = @{ fr = "Titre principal :"; en = "Main title:" }
+    'dlg.fond.texte.label.sous'  = @{ fr = "Sous-titre :"; en = "Subtitle:" }
+    'dlg.fond.texte.label.tag'   = @{ fr = "Tagline (devise) :"; en = "Tagline:" }
+    'dlg.fond.texte.btn.reset'   = @{ fr = "Défaut"; en = "Reset" }
+    'dlg.fond.texte.btn.annuler' = @{ fr = "Annuler"; en = "Cancel" }
+    'dlg.fond.texte.btn.appliquer' = @{ fr = "Appliquer & Générer"; en = "Apply & Generate" }
     'entete.accent.info'   = @{ fr = "Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible."
         en = "Colours the title bars, taskbar and Start menu, and syncs the ASUS RGB keyboard to the same colour. Reversible." }
     'entete.theme.info'    = @{ fr = "Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."
@@ -705,6 +716,19 @@ $script:TextesTweaks = @{
 
     'thirdparty-telemetrie.t' = "Disable auto-start and telemetry of third-party services (Google Update, Adobe)?"
     'thirdparty-telemetrie.e' = "Configures Adobe (Adobe Update, Genuine Integrity) and Google Update's update and telemetry services so they do not start automatically in the background when the PC boots."
+
+    'contextual-take-ownership.t' = "Add 'Take Ownership' to the context menu?"
+    'contextual-take-ownership.e' = "Adds a 'Take Ownership' option to the right-click menu on files and folders to easily grant yourself full control permissions."
+
+    'contextual-powershell-admin.t' = "Add 'Open PowerShell (Admin)' to the folder context menu?"
+    'contextual-powershell-admin.e' = "Adds a shortcut to open an elevated PowerShell prompt in the selected folder directly from the right-click context menu."
+
+    'classic-context-menu-win11.t' = "Restore the full classic context menu on Windows 11?"
+    'classic-context-menu-win11.e' = "Restores the classic Windows 10 right-click context menu without having to click 'Show more options' under Windows 11."
+
+    'contextual-folder-color.t' = "Add 'Folder Color' option to the context menu (folders and background)?"
+    'contextual-folder-color.e' = "Adds a 'Folder Color' cascading submenu to the right-click menu on folders and open folder backgrounds. Allows instantly changing the folder color (ROG Red, Blue, Cyan, Green, Yellow, Orange, Purple, Pink, Dark Gray) or resetting to default."
+
 
     # --- 53 : Matériel & réseau ---
     'nvidia-telemetrie.t' = "Disable the hidden NVIDIA graphics telemetry?"
@@ -4332,6 +4356,19 @@ function Menu-Annuler {
         # Take Ownership
         Remove-RegKey -Path "HKLM:\SOFTWARE\Classes\*\shell\TakeOwnership"
         Remove-RegKey -Path "HKLM:\SOFTWARE\Classes\Directory\shell\TakeOwnership"
+        Remove-RegKey -Path "HKCR:\*\shell\runas"
+        Remove-RegKey -Path "HKCR:\Directory\shell\runas"
+        Remove-RegKey -Path "HKCR:\Directory\shell\OpenPowerShellAdmin"
+
+        # Couleur de dossier (Folder Color)
+        Remove-RegKey -Path "HKCR:\Directory\shell\MadTweakFolderColor"
+        Remove-RegKey -Path "HKCR:\Directory\Background\shell\MadTweakFolderColor"
+        $dirCouleur = Join-Path $env:ProgramData "MadTweak\FolderColor"
+        if (Test-Path -LiteralPath $dirCouleur) {
+            Invoke-Action "supprimerait les icônes et scripts de couleur de dossier" {
+                Remove-Item -LiteralPath $dirCouleur -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
     }
 
     # Le fond d'écran signature se remet à son état d'avant, avec effet immédiat.
@@ -4886,6 +4923,227 @@ function Menu-Demarrage {
 # Ici, tout est affaire de préférence : aucun de ces réglages n'est « meilleur »
 # qu'un autre, et aucun ne casse quoi que ce soit.
 # ------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# COULEUR DES DOSSIERS — Génération d'icônes et script d'application
+# ------------------------------------------------------------------------------
+function New-FolderIcoBytes {
+    param(
+        [Parameter(Mandatory)][System.Drawing.Color]$BaseColor,
+        [Parameter(Mandatory)][System.Drawing.Color]$FrontColor,
+        [switch]$IsPalette
+    )
+
+    $Size = 64
+    $bmp = New-Object System.Drawing.Bitmap $Size, $Size
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+    $s = $Size / 64.0
+
+    $backBrush = New-Object System.Drawing.SolidBrush $BaseColor
+    $frontBrush = New-Object System.Drawing.SolidBrush $FrontColor
+    $paperBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(242, 245, 250))
+    $shadowBrush = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(35, 0, 0, 0))
+
+    # Ombre sous le dossier
+    $g.FillEllipse($shadowBrush, [float](6 * $s), [float](54 * $s), [float](52 * $s), [float](6 * $s))
+
+    # Dos du dossier avec onglet
+    $backPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $backPath.AddArc([float](6 * $s), [float](10 * $s), [float](6 * $s), [float](6 * $s), 180, 90)
+    $backPath.AddLine([float](9 * $s), [float](10 * $s), [float](24 * $s), [float](10 * $s))
+    $backPath.AddArc([float](24 * $s), [float](10 * $s), [float](6 * $s), [float](6 * $s), 270, 45)
+    $backPath.AddLine([float](30 * $s), [float](16 * $s), [float](54 * $s), [float](16 * $s))
+    $backPath.AddArc([float](52 * $s), [float](16 * $s), [float](6 * $s), [float](6 * $s), 270, 90)
+    $backPath.AddLine([float](58 * $s), [float](22 * $s), [float](58 * $s), [float](50 * $s))
+    $backPath.AddArc([float](52 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 0, 90)
+    $backPath.AddLine([float](52 * $s), [float](52 * $s), [float](12 * $s), [float](52 * $s))
+    $backPath.AddArc([float](6 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 90, 90)
+    $backPath.CloseFigure()
+    $g.FillPath($backBrush, $backPath)
+    $backPath.Dispose()
+
+    # Feuille de document à l'intérieur
+    $paperRect = New-Object System.Drawing.RectangleF ([float](14 * $s)), ([float](14 * $s)), ([float](36 * $s)), ([float](18 * $s))
+    $g.FillRectangle($paperBrush, $paperRect)
+
+    # Rabat avant
+    $frontPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $frontPath.AddArc([float](6 * $s), [float](22 * $s), [float](6 * $s), [float](6 * $s), 180, 90)
+    $frontPath.AddLine([float](9 * $s), [float](22 * $s), [float](55 * $s), [float](22 * $s))
+    $frontPath.AddArc([float](52 * $s), [float](22 * $s), [float](6 * $s), [float](6 * $s), 270, 90)
+    $frontPath.AddLine([float](58 * $s), [float](25 * $s), [float](58 * $s), [float](48 * $s))
+    $frontPath.AddArc([float](52 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 0, 90)
+    $frontPath.AddLine([float](52 * $s), [float](52 * $s), [float](12 * $s), [float](52 * $s))
+    $frontPath.AddArc([float](6 * $s), [float](46 * $s), [float](6 * $s), [float](6 * $s), 90, 90)
+    $frontPath.CloseFigure()
+    $g.FillPath($frontBrush, $frontPath)
+
+    if ($IsPalette) {
+        $paletteDots = @(
+            [System.Drawing.Color]::FromArgb(235, 30, 50),
+            [System.Drawing.Color]::FromArgb(0, 140, 240),
+            [System.Drawing.Color]::FromArgb(16, 185, 129),
+            [System.Drawing.Color]::FromArgb(255, 185, 0)
+        )
+        for ($i = 0; $i -lt 4; $i++) {
+            $dotBrush = New-Object System.Drawing.SolidBrush $paletteDots[$i]
+            $g.FillEllipse($dotBrush, [float]((16 + ($i * 9)) * $s), [float](34 * $s), [float](6 * $s), [float](6 * $s))
+            $dotBrush.Dispose()
+        }
+    }
+
+    $penColor = [System.Drawing.Color]::FromArgb(70, 255, 255, 255)
+    $pen = New-Object System.Drawing.Pen ($penColor, [float]([Math]::Max(1.0, 1.2 * $s)))
+    $g.DrawLine($pen, [float](9 * $s), [float](23 * $s), [float](55 * $s), [float](23 * $s))
+    $pen.Dispose()
+    $frontPath.Dispose()
+
+    $backBrush.Dispose()
+    $frontBrush.Dispose()
+    $paperBrush.Dispose()
+    $shadowBrush.Dispose()
+    $g.Dispose()
+
+    $ms = New-Object System.IO.MemoryStream
+    $bmp.Save($ms, [System.Drawing.Imaging.ImageFormat]::Png)
+    $pngBytes = $ms.ToArray()
+    $bmp.Dispose()
+    $ms.Dispose()
+
+    $icoMs = New-Object System.IO.MemoryStream
+    $w = New-Object System.IO.BinaryWriter $icoMs
+    $w.Write([uint16]0)
+    $w.Write([uint16]1)
+    $w.Write([uint16]1)
+    $w.Write([byte]64)
+    $w.Write([byte]64)
+    $w.Write([byte]0)
+    $w.Write([byte]0)
+    $w.Write([uint16]1)
+    $w.Write([uint16]32)
+    $w.Write([uint32]$pngBytes.Length)
+    $w.Write([uint32]22)
+    $w.Write($pngBytes)
+
+    $icoBytes = $icoMs.ToArray()
+    $w.Dispose()
+    $icoMs.Dispose()
+
+    return , [byte[]]$icoBytes
+}
+
+function Install-FolderColorResources {
+    param([Parameter(Mandatory)][string]$Destination)
+
+    $iconsDir = Join-Path $Destination "icons"
+    if (-not (Test-Path -LiteralPath $iconsDir)) {
+        New-Item -ItemType Directory -Path $iconsDir -Force | Out-Null
+    }
+
+    Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
+
+    $couleurs = @(
+        @{ Nom = "rouge";   Base = [System.Drawing.Color]::FromArgb(200, 0, 20);   Front = [System.Drawing.Color]::FromArgb(235, 30, 50) }
+        @{ Nom = "bleu";    Base = [System.Drawing.Color]::FromArgb(0, 100, 200);  Front = [System.Drawing.Color]::FromArgb(0, 140, 240) }
+        @{ Nom = "cyan";    Base = [System.Drawing.Color]::FromArgb(0, 160, 190);  Front = [System.Drawing.Color]::FromArgb(0, 200, 235) }
+        @{ Nom = "vert";    Base = [System.Drawing.Color]::FromArgb(10, 150, 100); Front = [System.Drawing.Color]::FromArgb(16, 185, 129) }
+        @{ Nom = "jaune";   Base = [System.Drawing.Color]::FromArgb(210, 150, 0);  Front = [System.Drawing.Color]::FromArgb(255, 185, 0) }
+        @{ Nom = "orange";  Base = [System.Drawing.Color]::FromArgb(210, 90, 0);   Front = [System.Drawing.Color]::FromArgb(255, 130, 0) }
+        @{ Nom = "violet";  Base = [System.Drawing.Color]::FromArgb(130, 60, 180); Front = [System.Drawing.Color]::FromArgb(160, 90, 220) }
+        @{ Nom = "rose";    Base = [System.Drawing.Color]::FromArgb(210, 0, 90);   Front = [System.Drawing.Color]::FromArgb(255, 0, 120) }
+        @{ Nom = "gris";    Base = [System.Drawing.Color]::FromArgb(60, 60, 60);   Front = [System.Drawing.Color]::FromArgb(90, 90, 90) }
+    )
+
+    foreach ($c in $couleurs) {
+        $fichier = Join-Path $iconsDir "folder_$($c.Nom).ico"
+        $raw = New-FolderIcoBytes -BaseColor $c.Base -FrontColor $c.Front
+        [System.IO.File]::WriteAllBytes($fichier, [byte[]]$raw)
+    }
+
+    $fichierPal = Join-Path $iconsDir "folder_palette.ico"
+    $rawPal = New-FolderIcoBytes -BaseColor ([System.Drawing.Color]::FromArgb(40, 45, 60)) `
+                                -FrontColor ([System.Drawing.Color]::FromArgb(65, 75, 95)) `
+                                -IsPalette
+    [System.IO.File]::WriteAllBytes($fichierPal, [byte[]]$rawPal)
+
+    $scriptContent = @'
+# ==============================================================================
+# MADTWEAK - Application de la couleur de dossier (desktop.ini)
+# ==============================================================================
+param(
+    [Parameter(Mandatory = $true)]
+    [string]$Dossier,
+
+    [string]$Couleur,
+
+    [switch]$Reset
+)
+
+$ErrorActionPreference = 'SilentlyContinue'
+
+if (-not (Test-Path -LiteralPath $Dossier)) { return }
+
+$item = Get-Item -LiteralPath $Dossier -Force
+if (-not $item.PSIsContainer) { return }
+
+$desktopIni = Join-Path $Dossier "desktop.ini"
+
+if ($Reset) {
+    if (Test-Path -LiteralPath $desktopIni) {
+        cmd.exe /c "attrib -h -s -r `"$desktopIni`"" 2>$null
+        try {
+            $txt = [System.IO.File]::ReadAllText($desktopIni)
+            if ($txt -match '^\[\.ShellClassInfo\][\r\n\s]*IconResource=.*[\r\n\s]*(\[ViewState\][\r\n\s]*FolderType=Generic[\r\n\s]*)?$') {
+                [System.IO.File]::Delete($desktopIni)
+            } else {
+                $restant = [System.IO.File]::ReadAllLines($desktopIni) | Where-Object {
+                    $_ -notmatch '^\s*IconResource\s*=' -and
+                    $_ -notmatch '^\s*IconFile\s*=' -and
+                    $_ -notmatch '^\s*IconIndex\s*='
+                }
+                [System.IO.File]::WriteAllLines($desktopIni, $restant, [System.Text.Encoding]::Default)
+                cmd.exe /c "attrib +h +s `"$desktopIni`"" 2>$null
+            }
+        } catch {
+            [System.IO.File]::Delete($desktopIni)
+        }
+    }
+    cmd.exe /c "attrib -r `"$Dossier`"" 2>$null
+}
+else {
+    $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $icoPath = Join-Path $scriptDir "icons\folder_$Couleur.ico"
+    if (-not (Test-Path -LiteralPath $icoPath)) { return }
+
+    if (Test-Path -LiteralPath $desktopIni) {
+        cmd.exe /c "attrib -h -s -r `"$desktopIni`"" 2>$null
+    }
+
+    $iniContent = "[.ShellClassInfo]`r`nIconResource=$icoPath,0`r`n[ViewState]`r`nFolderType=Generic`r`n"
+    [System.IO.File]::WriteAllText($desktopIni, $iniContent, [System.Text.Encoding]::Default)
+
+    cmd.exe /c "attrib +h +s `"$desktopIni`"" 2>$null
+    cmd.exe /c "attrib +r `"$Dossier`"" 2>$null
+}
+
+try {
+    $sig = '[DllImport("shell32.dll")] public static extern void SHChangeNotify(int wEventId, int uFlags, IntPtr dwItem1, IntPtr dwItem2);'
+    Add-Type -MemberDefinition $sig -Name MadTweakShellNotify -Namespace Win32 -ErrorAction SilentlyContinue | Out-Null
+    [Win32.MadTweakShellNotify]::SHChangeNotify(0x08000000, 0, [IntPtr]::Zero, [IntPtr]::Zero)
+} catch { }
+
+try {
+    Start-Process -FilePath "ie4uinit.exe" -ArgumentList "-show" -WindowStyle Hidden -ErrorAction SilentlyContinue
+} catch { }
+'@
+
+    $scriptFichier = Join-Path $Destination "Set-FolderColor.ps1"
+    [System.IO.File]::WriteAllText($scriptFichier, $scriptContent, [System.Text.Encoding]::UTF8)
+}
+
 function Menu-Visuel {
     Start-Menu -Titre "APPARENCE & VISUEL" -Couleur Cyan -SousTitre @(
         "Affaire de goût : rien ici n'améliore les performances, rien ne casse rien.",
@@ -4988,6 +5246,60 @@ function Menu-Visuel {
         Set-RegValue -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer" -Name "link" `
             -Value ([byte[]](0x00, 0x00, 0x00, 0x00)) -Type Binary
         Write-Etat "Ne concerne que les raccourcis créés APRÈS ce réglage : les anciens gardent leur nom." -Niveau Info
+    }
+
+    Invoke-Tweak "Ajouter l'option « Couleur du dossier » au menu contextuel (dossier et fond de page) ?" -Cle "contextual-folder-color" `
+        -Explication "Ajoute un sous-menu « Couleur du dossier » au clic droit sur un dossier et dans le fond de page d'un dossier ouvert. Permet de colorer instantanément un dossier (Rouge ROG, Bleu, Cyan, Vert, Jaune, Orange, Violet, Rose, Gris sombre) ou de le réinitialiser. Sous Windows 11, ce menu apparaît directement avec le tweak « Menu contextuel classique », ou sous « Afficher plus d'options » (Maj + F10)." {
+        $dossierOutil = Join-Path $env:ProgramData "MadTweak\FolderColor"
+
+        Invoke-Action "installerait les 10 icônes de dossiers et le script Set-FolderColor.ps1 dans $dossierOutil" {
+            Install-FolderColorResources -Destination $dossierOutil
+        }
+
+        $couleursMenu = @(
+            @{ Id = "01_rouge";   Titre = "Rouge ROG";      Ico = "folder_rouge.ico";   Cle = "rouge" }
+            @{ Id = "02_bleu";    Titre = "Bleu";           Ico = "folder_bleu.ico";    Cle = "bleu" }
+            @{ Id = "03_cyan";    Titre = "Cyan Cyber";     Ico = "folder_cyan.ico";    Cle = "cyan" }
+            @{ Id = "04_vert";    Titre = "Vert Émeraude";  Ico = "folder_vert.ico";    Cle = "vert" }
+            @{ Id = "05_jaune";   Titre = "Jaune Or";       Ico = "folder_jaune.ico";   Cle = "jaune" }
+            @{ Id = "06_orange";  Titre = "Orange";         Ico = "folder_orange.ico";  Cle = "orange" }
+            @{ Id = "07_violet";  Titre = "Violet Néon";    Ico = "folder_violet.ico";  Cle = "violet" }
+            @{ Id = "08_rose";    Titre = "Rose Néon";      Ico = "folder_rose.ico";    Cle = "rose" }
+            @{ Id = "09_gris";    Titre = "Gris Sombre";    Ico = "folder_gris.ico";    Cle = "gris" }
+        )
+
+        $scriptPath = Join-Path $dossierOutil "Set-FolderColor.ps1"
+        $icoPalette = Join-Path $dossierOutil "icons\folder_palette.ico"
+
+        # Deux cibles : sur un dossier (Directory) ET dans le fond de page d'un dossier ouvert (Directory\Background)
+        $cibles = @(
+            @{ Racine = "HKCR:\Directory\shell\MadTweakFolderColor";            Titre = "Couleur du dossier" }
+            @{ Racine = "HKCR:\Directory\Background\shell\MadTweakFolderColor"; Titre = "Couleur de ce dossier" }
+        )
+
+        foreach ($cible in $cibles) {
+            $rac = $cible.Racine
+            Set-RegValue -Path $rac -Name "MUIVerb" -Value $cible.Titre -Type String
+            Set-RegValue -Path $rac -Name "Icon" -Value $icoPalette -Type String
+            Set-RegValue -Path $rac -Name "SubCommands" -Value "" -Type String
+
+            foreach ($c in $couleursMenu) {
+                $subKey = "$rac\shell\$($c.Id)"
+                $icoFichier = Join-Path $dossierOutil "icons\$($c.Ico)"
+                $cmd = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Dossier `"%V`" -Couleur `"$($c.Cle)`""
+
+                Set-RegValue -Path $subKey -Name "MUIVerb" -Value $c.Titre -Type String
+                Set-RegValue -Path $subKey -Name "Icon" -Value $icoFichier -Type String
+                Set-RegValue -Path "$subKey\command" -Name "" -Value $cmd -Type String
+            }
+
+            # Option de réinitialisation
+            $subReset = "$rac\shell\99_reset"
+            $cmdReset = "powershell.exe -WindowStyle Hidden -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -Dossier `"%V`" -Reset"
+            Set-RegValue -Path $subReset -Name "MUIVerb" -Value "Réinitialiser par défaut" -Type String
+            Set-RegValue -Path $subReset -Name "Icon" -Value "shell32.dll,3" -Type String
+            Set-RegValue -Path "$subReset\command" -Name "" -Value $cmdReset -Type String
+        }
     }
 
     # --- Barre des tâches & menu Démarrer ---
@@ -5116,6 +5428,36 @@ function Get-ResolutionPhysique {
     return @{ L = 1920; H = 1080 }
 }
 
+# --- État et persistance du texte des fonds d'écran dynamiques ---
+$script:FondTitre = "MadTrix"
+$script:FondSousTitre = "R  O  G"
+$script:FondTagline = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+
+function Load-FondTextePerso {
+    if (-not $script:DossierDonnees) { return }
+    $f = Join-Path $script:DossierDonnees "fond-texte.json"
+    if (Test-Path $f) {
+        try {
+            $data = Get-Content $f -Raw | ConvertFrom-Json
+            if ($data.Titre) { $script:FondTitre = [string]$data.Titre }
+            if ($null -ne $data.SousTitre) { $script:FondSousTitre = [string]$data.SousTitre }
+            if ($null -ne $data.Tagline) { $script:FondTagline = [string]$data.Tagline }
+        } catch { }
+    }
+}
+
+function Save-FondTextePerso {
+    if (-not $script:DossierDonnees) { return }
+    $f = Join-Path $script:DossierDonnees "fond-texte.json"
+    try {
+        @{
+            Titre     = $script:FondTitre
+            SousTitre = $script:FondSousTitre
+            Tagline   = $script:FondTagline
+        } | ConvertTo-Json | Set-Content -Path $f -Encoding UTF8
+    } catch { }
+}
+
 # --- Petites fabriques WPF (préfixe Sig- pour ne heurter aucun autre nom) ------
 function New-SigPinceau { param([string]$Hex)
     New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($Hex))
@@ -5203,33 +5545,67 @@ function Add-SigCrochets {
     Add-SigLigne $Canvas $dr $bs ($dr - $Taille) $bs $p 3 $e; Add-SigLigne $Canvas $dr $bs $dr ($bs - $Taille) $p 3 $e
 }
 function Add-SigNom {
-    # « MadTrix » + filet + « R O G » + tagline, centrés. Taille proportionnelle à
-    # la largeur pour rester juste sur toutes les résolutions. Couleurs = palette.
-    param($Canvas, [int]$L, [int]$H, [hashtable]$Palette)
+    # Texte centré (Titre principal + filet + sous-titre + tagline).
+    # Taille proportionnelle et ajustée dynamiquement selon la longueur du titre
+    # pour garantir un centrage net sans débordement sur toutes résolutions.
+    param(
+        $Canvas,
+        [int]$L,
+        [int]$H,
+        [hashtable]$Palette,
+        [string]$Titre = $script:FondTitre,
+        [string]$SousTitre = $script:FondSousTitre,
+        [string]$Tagline = $script:FondTagline
+    )
+    if ([string]::IsNullOrWhiteSpace($Titre)) { $Titre = "MadTrix" }
     $cx = $L / 2; $cy = $H / 2
     $tailleNom = [Math]::Round($L * 0.094)   # ~240 px sur 2560
-    $halo = Add-SigTexte $Canvas "MadTrix" $tailleNom "Segoe UI Black" $Palette.Glow 0 0 (New-SigGlow $Palette.Halo ($tailleNom*0.38) 0.9) 0.9 "Black"
+
+    if ($Titre.Length -gt 7) {
+        $tailleNom = [Math]::Round($tailleNom * (7.0 / [Math]::Min(25, $Titre.Length)))
+    }
+    $tailleNom = [Math]::Max(28, $tailleNom)
+
+    $halo = Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.Glow 0 0 (New-SigGlow $Palette.Halo ($tailleNom*0.38) 0.9) 0.9 "Black"
     $halo.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+
+    # Sécurité anti-débordement horizontal
+    if ($halo.DesiredSize.Width -gt ($L * 0.85)) {
+        $facteur = ($L * 0.85) / $halo.DesiredSize.Width
+        $tailleNom = [Math]::Max(20, [Math]::Round($tailleNom * $facteur))
+        $halo.FontSize = $tailleNom
+        $halo.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+    }
+
     $w = $halo.DesiredSize.Width; $h = $halo.DesiredSize.Height
     [System.Windows.Controls.Canvas]::SetLeft($halo, $cx - $w/2); [System.Windows.Controls.Canvas]::SetTop($halo, $cy - $h/2)
-    Add-SigTexte $Canvas "MadTrix" $tailleNom "Segoe UI Black" $Palette.NomNet ($cx - $w/2) ($cy - $h/2) (New-SigGlow $Palette.Glow ($tailleNom*0.1) 1) 1 "Black" | Out-Null
+    Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.NomNet ($cx - $w/2) ($cy - $h/2) (New-SigGlow $Palette.Glow ($tailleNom*0.1) 1) 1 "Black" | Out-Null
 
-    $filet = New-Object System.Windows.Shapes.Rectangle
-    $filet.Width = $w * 0.9; $filet.Height = [Math]::Max(3, $L*0.0016)
-    $filet.Fill = New-SigPinceau $Palette.Filet; $filet.Effect = New-SigGlow $Palette.Glow 16 1
-    [System.Windows.Controls.Canvas]::SetLeft($filet, $cx - ($w*0.9)/2)
-    [System.Windows.Controls.Canvas]::SetTop($filet, $cy + $h/2 - 10)
-    $Canvas.Children.Add($filet) | Out-Null
+    $posBas = $cy + $h/2 - 10
+    if ($SousTitre -or $Tagline) {
+        $filet = New-Object System.Windows.Shapes.Rectangle
+        $filet.Width = [Math]::Min($w * 0.9, $L * 0.8); $filet.Height = [Math]::Max(3, $L*0.0016)
+        $filet.Fill = New-SigPinceau $Palette.Filet; $filet.Effect = New-SigGlow $Palette.Glow 16 1
+        [System.Windows.Controls.Canvas]::SetLeft($filet, $cx - ($filet.Width)/2)
+        [System.Windows.Controls.Canvas]::SetTop($filet, $posBas)
+        $Canvas.Children.Add($filet) | Out-Null
+        $posBas += 18
+    }
 
-    $rog = Add-SigTexte $Canvas "R  O  G" ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 (New-SigGlow $Palette.Glow 18 0.9) 1 "SemiBold"
-    $rog.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
-    [System.Windows.Controls.Canvas]::SetLeft($rog, $cx - $rog.DesiredSize.Width/2)
-    [System.Windows.Controls.Canvas]::SetTop($rog, $cy + $h/2 + 8)
+    if (-not [string]::IsNullOrWhiteSpace($SousTitre)) {
+        $rog = Add-SigTexte $Canvas $SousTitre ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 (New-SigGlow $Palette.Glow 18 0.9) 1 "SemiBold"
+        $rog.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        [System.Windows.Controls.Canvas]::SetLeft($rog, $cx - $rog.DesiredSize.Width/2)
+        [System.Windows.Controls.Canvas]::SetTop($rog, $posBas)
+        $posBas += $rog.DesiredSize.Height + 6
+    }
 
-    $tag = Add-SigTexte $Canvas "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE" ($tailleNom*0.083) "Consolas" $Palette.Tagline 0 0 $null 0.85 "Normal"
-    $tag.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
-    [System.Windows.Controls.Canvas]::SetLeft($tag, $cx - $tag.DesiredSize.Width/2)
-    [System.Windows.Controls.Canvas]::SetTop($tag, $cy + $h/2 + 8 + $rog.DesiredSize.Height + 14)
+    if (-not [string]::IsNullOrWhiteSpace($Tagline)) {
+        $tag = Add-SigTexte $Canvas $Tagline ($tailleNom*0.083) "Consolas" $Palette.Tagline 0 0 $null 0.85 "Normal"
+        $tag.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        [System.Windows.Controls.Canvas]::SetLeft($tag, $cx - $tag.DesiredSize.Width/2)
+        [System.Windows.Controls.Canvas]::SetTop($tag, $posBas + 4)
+    }
 }
 
 function ConvertTo-HexSig {
@@ -5277,7 +5653,10 @@ function New-FondSignature {
         [Parameter(Mandatory)][int]$Hauteur,
         [Parameter(Mandatory)][string]$Chemin,
         # Couleur de base du fond. Défaut = rouge MadTrix historique.
-        [string]$Couleur = "#E01008"
+        [string]$Couleur = "#E01008",
+        [string]$Titre = $script:FondTitre,
+        [string]$SousTitre = $script:FondSousTitre,
+        [string]$Tagline = $script:FondTagline
     )
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction Stop
     $pal = Get-PaletteSignature -Base $Couleur
@@ -5299,7 +5678,7 @@ function New-FondSignature {
             Add-SigGrille $c $Largeur $Hauteur 90 $pal.GrilleArgb
         }
     }
-    Add-SigNom $c $Largeur $Hauteur $pal
+    Add-SigNom $c $Largeur $Hauteur $pal -Titre $Titre -SousTitre $SousTitre -Tagline $Tagline
 
     $c.Measure([System.Windows.Size]::new($Largeur, $Hauteur))
     $c.Arrange([System.Windows.Rect]::new(0, 0, $Largeur, $Hauteur))
@@ -5839,17 +6218,20 @@ function Menu-Signature {
     $res = Get-ResolutionPhysique
     Write-Host "  Résolution détectée : $($res.L) x $($res.H)" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  Texte actuel : « $script:FondTitre » (Sous-titre : « $script:FondSousTitre »)" -ForegroundColor DarkCyan
+    Write-Host ""
     Write-Host "  1 - Style MATRIX  (pluie de code katakana rouge)" -ForegroundColor Red
     Write-Host "  2 - Style HUD     (pluie + grille + crochets gaming)" -ForegroundColor Red
     Write-Host "  3 - Style NEON    (sobre, gros nom néon)" -ForegroundColor Red
     Write-Host "  4 - Générer les TROIS dans un dossier, sans les appliquer" -ForegroundColor Yellow
     Write-Host "  5 - Remettre mon fond d'écran d'avant" -ForegroundColor Cyan
+    Write-Host "  6 - Personnaliser le texte (Titre, Sous-titre, Tagline)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  6 - ACCENT WINDOWS : couleur des barres (ROG rouge, bleu, cyan...)" -ForegroundColor Cyan
+    Write-Host "  7 - ACCENT WINDOWS : couleur des barres (ROG rouge, bleu, cyan...)" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  7 - Retour au menu principal"
+    Write-Host "  8 - Retour au menu principal"
     Write-Host ""
-    $choix = Read-Host "Choisis (1-7)"
+    $choix = Read-Host "Choisis (1-8)"
 
     try {
         switch ($choix) {
@@ -5857,7 +6239,7 @@ function Menu-Signature {
                 $style = $script:StylesSignature[[int]$choix - 1]
                 if ($script:Simulation) { Write-Simu "générerait et appliquerait le fond « $style » en $($res.L)x$($res.H)"; break }
                 $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
-                Write-Etat "Génération du fond « $style »..." -Niveau Info
+                Write-Etat "Génération du fond « $style » (texte : « $script:FondTitre »)..." -Niveau Info
                 New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin | Out-Null
                 Set-FondEcran -Chemin $chemin
                 Write-Etat "Fond « $style » appliqué. Fichier : $chemin" -Niveau OK
@@ -5880,8 +6262,18 @@ function Menu-Signature {
                 Restore-FondPrecedent
                 $script:CompteurOK++
             }
-            "6" { Menu-AccentWindows }
-            "7" { return }
+            "6" {
+                $nouveauTitre = Read-Host "Titre principal [$script:FondTitre]"
+                if (-not [string]::IsNullOrWhiteSpace($nouveauTitre)) { $script:FondTitre = $nouveauTitre.Trim() }
+                $nouveauSous = Read-Host "Sous-titre [$script:FondSousTitre]"
+                if (-not [string]::IsNullOrWhiteSpace($nouveauSous)) { $script:FondSousTitre = $nouveauSous.Trim() }
+                $nouvelleTag = Read-Host "Tagline [$script:FondTagline]"
+                if (-not [string]::IsNullOrWhiteSpace($nouvelleTag)) { $script:FondTagline = $nouvelleTag.Trim() }
+                Save-FondTextePerso
+                Write-Etat "Texte mis à jour : « $script:FondTitre » / « $script:FondSousTitre »." -Niveau OK
+            }
+            "7" { Menu-AccentWindows }
+            "8" { return }
             default { Write-Etat "Choix invalide." -Niveau Avert }
         }
     }
@@ -10544,8 +10936,11 @@ $script:XamlInterface = @'
               BorderThickness="1" CornerRadius="6" Padding="12,8" VerticalAlignment="Center" MaxWidth="900">
         <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
           <TextBlock Text="{{entete.fond}}" VerticalAlignment="Center" Margin="0,0,5,0" Foreground="{DynamicResource TextMutedBrush}"/>
-          <ComboBox x:Name="ComboFond" Width="160" Height="26" VerticalContentAlignment="Center" Margin="0,0,12,4"
+          <ComboBox x:Name="ComboFond" Width="140" Height="26" VerticalContentAlignment="Center" Margin="0,0,4,4"
                     ToolTip="{{entete.fond.info}}"/>
+          <Button x:Name="BtnTexteFond" Content="✏️" Width="26" Height="26" Padding="0" Margin="0,0,12,4"
+                  ToolTip="{{entete.fond.texte.info}}"
+                  VerticalContentAlignment="Center" HorizontalContentAlignment="Center"/>
           <!-- Séparateurs entre réglages : 5 champs indépendants à la suite dans un
                WrapPanel se lisaient comme une liste continue plutôt que 5 réglages
                distincts, surtout une fois repliés sur 2 lignes. -->
@@ -11938,6 +12333,8 @@ function Show-Gui {
     # --- Fond d'écran « MadTrix » : mêmes styles que le menu Signature (Matrix, HUD,
     # Neon). Régénéré à la résolution réelle et appliqué directement. Réversible :
     # Set-FondEcran mémorise le fond précédent (Save-EtatAvant + fichier).
+    Load-FondTextePerso
+
     $script:GuiComboFond = $fenetre.FindName("ComboFond")
     $script:FondPlaceholder = T 'sel.choisir'
     $script:FondPrecedent = T 'sel.fond.precedent'
@@ -11947,6 +12344,35 @@ function Show-Gui {
     $script:GuiComboFond.Items.Add("MadTrix — Neon") | Out-Null
     $script:GuiComboFond.Items.Add($script:FondPrecedent) | Out-Null
     $script:GuiComboFond.SelectedIndex = 0
+
+    $script:AppliquerFondGui = {
+        param([string]$StyleForcer = $null)
+        $sel = if ($StyleForcer) { $StyleForcer } else { $script:GuiComboFond.SelectedItem }
+        if (-not $sel -or $sel -eq $script:FondPlaceholder) {
+            $sel = "MadTrix — HUD"
+            $script:GuiComboFond.SelectedItem = "MadTrix — HUD"
+        }
+        if ($sel -eq $script:FondPrecedent) {
+            Restore-FondPrecedent
+            return
+        }
+        $style = ($sel -split '—')[-1].Trim().ToLower()
+        $themeActuel = $script:GuiFenetre.FindName("ComboTheme").SelectedItem
+        $couleurFond = "#E01008"
+        if ($themeActuel -and $script:Themes.Contains($themeActuel)) {
+            $couleurFond = $script:Themes[$themeActuel].Accent
+        }
+        $res = Get-ResolutionPhysique
+        $script:JournalGui.AppendText("`r`nGénération du fond « $style » (texte : « $script:FondTitre ») assorti au thème « $themeActuel » en $($res.L)x$($res.H) (quelques secondes)...`r`n")
+        $script:JournalGui.ScrollToEnd()
+        Update-InterfaceGui
+        $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
+        New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin -Couleur $couleurFond -Titre $script:FondTitre -SousTitre $script:FondSousTitre -Tagline $script:FondTagline | Out-Null
+        Set-FondEcran -Chemin $chemin
+        $script:JournalGui.AppendText("Fond « $style » ($couleurFond) appliqué avec succès.`r`n")
+        $script:JournalGui.ScrollToEnd()
+    }
+
     $script:GuiComboFond.Add_SelectionChanged({
         $sel = $script:GuiComboFond.SelectedItem
         if (-not $sel -or $sel -eq $script:FondPlaceholder) { return }
@@ -11956,34 +12382,156 @@ function Show-Gui {
             return
         }
         try {
-            if ($sel -eq $script:FondPrecedent) {
-                Restore-FondPrecedent
-            }
-            else {
-                # "MadTrix — Matrix" -> "matrix"
-                $style = ($sel -split '—')[-1].Trim().ToLower()
-                # Le fond prend la COULEUR DU THÈME sélectionné : chaque thème a donc
-                # sa propre image assortie. On lit l'accent du thème courant.
-                $themeActuel = $script:GuiFenetre.FindName("ComboTheme").SelectedItem
-                $couleurFond = "#E01008"
-                if ($themeActuel -and $script:Themes.Contains($themeActuel)) {
-                    $couleurFond = $script:Themes[$themeActuel].Accent
-                }
-                $res = Get-ResolutionPhysique
-                $script:JournalGui.AppendText("`r`nGénération du fond « $style » assorti au thème « $themeActuel » en $($res.L)x$($res.H) (quelques secondes)...`r`n")
-                $script:JournalGui.ScrollToEnd()
-                Update-InterfaceGui
-                $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
-                New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin -Couleur $couleurFond | Out-Null
-                Set-FondEcran -Chemin $chemin
-                $script:JournalGui.AppendText("Fond « $style » ($couleurFond) appliqué.`r`n")
-                $script:JournalGui.ScrollToEnd()
-            }
+            & $script:AppliquerFondGui
         }
         catch {
             $script:JournalGui.AppendText("Échec du fond d'écran : $($_.Exception.Message)`r`n")
             $script:JournalGui.ScrollToEnd()
         }
+    }) | Out-Null
+
+    # Bouton ✏️ pour personnaliser le texte du fond d'écran (Titre, Sous-titre, Tagline)
+    $fenetre.FindName("BtnTexteFond").Add_Click({
+        if ($script:GuiOccupe) { return }
+        $win = New-Object System.Windows.Window
+        $win.Title = (T 'dlg.fond.texte.titre')
+        $win.Width = 490; $win.Height = 360
+        $win.WindowStartupLocation = 'CenterOwner'
+        $win.Owner = $script:GuiFenetre
+        $win.Resources = $script:GuiFenetre.Resources
+        $win.Background = $script:GuiFenetre.Background
+        $win.ResizeMode = 'NoResize'
+
+        $grille = New-Object System.Windows.Controls.Grid
+        $grille.Margin = "16"
+        foreach ($h in 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', 'Auto', '*', 'Auto') {
+            $rd = New-Object System.Windows.Controls.RowDefinition; $rd.Height = $h
+            $grille.RowDefinitions.Add($rd)
+        }
+
+        # Description
+        $desc = New-Object System.Windows.Controls.TextBlock
+        $desc.Text = (T 'dlg.fond.texte.desc')
+        $desc.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextMutedBrush")
+        $desc.TextWrapping = 'Wrap'
+        $desc.Margin = "0,0,0,12"
+        [System.Windows.Controls.Grid]::SetRow($desc, 0)
+        $grille.Children.Add($desc) | Out-Null
+
+        # Label 1 : Titre principal
+        $lbl1 = New-Object System.Windows.Controls.TextBlock
+        $lbl1.Text = (T 'dlg.fond.texte.label.titre')
+        $lbl1.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl1.FontWeight = 'SemiBold'
+        $lbl1.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl1, 1)
+        $grille.Children.Add($lbl1) | Out-Null
+
+        $txtTitre = New-Object System.Windows.Controls.TextBox
+        $txtTitre.Text = $script:FondTitre
+        $txtTitre.Height = 28
+        $txtTitre.VerticalContentAlignment = 'Center'
+        $txtTitre.Margin = "0,0,0,10"
+        try { $txtTitre.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtTitre, 2)
+        $grille.Children.Add($txtTitre) | Out-Null
+
+        # Label 2 : Sous-titre
+        $lbl2 = New-Object System.Windows.Controls.TextBlock
+        $lbl2.Text = (T 'dlg.fond.texte.label.sous')
+        $lbl2.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl2.FontWeight = 'SemiBold'
+        $lbl2.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl2, 3)
+        $grille.Children.Add($lbl2) | Out-Null
+
+        $txtSous = New-Object System.Windows.Controls.TextBox
+        $txtSous.Text = $script:FondSousTitre
+        $txtSous.Height = 28
+        $txtSous.VerticalContentAlignment = 'Center'
+        $txtSous.Margin = "0,0,0,10"
+        try { $txtSous.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtSous, 4)
+        $grille.Children.Add($txtSous) | Out-Null
+
+        # Label 3 : Tagline
+        $lbl3 = New-Object System.Windows.Controls.TextBlock
+        $lbl3.Text = (T 'dlg.fond.texte.label.tag')
+        $lbl3.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "TextPrimaryBrush")
+        $lbl3.FontWeight = 'SemiBold'
+        $lbl3.Margin = "0,0,0,3"
+        [System.Windows.Controls.Grid]::SetRow($lbl3, 5)
+        $grille.Children.Add($lbl3) | Out-Null
+
+        $txtTag = New-Object System.Windows.Controls.TextBox
+        $txtTag.Text = $script:FondTagline
+        $txtTag.Height = 28
+        $txtTag.VerticalContentAlignment = 'Center'
+        $txtTag.Margin = "0,0,0,14"
+        try { $txtTag.Style = $script:GuiFenetre.FindResource([System.Windows.Controls.TextBox]) } catch { }
+        [System.Windows.Controls.Grid]::SetRow($txtTag, 6)
+        $grille.Children.Add($txtTag) | Out-Null
+
+        # Barre de boutons
+        $barre = New-Object System.Windows.Controls.Grid
+        $colG = New-Object System.Windows.Controls.ColumnDefinition; $colG.Width = [System.Windows.GridLength]::Auto
+        $colM = New-Object System.Windows.Controls.ColumnDefinition; $colM.Width = New-Object System.Windows.GridLength(1, [System.Windows.GridUnitType]::Star)
+        $colD = New-Object System.Windows.Controls.ColumnDefinition; $colD.Width = [System.Windows.GridLength]::Auto
+        $barre.ColumnDefinitions.Add($colG)
+        $barre.ColumnDefinitions.Add($colM)
+        $barre.ColumnDefinitions.Add($colD)
+        [System.Windows.Controls.Grid]::SetRow($barre, 8)
+
+        $btnReset = New-Object System.Windows.Controls.Button
+        $btnReset.Content = (T 'dlg.fond.texte.btn.reset')
+        $btnReset.Padding = "12,5"
+        [System.Windows.Controls.Grid]::SetColumn($btnReset, 0)
+        $barre.Children.Add($btnReset) | Out-Null
+
+        $panelDroite = New-Object System.Windows.Controls.StackPanel
+        $panelDroite.Orientation = 'Horizontal'
+        [System.Windows.Controls.Grid]::SetColumn($panelDroite, 2)
+
+        $btnAnnuler = New-Object System.Windows.Controls.Button
+        $btnAnnuler.Content = (T 'dlg.fond.texte.btn.annuler')
+        $btnAnnuler.Margin = "0,0,8,0"
+        $btnAnnuler.Padding = "14,5"
+        $panelDroite.Children.Add($btnAnnuler) | Out-Null
+
+        $btnAppliquer = New-Object System.Windows.Controls.Button
+        $btnAppliquer.Content = (T 'dlg.fond.texte.btn.appliquer')
+        $btnAppliquer.Padding = "14,5"
+        try { $btnAppliquer.SetResourceReference([System.Windows.Controls.Button]::BackgroundProperty, "AccentBrush") } catch { }
+        $panelDroite.Children.Add($btnAppliquer) | Out-Null
+
+        $barre.Children.Add($panelDroite) | Out-Null
+        $grille.Children.Add($barre) | Out-Null
+
+        $btnReset.Add_Click({
+            $txtTitre.Text = "MadTrix"
+            $txtSous.Text = "R  O  G"
+            $txtTag.Text = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+        }) | Out-Null
+
+        $btnAnnuler.Add_Click({ $win.Close() }) | Out-Null
+
+        $btnAppliquer.Add_Click({
+            $script:FondTitre = if ([string]::IsNullOrWhiteSpace($txtTitre.Text)) { "MadTrix" } else { $txtTitre.Text.Trim() }
+            $script:FondSousTitre = $txtSous.Text.Trim()
+            $script:FondTagline = $txtTag.Text.Trim()
+            Save-FondTextePerso
+            $win.Close()
+            try {
+                & $script:AppliquerFondGui
+            }
+            catch {
+                $script:JournalGui.AppendText("Échec du fond d'écran : $($_.Exception.Message)`r`n")
+                $script:JournalGui.ScrollToEnd()
+            }
+        }) | Out-Null
+
+        $win.Content = $grille
+        $win.ShowDialog() | Out-Null
     }) | Out-Null
 
     # TOUT ce que touchent les gestionnaires d'événements vit en $script:. C'est

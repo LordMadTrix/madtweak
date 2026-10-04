@@ -298,6 +298,17 @@ Describe "Fonctionnalités Phase 3 & Supériorité UWT5" {
         (Test-Path $tmpPdf) | Should -Be $true
         if (Test-Path $tmpPdf) { Remove-Item $tmpPdf -Force }
     }
+
+    It "Install-FolderColorResources doit générer les 10 icônes et le script Set-FolderColor" {
+        $tmpDir = Join-Path $env:TEMP "test-folder-color-install"
+        if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
+        Install-FolderColorResources -Destination $tmpDir
+        (Test-Path (Join-Path $tmpDir "Set-FolderColor.ps1")) | Should -Be $true
+        (Test-Path (Join-Path $tmpDir "icons\folder_rouge.ico")) | Should -Be $true
+        (Test-Path (Join-Path $tmpDir "icons\folder_palette.ico")) | Should -Be $true
+        @(Get-ChildItem (Join-Path $tmpDir "icons") -Filter "*.ico").Count | Should -Be 10
+        if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
+    }
 }
 
 Describe "Image système de référence" {

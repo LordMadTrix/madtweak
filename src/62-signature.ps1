@@ -40,6 +40,36 @@ function Get-ResolutionPhysique {
     return @{ L = 1920; H = 1080 }
 }
 
+# --- État et persistance du texte des fonds d'écran dynamiques ---
+$script:FondTitre = "MadTrix"
+$script:FondSousTitre = "R  O  G"
+$script:FondTagline = "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE"
+
+function Load-FondTextePerso {
+    if (-not $script:DossierDonnees) { return }
+    $f = Join-Path $script:DossierDonnees "fond-texte.json"
+    if (Test-Path $f) {
+        try {
+            $data = Get-Content $f -Raw | ConvertFrom-Json
+            if ($data.Titre) { $script:FondTitre = [string]$data.Titre }
+            if ($null -ne $data.SousTitre) { $script:FondSousTitre = [string]$data.SousTitre }
+            if ($null -ne $data.Tagline) { $script:FondTagline = [string]$data.Tagline }
+        } catch { }
+    }
+}
+
+function Save-FondTextePerso {
+    if (-not $script:DossierDonnees) { return }
+    $f = Join-Path $script:DossierDonnees "fond-texte.json"
+    try {
+        @{
+            Titre     = $script:FondTitre
+            SousTitre = $script:FondSousTitre
+            Tagline   = $script:FondTagline
+        } | ConvertTo-Json | Set-Content -Path $f -Encoding UTF8
+    } catch { }
+}
+
 # --- Petites fabriques WPF (préfixe Sig- pour ne heurter aucun autre nom) ------
 function New-SigPinceau { param([string]$Hex)
     New-Object System.Windows.Media.SolidColorBrush ([System.Windows.Media.ColorConverter]::ConvertFromString($Hex))
@@ -127,33 +157,67 @@ function Add-SigCrochets {
     Add-SigLigne $Canvas $dr $bs ($dr - $Taille) $bs $p 3 $e; Add-SigLigne $Canvas $dr $bs $dr ($bs - $Taille) $p 3 $e
 }
 function Add-SigNom {
-    # « MadTrix » + filet + « R O G » + tagline, centrés. Taille proportionnelle à
-    # la largeur pour rester juste sur toutes les résolutions. Couleurs = palette.
-    param($Canvas, [int]$L, [int]$H, [hashtable]$Palette)
+    # Texte centré (Titre principal + filet + sous-titre + tagline).
+    # Taille proportionnelle et ajustée dynamiquement selon la longueur du titre
+    # pour garantir un centrage net sans débordement sur toutes résolutions.
+    param(
+        $Canvas,
+        [int]$L,
+        [int]$H,
+        [hashtable]$Palette,
+        [string]$Titre = $script:FondTitre,
+        [string]$SousTitre = $script:FondSousTitre,
+        [string]$Tagline = $script:FondTagline
+    )
+    if ([string]::IsNullOrWhiteSpace($Titre)) { $Titre = "MadTrix" }
     $cx = $L / 2; $cy = $H / 2
     $tailleNom = [Math]::Round($L * 0.094)   # ~240 px sur 2560
-    $halo = Add-SigTexte $Canvas "MadTrix" $tailleNom "Segoe UI Black" $Palette.Glow 0 0 (New-SigGlow $Palette.Halo ($tailleNom*0.38) 0.9) 0.9 "Black"
+
+    if ($Titre.Length -gt 7) {
+        $tailleNom = [Math]::Round($tailleNom * (7.0 / [Math]::Min(25, $Titre.Length)))
+    }
+    $tailleNom = [Math]::Max(28, $tailleNom)
+
+    $halo = Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.Glow 0 0 (New-SigGlow $Palette.Halo ($tailleNom*0.38) 0.9) 0.9 "Black"
     $halo.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+
+    # Sécurité anti-débordement horizontal
+    if ($halo.DesiredSize.Width -gt ($L * 0.85)) {
+        $facteur = ($L * 0.85) / $halo.DesiredSize.Width
+        $tailleNom = [Math]::Max(20, [Math]::Round($tailleNom * $facteur))
+        $halo.FontSize = $tailleNom
+        $halo.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+    }
+
     $w = $halo.DesiredSize.Width; $h = $halo.DesiredSize.Height
     [System.Windows.Controls.Canvas]::SetLeft($halo, $cx - $w/2); [System.Windows.Controls.Canvas]::SetTop($halo, $cy - $h/2)
-    Add-SigTexte $Canvas "MadTrix" $tailleNom "Segoe UI Black" $Palette.NomNet ($cx - $w/2) ($cy - $h/2) (New-SigGlow $Palette.Glow ($tailleNom*0.1) 1) 1 "Black" | Out-Null
+    Add-SigTexte $Canvas $Titre $tailleNom "Segoe UI Black" $Palette.NomNet ($cx - $w/2) ($cy - $h/2) (New-SigGlow $Palette.Glow ($tailleNom*0.1) 1) 1 "Black" | Out-Null
 
-    $filet = New-Object System.Windows.Shapes.Rectangle
-    $filet.Width = $w * 0.9; $filet.Height = [Math]::Max(3, $L*0.0016)
-    $filet.Fill = New-SigPinceau $Palette.Filet; $filet.Effect = New-SigGlow $Palette.Glow 16 1
-    [System.Windows.Controls.Canvas]::SetLeft($filet, $cx - ($w*0.9)/2)
-    [System.Windows.Controls.Canvas]::SetTop($filet, $cy + $h/2 - 10)
-    $Canvas.Children.Add($filet) | Out-Null
+    $posBas = $cy + $h/2 - 10
+    if ($SousTitre -or $Tagline) {
+        $filet = New-Object System.Windows.Shapes.Rectangle
+        $filet.Width = [Math]::Min($w * 0.9, $L * 0.8); $filet.Height = [Math]::Max(3, $L*0.0016)
+        $filet.Fill = New-SigPinceau $Palette.Filet; $filet.Effect = New-SigGlow $Palette.Glow 16 1
+        [System.Windows.Controls.Canvas]::SetLeft($filet, $cx - ($filet.Width)/2)
+        [System.Windows.Controls.Canvas]::SetTop($filet, $posBas)
+        $Canvas.Children.Add($filet) | Out-Null
+        $posBas += 18
+    }
 
-    $rog = Add-SigTexte $Canvas "R  O  G" ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 (New-SigGlow $Palette.Glow 18 0.9) 1 "SemiBold"
-    $rog.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
-    [System.Windows.Controls.Canvas]::SetLeft($rog, $cx - $rog.DesiredSize.Width/2)
-    [System.Windows.Controls.Canvas]::SetTop($rog, $cy + $h/2 + 8)
+    if (-not [string]::IsNullOrWhiteSpace($SousTitre)) {
+        $rog = Add-SigTexte $Canvas $SousTitre ($tailleNom*0.19) "Bahnschrift" $Palette.Rog 0 0 (New-SigGlow $Palette.Glow 18 0.9) 1 "SemiBold"
+        $rog.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        [System.Windows.Controls.Canvas]::SetLeft($rog, $cx - $rog.DesiredSize.Width/2)
+        [System.Windows.Controls.Canvas]::SetTop($rog, $posBas)
+        $posBas += $rog.DesiredSize.Height + 6
+    }
 
-    $tag = Add-SigTexte $Canvas "// REPUBLIC OF GAMERS  -  SYSTEME OPTIMISE" ($tailleNom*0.083) "Consolas" $Palette.Tagline 0 0 $null 0.85 "Normal"
-    $tag.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
-    [System.Windows.Controls.Canvas]::SetLeft($tag, $cx - $tag.DesiredSize.Width/2)
-    [System.Windows.Controls.Canvas]::SetTop($tag, $cy + $h/2 + 8 + $rog.DesiredSize.Height + 14)
+    if (-not [string]::IsNullOrWhiteSpace($Tagline)) {
+        $tag = Add-SigTexte $Canvas $Tagline ($tailleNom*0.083) "Consolas" $Palette.Tagline 0 0 $null 0.85 "Normal"
+        $tag.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        [System.Windows.Controls.Canvas]::SetLeft($tag, $cx - $tag.DesiredSize.Width/2)
+        [System.Windows.Controls.Canvas]::SetTop($tag, $posBas + 4)
+    }
 }
 
 function ConvertTo-HexSig {
@@ -201,7 +265,10 @@ function New-FondSignature {
         [Parameter(Mandatory)][int]$Hauteur,
         [Parameter(Mandatory)][string]$Chemin,
         # Couleur de base du fond. Défaut = rouge MadTrix historique.
-        [string]$Couleur = "#E01008"
+        [string]$Couleur = "#E01008",
+        [string]$Titre = $script:FondTitre,
+        [string]$SousTitre = $script:FondSousTitre,
+        [string]$Tagline = $script:FondTagline
     )
     Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase -ErrorAction Stop
     $pal = Get-PaletteSignature -Base $Couleur
@@ -223,7 +290,7 @@ function New-FondSignature {
             Add-SigGrille $c $Largeur $Hauteur 90 $pal.GrilleArgb
         }
     }
-    Add-SigNom $c $Largeur $Hauteur $pal
+    Add-SigNom $c $Largeur $Hauteur $pal -Titre $Titre -SousTitre $SousTitre -Tagline $Tagline
 
     $c.Measure([System.Windows.Size]::new($Largeur, $Hauteur))
     $c.Arrange([System.Windows.Rect]::new(0, 0, $Largeur, $Hauteur))
@@ -763,17 +830,20 @@ function Menu-Signature {
     $res = Get-ResolutionPhysique
     Write-Host "  Résolution détectée : $($res.L) x $($res.H)" -ForegroundColor Gray
     Write-Host ""
+    Write-Host "  Texte actuel : « $script:FondTitre » (Sous-titre : « $script:FondSousTitre »)" -ForegroundColor DarkCyan
+    Write-Host ""
     Write-Host "  1 - Style MATRIX  (pluie de code katakana rouge)" -ForegroundColor Red
     Write-Host "  2 - Style HUD     (pluie + grille + crochets gaming)" -ForegroundColor Red
     Write-Host "  3 - Style NEON    (sobre, gros nom néon)" -ForegroundColor Red
     Write-Host "  4 - Générer les TROIS dans un dossier, sans les appliquer" -ForegroundColor Yellow
     Write-Host "  5 - Remettre mon fond d'écran d'avant" -ForegroundColor Cyan
+    Write-Host "  6 - Personnaliser le texte (Titre, Sous-titre, Tagline)" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  6 - ACCENT WINDOWS : couleur des barres (ROG rouge, bleu, cyan...)" -ForegroundColor Cyan
+    Write-Host "  7 - ACCENT WINDOWS : couleur des barres (ROG rouge, bleu, cyan...)" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host "  7 - Retour au menu principal"
+    Write-Host "  8 - Retour au menu principal"
     Write-Host ""
-    $choix = Read-Host "Choisis (1-7)"
+    $choix = Read-Host "Choisis (1-8)"
 
     try {
         switch ($choix) {
@@ -781,7 +851,7 @@ function Menu-Signature {
                 $style = $script:StylesSignature[[int]$choix - 1]
                 if ($script:Simulation) { Write-Simu "générerait et appliquerait le fond « $style » en $($res.L)x$($res.H)"; break }
                 $chemin = Join-Path $script:DossierDonnees "fond-madtrix-$style.png"
-                Write-Etat "Génération du fond « $style »..." -Niveau Info
+                Write-Etat "Génération du fond « $style » (texte : « $script:FondTitre »)..." -Niveau Info
                 New-FondSignature -Style $style -Largeur $res.L -Hauteur $res.H -Chemin $chemin | Out-Null
                 Set-FondEcran -Chemin $chemin
                 Write-Etat "Fond « $style » appliqué. Fichier : $chemin" -Niveau OK
@@ -804,8 +874,18 @@ function Menu-Signature {
                 Restore-FondPrecedent
                 $script:CompteurOK++
             }
-            "6" { Menu-AccentWindows }
-            "7" { return }
+            "6" {
+                $nouveauTitre = Read-Host "Titre principal [$script:FondTitre]"
+                if (-not [string]::IsNullOrWhiteSpace($nouveauTitre)) { $script:FondTitre = $nouveauTitre.Trim() }
+                $nouveauSous = Read-Host "Sous-titre [$script:FondSousTitre]"
+                if (-not [string]::IsNullOrWhiteSpace($nouveauSous)) { $script:FondSousTitre = $nouveauSous.Trim() }
+                $nouvelleTag = Read-Host "Tagline [$script:FondTagline]"
+                if (-not [string]::IsNullOrWhiteSpace($nouvelleTag)) { $script:FondTagline = $nouvelleTag.Trim() }
+                Save-FondTextePerso
+                Write-Etat "Texte mis à jour : « $script:FondTitre » / « $script:FondSousTitre »." -Niveau OK
+            }
+            "7" { Menu-AccentWindows }
+            "8" { return }
             default { Write-Etat "Choix invalide." -Niveau Avert }
         }
     }

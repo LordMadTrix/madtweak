@@ -113,6 +113,17 @@ $script:Textes = @{
         en = "Machine health score, computed from the audit: the share of applicable settings already in place." }
     'entete.fond.info'     = @{ fr = "Génère un fond d'écran « MadTrix » à ta résolution réelle et l'applique. Ton fond précédent est mémorisé."
         en = "Generates a « MadTrix » wallpaper at your real resolution and applies it. Your previous wallpaper is remembered." }
+    'entete.fond.texte.info' = @{ fr = "Personnaliser le texte affiché sur le fond d'écran (Titre, Sous-titre, Tagline)."
+        en = "Customise the text displayed on the wallpaper (Title, Subtitle, Tagline)." }
+    'dlg.fond.texte.titre'       = @{ fr = "Personnaliser le texte du fond d'écran"; en = "Customise wallpaper text" }
+    'dlg.fond.texte.desc'        = @{ fr = "Saisis le texte qui sera dessiné au centre des fonds d'écran dynamiques :"
+        en = "Enter the text to be rendered at the center of dynamic wallpapers:" }
+    'dlg.fond.texte.label.titre' = @{ fr = "Titre principal :"; en = "Main title:" }
+    'dlg.fond.texte.label.sous'  = @{ fr = "Sous-titre :"; en = "Subtitle:" }
+    'dlg.fond.texte.label.tag'   = @{ fr = "Tagline (devise) :"; en = "Tagline:" }
+    'dlg.fond.texte.btn.reset'   = @{ fr = "Défaut"; en = "Reset" }
+    'dlg.fond.texte.btn.annuler' = @{ fr = "Annuler"; en = "Cancel" }
+    'dlg.fond.texte.btn.appliquer' = @{ fr = "Appliquer & Générer"; en = "Apply & Generate" }
     'entete.accent.info'   = @{ fr = "Colore les barres de titre, la barre des tâches et le menu Démarrer, et synchronise le clavier RGB ASUS sur la même couleur. Réversible."
         en = "Colours the title bars, taskbar and Start menu, and syncs the ASUS RGB keyboard to the same colour. Reversible." }
     'entete.theme.info'    = @{ fr = "Change les couleurs de CETTE fenêtre uniquement (pas Windows). 6 thèmes intégrés."
